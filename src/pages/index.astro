@@ -45,6 +45,19 @@ function timeAgo(dateStr: string | null): string {
 ---
 
 <Layout>
+  <Fragment slot="head">
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "CanIRun.ai",
+      "url": "https://canirun.ai",
+      "description": "Detect your hardware and find out which AI models you can run locally. GPU, CPU, and RAM analysis in your browser.",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Web Browser",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "creator": { "@type": "Person", "name": "midudev", "url": "https://midu.dev" }
+    })}></script>
+  </Fragment>
   <NavHeader />
   <main id="results" class="mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-6">
     <!-- Header -->
@@ -440,279 +453,19 @@ function timeAgo(dateStr: string | null): string {
 </Layout>
 
 <script>
-  // ── Types ──────────────────────────────────────────────────
+  import {
+    detectHardware,
+    evaluateModel,
+    estimateTokensPerSecond,
+    computeScore,
+    scoreToGrade,
+    memoryPercentage,
+    getDisplayName,
+    GRADES as _GRADES,
+  } from "../lib/hardware";
+  import type { HardwareInfo, ModelStatus, Grade, GradeInfo } from "../lib/hardware";
 
-  interface HardwareInfo {
-    cpuCores: number | null;
-    ramGB: number | null;
-    gpuRenderer: string | null;
-    gpuVendor: string | null;
-    estimatedVRAM: number | null;
-    webgpu: boolean;
-    isAppleSilicon: boolean;
-    totalUsableRAM: number | null;
-    memoryBandwidth: number | null;
-  }
-
-  type ModelStatus = "can-run" | "tight" | "cannot-run" | "unknown";
-
-  // ── GPU Database ───────────────────────────────────────────
-
-  const GPU_DB: Record<string, { vram: number; bw: number }> = {
-    // NVIDIA RTX 40 series
-    "RTX 4090": { vram: 24, bw: 1008 },
-    "RTX 4080 SUPER": { vram: 16, bw: 736 },
-    "RTX 4080": { vram: 16, bw: 717 },
-    "RTX 4070 Ti SUPER": { vram: 16, bw: 672 },
-    "RTX 4070 Ti": { vram: 12, bw: 504 },
-    "RTX 4070 SUPER": { vram: 12, bw: 504 },
-    "RTX 4070": { vram: 12, bw: 504 },
-    "RTX 4060 Ti 16GB": { vram: 16, bw: 288 },
-    "RTX 4060 Ti": { vram: 8, bw: 288 },
-    "RTX 4060": { vram: 8, bw: 272 },
-    // NVIDIA RTX 30 series
-    "RTX 3090 Ti": { vram: 24, bw: 1008 },
-    "RTX 3090": { vram: 24, bw: 936 },
-    "RTX 3080 Ti": { vram: 12, bw: 912 },
-    "RTX 3080": { vram: 10, bw: 760 },
-    "RTX 3070 Ti": { vram: 8, bw: 608 },
-    "RTX 3070": { vram: 8, bw: 448 },
-    "RTX 3060 Ti": { vram: 8, bw: 448 },
-    "RTX 3060": { vram: 12, bw: 360 },
-    "RTX 3050": { vram: 8, bw: 224 },
-    // NVIDIA RTX 50 series
-    "RTX 5090": { vram: 32, bw: 1792 },
-    "RTX 5080": { vram: 16, bw: 960 },
-    "RTX 5070 Ti": { vram: 16, bw: 896 },
-    "RTX 5070": { vram: 12, bw: 672 },
-    // NVIDIA Pro
-    "RTX A6000": { vram: 48, bw: 768 },
-    "RTX A5000": { vram: 24, bw: 768 },
-    "RTX A4000": { vram: 16, bw: 448 },
-    "A100": { vram: 80, bw: 2039 },
-    "H100": { vram: 80, bw: 3350 },
-    "L40S": { vram: 48, bw: 864 },
-    "L4": { vram: 24, bw: 300 },
-    "T4": { vram: 16, bw: 300 },
-    // AMD
-    "RX 7900 XTX": { vram: 24, bw: 960 },
-    "RX 7900 XT": { vram: 20, bw: 800 },
-    "RX 7800 XT": { vram: 16, bw: 624 },
-    "RX 7700 XT": { vram: 12, bw: 432 },
-    "RX 7600": { vram: 8, bw: 288 },
-    "RX 6900 XT": { vram: 16, bw: 512 },
-    "RX 6800 XT": { vram: 16, bw: 512 },
-    "RX 6800": { vram: 16, bw: 512 },
-    "RX 6700 XT": { vram: 12, bw: 384 },
-    // Intel
-    "Arc A770": { vram: 16, bw: 560 },
-    "Arc A750": { vram: 8, bw: 512 },
-  };
-
-  // Apple Silicon: { ram (base config), bandwidth GB/s }
-  const APPLE_DB: Record<string, { ram: number; bw: number }> = {
-    "m4 ultra": { ram: 192, bw: 819 },
-    "m4 max": { ram: 36, bw: 546 },
-    "m4 pro": { ram: 24, bw: 273 },
-    "m4": { ram: 16, bw: 120 },
-    "m3 ultra": { ram: 64, bw: 819 },
-    "m3 max": { ram: 36, bw: 408 },
-    "m3 pro": { ram: 18, bw: 150 },
-    "m3": { ram: 8, bw: 100 },
-    "m2 ultra": { ram: 64, bw: 819 },
-    "m2 max": { ram: 32, bw: 408 },
-    "m2 pro": { ram: 16, bw: 200 },
-    "m2": { ram: 8, bw: 100 },
-    "m1 ultra": { ram: 64, bw: 819 },
-    "m1 max": { ram: 32, bw: 408 },
-    "m1 pro": { ram: 16, bw: 200 },
-    "m1": { ram: 8, bw: 68 },
-  };
-
-  // ── Detection ──────────────────────────────────────────────
-
-  function getGPUInfo(): { renderer: string | null; vendor: string | null } {
-    try {
-      const canvas = document.createElement("canvas");
-      const gl = canvas.getContext("webgl2") || canvas.getContext("webgl");
-      if (!gl) return { renderer: null, vendor: null };
-      const ext = gl.getExtension("WEBGL_debug_renderer_info");
-      if (!ext) return { renderer: null, vendor: null };
-      return {
-        renderer: gl.getParameter(ext.UNMASKED_RENDERER_WEBGL),
-        vendor: gl.getParameter(ext.UNMASKED_VENDOR_WEBGL),
-      };
-    } catch {
-      return { renderer: null, vendor: null };
-    }
-  }
-
-  function matchGPU(renderer: string): { vram: number; bw: number } | null {
-    const upper = renderer.toUpperCase();
-    for (const [name, data] of Object.entries(GPU_DB)) {
-      if (upper.includes(name.toUpperCase())) return data;
-    }
-    return null;
-  }
-
-  function matchApple(renderer: string): { ram: number; bw: number } | null {
-    const lower = renderer.toLowerCase();
-    for (const [chip, data] of Object.entries(APPLE_DB)) {
-      if (lower.includes(chip)) return data;
-    }
-    if (lower.includes("apple")) return APPLE_DB["m1"]; // fallback
-    return null;
-  }
-
-  function isAppleSilicon(renderer: string): boolean {
-    const r = renderer.toLowerCase();
-    return r.includes("apple") && (r.includes("m1") || r.includes("m2") || r.includes("m3") || r.includes("m4") || r.includes("gpu"));
-  }
-
-  function cleanGPUName(renderer: string): string {
-    let name = renderer
-      .replace(/^ANGLE\s*\(\s*/, "")
-      .replace(/\)\s*$/, "")
-      .replace(/,\s*ANGLE Metal Renderer:\s*/, " — ")
-      .replace(/,\s*Unspecified Version\s*/i, "")
-      .replace(/,\s*Direct3D.*$/i, "")
-      .replace(/,\s*OpenGL.*$/i, "")
-      .replace(/,\s*Vulkan.*$/i, "")
-      .replace(/vs_\d+_\d+.*$/, "")
-      .replace(/\s{2,}/g, " ")
-      .trim();
-    const metalMatch = name.match(/Apple\s*(?:—\s*)?(.+)/i);
-    if (metalMatch) name = metalMatch[1].trim() || name;
-    return name;
-  }
-
-  async function detectHardware(): Promise<HardwareInfo> {
-    const cpuCores = navigator.hardwareConcurrency || null;
-    const deviceMemory = (navigator as any).deviceMemory || null;
-    const { renderer, vendor } = getGPUInfo();
-
-    let webgpu = false;
-    try {
-      webgpu = "gpu" in navigator && !!(await (navigator as any).gpu?.requestAdapter());
-    } catch {}
-
-    const apple = renderer ? isAppleSilicon(renderer) : false;
-    const gpuMatch = renderer ? matchGPU(renderer) : null;
-    const appleMatch = renderer ? matchApple(renderer) : null;
-
-    let totalUsableRAM: number | null = null;
-    let estimatedVRAM: number | null = null;
-    let memoryBandwidth: number | null = null;
-
-    if (apple && appleMatch) {
-      totalUsableRAM = appleMatch.ram;
-      memoryBandwidth = appleMatch.bw;
-    } else if (gpuMatch) {
-      estimatedVRAM = gpuMatch.vram;
-      memoryBandwidth = gpuMatch.bw;
-      totalUsableRAM = deviceMemory;
-    } else {
-      totalUsableRAM = deviceMemory;
-    }
-
-    return {
-      cpuCores,
-      ramGB: totalUsableRAM,
-      gpuRenderer: renderer,
-      gpuVendor: vendor,
-      estimatedVRAM,
-      webgpu,
-      isAppleSilicon: apple,
-      totalUsableRAM,
-      memoryBandwidth,
-    };
-  }
-
-  // ── Evaluation ─────────────────────────────────────────────
-
-  function evaluateModel(vramNeeded: number, hw: HardwareInfo): ModelStatus {
-    if (hw.isAppleSilicon && hw.totalUsableRAM) {
-      const usable = hw.totalUsableRAM * 0.75;
-      if (vramNeeded <= usable * 0.7) return "can-run";
-      if (vramNeeded <= usable) return "tight";
-      return "cannot-run";
-    }
-    if (hw.estimatedVRAM) {
-      if (vramNeeded <= hw.estimatedVRAM * 0.85) return "can-run";
-      if (vramNeeded <= hw.estimatedVRAM * 1.1) return "tight";
-    }
-    if (hw.totalUsableRAM) {
-      const usable = hw.totalUsableRAM * 0.7;
-      if (vramNeeded <= usable * 0.7) return "can-run";
-      if (vramNeeded <= usable) return "tight";
-      return "cannot-run";
-    }
-    return "unknown";
-  }
-
-  function estimateTokensPerSecond(modelVRAM: number, hw: HardwareInfo): number | null {
-    if (!hw.memoryBandwidth) return null;
-    const efficiency = hw.isAppleSilicon ? 0.65 : 0.70;
-    const toks = (hw.memoryBandwidth / modelVRAM) * efficiency;
-    return Math.round(toks);
-  }
-
-  // Linear interpolation helper for smooth scoring
-  function lerp(x: number, x0: number, x1: number, y0: number, y1: number): number {
-    return y0 + (y1 - y0) * ((x - x0) / (x1 - x0));
-  }
-
-  function computeScore(status: ModelStatus, toksPerSec: number | null, paramsBillions: number, memPct: number | null): number {
-    if (status === "cannot-run" || status === "unknown") return 0;
-
-    // Speed score — continuous interpolation for smooth distribution
-    let speedScore = 0;
-    if (toksPerSec !== null) {
-      if (toksPerSec >= 80) speedScore = 100;
-      else if (toksPerSec >= 40) speedScore = lerp(toksPerSec, 40, 80, 80, 100);
-      else if (toksPerSec >= 20) speedScore = lerp(toksPerSec, 20, 40, 55, 80);
-      else if (toksPerSec >= 10) speedScore = lerp(toksPerSec, 10, 20, 35, 55);
-      else if (toksPerSec >= 5) speedScore = lerp(toksPerSec, 5, 10, 15, 35);
-      else speedScore = lerp(Math.max(toksPerSec, 0), 0, 5, 0, 15);
-    } else {
-      speedScore = status === "can-run" ? 45 : 20;
-    }
-
-    // Memory headroom score — continuous interpolation
-    let headroomScore = 45;
-    if (memPct !== null) {
-      if (memPct <= 20) headroomScore = 100;
-      else if (memPct <= 40) headroomScore = lerp(memPct, 20, 40, 100, 75);
-      else if (memPct <= 60) headroomScore = lerp(memPct, 40, 60, 75, 45);
-      else if (memPct <= 80) headroomScore = lerp(memPct, 60, 80, 45, 20);
-      else headroomScore = lerp(Math.min(memPct, 100), 80, 100, 20, 0);
-    }
-
-    // Quality bonus — larger models get a small boost
-    const qualityBonus = Math.min(12, Math.log2(paramsBillions + 1) * 2);
-
-    // Tight fit penalty — gentler than before
-    const fitMultiplier = status === "tight" ? 0.75 : 1;
-
-    return Math.round(((speedScore * 0.55 + headroomScore * 0.35 + qualityBonus) * fitMultiplier));
-  }
-
-  function memoryPercentage(vramNeeded: number, hw: HardwareInfo): number | null {
-    const total = hw.isAppleSilicon ? hw.totalUsableRAM : (hw.estimatedVRAM || hw.totalUsableRAM);
-    if (!total) return null;
-    return Math.round((vramNeeded / total) * 100);
-  }
-
-  // ── Grades ─────────────────────────────────────────────────
-
-  type Grade = "S" | "A" | "B" | "C" | "D" | "F" | "?";
-
-  interface GradeInfo {
-    letter: string;
-    label: string;
-    color: string;
-  }
-
+  // Override GRADES to use CSS variables for theming
   const GRADES: Record<Grade, GradeInfo> = {
     "S": { letter: "S",  label: "Runs great",  color: "var(--color-can-run)" },
     "A": { letter: "A",  label: "Runs well",   color: "var(--color-grade-a)" },
@@ -723,18 +476,6 @@ function timeAgo(dateStr: string | null): string {
     "?": { letter: "?",  label: "Unknown",      color: "var(--color-muted)" },
   };
 
-  function scoreToGrade(score: number, status: ModelStatus): Grade {
-    if (status === "cannot-run") return "F";
-    if (status === "unknown") return "?";
-    if (score >= 85) return "S";
-    if (score >= 70) return "A";
-    if (score >= 55) return "B";
-    if (score >= 40) return "C";
-    if (score >= 20) return "D";
-    return "F";
-  }
-
-  // Keep old status colors for backward compat (filters, etc.)
   const STATUS_COLORS: Record<ModelStatus, string> = {
     "can-run": "var(--color-can-run)",
     "tight": "var(--color-maybe)",
@@ -759,12 +500,8 @@ function timeAgo(dateStr: string | null): string {
     $("hw-ram")!.classList.replace("text-muted", "text-secondary");
 
     const gpuText = $("hw-gpu")!.querySelector("span")!;
-    if (hw.gpuRenderer) {
-      const name = cleanGPUName(hw.gpuRenderer);
-      gpuText.textContent = hw.estimatedVRAM ? `${name} (${hw.estimatedVRAM} GB)` : name;
-    } else {
-      gpuText.textContent = "Unknown";
-    }
+    const displayName = getDisplayName(hw);
+    gpuText.textContent = hw.estimatedVRAM ? `${displayName} (${hw.estimatedVRAM} GB)` : displayName;
     $("hw-gpu")!.classList.replace("text-muted", "text-secondary");
 
     if (hw.memoryBandwidth) {

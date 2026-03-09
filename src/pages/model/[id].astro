@@ -60,7 +60,34 @@ const USE_CASE_ICONS: Record<string, any> = {
 <Layout
   title={`${model.name} — CanIRun.ai`}
   description={`${model.name} by ${model.provider}. ${model.description}`}
+  image={`/og/${model.id}.png`}
 >
+  <Fragment slot="head">
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://canirun.ai" },
+            { "@type": "ListItem", "position": 2, "name": model.name, "item": `https://canirun.ai/model/${model.id}` }
+          ]
+        },
+        {
+          "@type": "SoftwareApplication",
+          "name": model.name,
+          "description": model.description,
+          "url": `https://canirun.ai/model/${model.id}`,
+          "applicationCategory": "DeveloperApplication",
+          "operatingSystem": "Cross-platform",
+          "author": { "@type": "Organization", "name": model.provider },
+          "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+          "memoryRequirements": `${model.recommendedRamGB} GB RAM recommended`,
+          "softwareRequirements": `Minimum ${model.minRamGB} GB RAM`
+        }
+      ]
+    })}></script>
+  </Fragment>
   <NavHeader />
   <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6">
     <!-- Back link -->
@@ -331,7 +358,7 @@ const USE_CASE_ICONS: Record<string, any> = {
               </h3>
               <p class="mb-1 font-mono text-[10px] text-muted">Ollama</p>
               <div class="flex items-center gap-2 rounded-md border border-edge bg-black px-3 py-2">
-                <code class="flex-1 font-mono text-[11px] text-yellow-400 truncate">
+                <code class="flex-1 font-mono text-[11px] text-white truncate">
                   ollama run {model.ollamaId}
                 </code>
                 <button
@@ -494,6 +521,7 @@ const USE_CASE_ICONS: Record<string, any> = {
     scoreToGrade,
     memoryPercentage,
     cleanGPUName,
+    getDisplayName,
     GRADES,
   } from "../../lib/hardware"
 
@@ -518,9 +546,7 @@ const USE_CASE_ICONS: Record<string, any> = {
     async function init() {
       const hw = await detectHardware()
 
-      const gpuName = hw.gpuRenderer
-        ? cleanGPUName(hw.gpuRenderer)
-        : "Unknown GPU"
+      const gpuName = getDisplayName(hw) || "Unknown GPU"
       const ramLabel = hw.ramGB ? `${hw.ramGB} GB` : "Unknown"
 
       const rows = document.querySelectorAll<HTMLElement>("[data-quant-row]")

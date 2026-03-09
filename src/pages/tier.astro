@@ -152,7 +152,7 @@ import IconCopy from "../icons/copy.svg";
 </Layout>
 
 <script>
-  import { detectHardware, evaluateModel, estimateTokensPerSecond, computeScore, scoreToGrade, memoryPercentage, cleanGPUName, GRADES } from "../lib/hardware";
+  import { detectHardware, evaluateModel, estimateTokensPerSecond, computeScore, scoreToGrade, memoryPercentage, cleanGPUName, getDisplayName, GRADES } from "../lib/hardware";
   import type { HardwareInfo } from "../lib/hardware";
 
   interface TierModel {
@@ -322,7 +322,7 @@ import IconCopy from "../icons/copy.svg";
     const parts: string[] = [];
     if (hw.cpuCores) parts.push(`${hw.cpuCores} cores`);
     if (hw.ramGB) parts.push(`${hw.ramGB} GB RAM`);
-    if (hw.gpuRenderer) parts.push(cleanGPUName(hw.gpuRenderer));
+    parts.push(getDisplayName(hw));
     if (hw.memoryBandwidth) parts.push(`~${hw.memoryBandwidth} GB/s`);
     hwSummary.textContent = parts.join(" · ") || "Hardware unknown";
     hwSummary.className = "text-secondary";
@@ -352,94 +352,79 @@ import IconCopy from "../icons/copy.svg";
     });
   }
 
-  // ── Image export ─────────────────────────────────────────
+  // ── Image export (snapdom) ────────────────────────────────
 
-  async function loadHtml2Canvas(): Promise<any> {
-    if ((window as any).html2canvas) return (window as any).html2canvas;
-    return new Promise((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
-      script.onload = () => resolve((window as any).html2canvas);
-      script.onerror = reject;
-      document.head.appendChild(script);
-    });
+  import { snapdom } from "@zumer/snapdom";
+
+  function setButtonLoading(btn: HTMLElement) {
+    const original = btn.innerHTML;
+    btn.innerHTML = `<svg class="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4m-7.07-3.93l2.83-2.83m8.49-8.49l2.83-2.83M2 12h4m12 0h4m-3.93 7.07l-2.83-2.83M7.76 7.76L4.93 4.93"></path></svg>Generating...`;
+    btn.setAttribute("disabled", "true");
+    return original;
   }
 
-  async function captureImage(): Promise<HTMLCanvasElement> {
-    const html2canvas = await loadHtml2Canvas();
-    const element = document.getElementById("tier-list")!;
-    return html2canvas(element, {
-      backgroundColor: "#000000",
-      scale: 2,
-      useCORS: true,
-      logging: false,
-    });
+  function restoreButton(btn: HTMLElement, html: string, delay = 0) {
+    if (delay) {
+      setTimeout(() => { btn.innerHTML = html; btn.removeAttribute("disabled"); }, delay);
+    } else {
+      btn.innerHTML = html;
+      btn.removeAttribute("disabled");
+    }
   }
 
   document.getElementById("share-btn")!.addEventListener("click", async () => {
     const btn = document.getElementById("share-btn")!;
-    const originalHTML = btn.innerHTML;
-    btn.innerHTML = `<svg class="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4m-7.07-3.93l2.83-2.83m8.49-8.49l2.83-2.83M2 12h4m12 0h4m-3.93 7.07l-2.83-2.83M7.76 7.76L4.93 4.93"></path></svg>Generating...`;
-    btn.setAttribute("disabled", "true");
+    const originalHTML = setButtonLoading(btn);
 
     try {
-      const canvas = await captureImage();
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.download = "canirun-tier-list.png";
-          link.href = url;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-        }
-        btn.innerHTML = originalHTML;
-        btn.removeAttribute("disabled");
-      }, "image/png");
+      const element = document.getElementById("tier-list")!;
+      await snapdom.download(element, {
+        scale: 2,
+        backgroundColor: "#000000",
+        embedFonts: true,
+        filename: "canirun-tier-list",
+        type: "png",
+      });
     } catch (e) {
       console.error("Failed to generate image:", e);
-      btn.innerHTML = originalHTML;
-      btn.removeAttribute("disabled");
+    } finally {
+      restoreButton(btn, originalHTML);
     }
   });
 
   document.getElementById("copy-btn")!.addEventListener("click", async () => {
     const btn = document.getElementById("copy-btn")!;
-    const originalHTML = btn.innerHTML;
-    btn.innerHTML = `<svg class="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4m-7.07-3.93l2.83-2.83m8.49-8.49l2.83-2.83M2 12h4m12 0h4m-3.93 7.07l-2.83-2.83M7.76 7.76L4.93 4.93"></path></svg>Generating...`;
-    btn.setAttribute("disabled", "true");
+    const originalHTML = setButtonLoading(btn);
 
     try {
-      const canvas = await captureImage();
-      canvas.toBlob(async (blob) => {
-        if (blob) {
-          try {
-            await navigator.clipboard.write([
-              new ClipboardItem({ "image/png": blob }),
-            ]);
-            btn.innerHTML = `<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>Copied!`;
-            setTimeout(() => { btn.innerHTML = originalHTML; }, 2000);
-          } catch {
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.download = "canirun-tier-list.png";
-            link.href = url;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-            btn.innerHTML = `<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>Downloaded!`;
-            setTimeout(() => { btn.innerHTML = originalHTML; }, 2000);
-          }
-        }
-        btn.removeAttribute("disabled");
-      }, "image/png");
+      const element = document.getElementById("tier-list")!;
+      const blob = await snapdom.toBlob(element, {
+        scale: 2,
+        backgroundColor: "#000000",
+        embedFonts: true,
+        type: "png",
+      });
+
+      try {
+        await navigator.clipboard.write([
+          new ClipboardItem({ "image/png": blob }),
+        ]);
+        btn.innerHTML = `<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>Copied!`;
+        restoreButton(btn, originalHTML, 2000);
+      } catch {
+        await snapdom.download(element, {
+          scale: 2,
+          backgroundColor: "#000000",
+          embedFonts: true,
+          filename: "canirun-tier-list",
+          type: "png",
+        });
+        btn.innerHTML = `<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>Downloaded!`;
+        restoreButton(btn, originalHTML, 2000);
+      }
     } catch (e) {
       console.error("Failed to generate image:", e);
-      btn.innerHTML = originalHTML;
-      btn.removeAttribute("disabled");
+      restoreButton(btn, originalHTML);
     }
   });
 
