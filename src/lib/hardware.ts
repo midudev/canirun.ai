@@ -222,6 +222,15 @@ function matchGPU(renderer: string): { vram: number; bw: number; cores: number }
   return null;
 }
 
+function parseVRAMFromName(renderer: string): number | null {
+  const m = renderer.match(/\((\d+)\s*GB\)/i) || renderer.match(/\b(\d+)\s*GB\b/i);
+  if (m) {
+    const gb = parseInt(m[1], 10);
+    if (gb >= 1 && gb <= 128) return gb;
+  }
+  return null;
+}
+
 function matchApple(renderer: string): { ram: number; bw: number; cpuCores: number; gpuCores: number } | null {
   const lower = renderer.toLowerCase();
   for (const [chip, data] of Object.entries(APPLE_DB)) {
@@ -248,6 +257,8 @@ export function cleanGPUName(renderer: string): string {
     .replace(/\s+Direct3D\d*/i, "")
     .replace(/vs_\d+_\d+.*$/, "")
     .replace(/\(0x[0-9A-Fa-f]+\)/g, "")
+    .replace(/\s*\(\d+\s*GB\)/gi, "")
+    .replace(/\s+\d+\s*GB\b/gi, "")
     .replace(/^(NVIDIA|AMD|Intel),\s*\1\b/i, "$1")
     .replace(/\s{2,}/g, " ")
     .trim();
@@ -405,6 +416,101 @@ async function estimateGPUCores(adapter: any, vendor: string | null): Promise<nu
   }
 }
 
+async function estimateBandwidthFromWebGPU(adapter: any): Promise<number | null> {
+  try {
+    const device = await adapter.requestDevice();
+    const numElements = 4 * 1024 * 1024;
+    const byteSize = numElements * 16;
+
+    const module = device.createShaderModule({
+      code: `
+        @group(0) @binding(0) var<storage, read> src: array<vec4<f32>>;
+        @group(0) @binding(1) var<storage, read_write> dst: array<vec4<f32>>;
+        @compute @workgroup_size(256)
+        fn main(@builtin(global_invocation_id) id: vec3u) {
+          if (id.x < ${numElements}u) {
+            dst[id.x] = src[id.x];
+          }
+        }
+      `,
+    });
+
+    const srcBuffer = device.createBuffer({
+      size: byteSize,
+      usage: GPUBufferUsage.STORAGE,
+    });
+    const dstBuffer = device.createBuffer({
+      size: byteSize,
+      usage: GPUBufferUsage.STORAGE,
+    });
+
+    const pipeline = device.createComputePipeline({
+      layout: "auto",
+      compute: { module, entryPoint: "main" },
+    });
+
+    const bindGroup = device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: srcBuffer } },
+        { binding: 1, resource: { buffer: dstBuffer } },
+      ],
+    });
+
+    const submit = () => {
+      const enc = device.createCommandEncoder();
+      const pass = enc.beginComputePass();
+      pass.setPipeline(pipeline);
+      pass.setBindGroup(0, bindGroup);
+      pass.dispatchWorkgroups(Math.ceil(numElements / 256));
+      pass.end();
+      device.queue.submit([enc.finish()]);
+    };
+
+    submit();
+    await device.queue.onSubmittedWorkDone();
+
+    const passes = 10;
+    const start = performance.now();
+    for (let i = 0; i < passes; i++) submit();
+    await device.queue.onSubmittedWorkDone();
+    const elapsed = performance.now() - start;
+
+    srcBuffer.destroy();
+    dstBuffer.destroy();
+    device.destroy();
+
+    const totalBytes = byteSize * 2 * passes;
+    const measuredGBs = totalBytes / elapsed / 1e6;
+    // Compute-copy typically achieves ~60% of peak HW bandwidth
+    return Math.round(measuredGBs / 0.6);
+  } catch {
+    return null;
+  }
+}
+
+function estimateVRAMFromWebGPU(adapter: any): number | null {
+  try {
+    const maxBuffer = adapter.limits?.maxBufferSize;
+    if (!maxBuffer) return null;
+
+    const maxBufferGB = maxBuffer / (1024 ** 3);
+    if (maxBufferGB < 0.5) return null;
+
+    const rawEstimate = maxBufferGB * 2;
+    const commonSizes = [2, 3, 4, 6, 8, 10, 11, 12, 16, 20, 24, 32, 48, 64, 80, 128, 192];
+    let closest = commonSizes[0];
+    for (const size of commonSizes) {
+      if (Math.abs(size - rawEstimate) < Math.abs(closest - rawEstimate)) {
+        closest = size;
+      }
+    }
+    return closest >= 2 ? closest : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function detectHardware(): Promise<HardwareInfo> {
   const deviceMemory = (navigator as any).deviceMemory || null;
   const { renderer, vendor } = getGPUInfo();
@@ -416,6 +522,7 @@ export async function detectHardware(): Promise<HardwareInfo> {
   let isApple = renderer ? isAppleSiliconCheck(renderer) : false;
   const gpuMatch = renderer ? matchGPU(renderer) : null;
   const appleMatch = renderer ? matchApple(renderer) : null;
+  const parsedVRAM = renderer ? parseVRAMFromName(renderer) : null;
   const isMobile = platform === "iOS" || platform === "Android";
 
   let totalUsableRAM: number | null = null;
@@ -444,17 +551,35 @@ export async function detectHardware(): Promise<HardwareInfo> {
     memoryBandwidth = appleMatch.bw;
     gpuCores = appleMatch.gpuCores;
   } else if (gpuMatch) {
-    estimatedVRAM = gpuMatch.vram;
+    estimatedVRAM = parsedVRAM ?? gpuMatch.vram;
     memoryBandwidth = gpuMatch.bw;
     gpuCores = gpuMatch.cores;
-    totalUsableRAM = deviceMemory;
+    totalUsableRAM = estimatedVRAM;
   } else {
     totalUsableRAM = deviceMemory;
+    if (parsedVRAM) {
+      estimatedVRAM = parsedVRAM;
+      totalUsableRAM = parsedVRAM;
+    }
   }
 
   // Fallback: estimate GPU cores via WebGPU compute benchmark
   if (!gpuCores && webgpuInfo.adapter) {
     gpuCores = await estimateGPUCores(webgpuInfo.adapter, vendor);
+  }
+
+  // Fallback: estimate VRAM via WebGPU maxBufferSize for discrete desktop GPUs
+  if (!estimatedVRAM && !isApple && !isMobile && webgpuInfo.adapter) {
+    const webgpuVRAM = estimateVRAMFromWebGPU(webgpuInfo.adapter);
+    if (webgpuVRAM) {
+      estimatedVRAM = webgpuVRAM;
+      totalUsableRAM = webgpuVRAM;
+    }
+  }
+
+  // Fallback: estimate bandwidth via WebGPU copy benchmark
+  if (!memoryBandwidth && webgpuInfo.adapter) {
+    memoryBandwidth = await estimateBandwidthFromWebGPU(webgpuInfo.adapter);
   }
 
   return {
@@ -631,6 +756,9 @@ export function applyOverrides(hw: HardwareInfo, overrides?: HardwareOverrides):
   if (o.ramGB !== undefined) {
     result.ramGB = o.ramGB;
     result.totalUsableRAM = o.ramGB;
+    if (result.estimatedVRAM !== null) {
+      result.estimatedVRAM = o.ramGB;
+    }
   }
   if (o.memoryBandwidth !== undefined) {
     result.memoryBandwidth = o.memoryBandwidth;
