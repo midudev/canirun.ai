@@ -1,0 +1,578 @@
+---
+import Layout from "../../layouts/Layout.astro"
+import NavHeader from "../../components/NavHeader.astro"
+import { models } from "../../data/models"
+import hfStats from "../../data/hf-stats.json"
+import IconArrowLeft from "../../icons/arrow-left.svg"
+import IconMoe from "../../icons/moe.svg"
+import IconTool from "../../icons/tool.svg"
+import IconThinking from "../../icons/thinking.svg"
+import IconVision from "../../icons/vision.svg"
+import IconStar from "../../icons/star.svg"
+import IconHuggingFace from "../../icons/logo-huggingface.svg"
+import IconOllama from "../../icons/logo-ollama.svg"
+import IconDownload from "../../icons/download.svg"
+import IconHeart from "../../icons/heart.svg"
+import IconCalendar from "../../icons/calendar.svg"
+import IconCpu from "../../icons/cpu.svg"
+import IconHelp from "../../icons/help.svg"
+import IconTerminal from "../../icons/terminal.svg"
+import IconCopy from "../../icons/copy.svg"
+import IconEdit from "../../icons/edit.svg"
+import IconBarChart from "../../icons/bar-chart.svg"
+import IconChat from "../../icons/chat.svg"
+import IconCode from "../../icons/code.svg"
+import IconEdgeDevice from "../../icons/edge-device.svg"
+import IconMultilingual from "../../icons/multilingual.svg"
+import IconSearch from "../../icons/search.svg"
+
+export function getStaticPaths() {
+  return models.map((model) => ({
+    params: { id: model.id },
+    props: { model },
+  }))
+}
+
+const { model } = Astro.props
+const stats = (hfStats as Record<string, { downloads: number; likes: number }>)[
+  model.id
+]
+const downloads = stats?.downloads || 0
+const likes = stats?.likes || 0
+
+function formatNum(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
+  return String(n)
+}
+
+const USE_CASE_ICONS: Record<string, any> = {
+  chat: IconChat,
+  code: IconCode,
+  reasoning: IconHelp,
+  vision: IconVision,
+  edge: IconEdgeDevice,
+  multilingual: IconMultilingual,
+  rag: IconSearch,
+}
+---
+
+<Layout
+  title={`${model.name} — CanIRun.ai`}
+  description={`${model.name} by ${model.provider}. ${model.description}`}
+>
+  <NavHeader />
+  <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+    <!-- Back link -->
+    <a
+      href="/"
+      class="mb-6 inline-flex items-center gap-1.5 font-mono text-[11px] text-muted transition-colors hover:text-primary"
+    >
+      <IconArrowLeft class="h-3 w-3" />
+      back
+    </a>
+
+    <!-- Two-column layout -->
+    <div class="flex flex-col gap-8 lg:flex-row lg:gap-12">
+      <!-- LEFT COLUMN — Model info -->
+      <div class="min-w-0 flex-1">
+        <!-- Header -->
+        <header class="mb-8">
+          <div class="flex items-center gap-3">
+            <h1
+              class="font-pixel text-2xl tracking-tight text-primary sm:text-3xl"
+              transition:name={`model-title-${model.id}`}
+            >
+              {model.name}
+            </h1>
+            {
+              model.architecture === "moe" && (
+                <span
+                  class="rounded border border-info/20 bg-info/10 p-1 text-info"
+                  title="Mixture of Experts"
+                >
+                  <IconMoe class="h-3.5 w-3.5" />
+                </span>
+              )
+            }
+            {
+              model.tools && (
+                <span
+                  class="rounded border border-purple-400/30 bg-purple-400/10 p-1 text-purple-400"
+                  title="Tool Use"
+                >
+                  <IconTool class="h-3.5 w-3.5" />
+                </span>
+              )
+            }
+            {
+              model.thinking && (
+                <span
+                  class="rounded border border-sky-400/30 bg-sky-400/10 p-1 text-sky-400"
+                  title="Thinking / Reasoning"
+                >
+                  <IconThinking class="h-3.5 w-3.5" />
+                </span>
+              )
+            }
+            {
+              model.useCase.includes("vision") && (
+                <span
+                  class="rounded border border-rose-400/30 bg-rose-400/10 p-1 text-rose-400"
+                  title="Vision"
+                >
+                  <IconVision class="h-3.5 w-3.5" />
+                </span>
+              )
+            }
+            {
+              model.featured && (
+                <span
+                  class="rounded border border-yellow-400/30 bg-yellow-400/10 p-1 text-yellow-400"
+                  title="Popular"
+                >
+                  <IconStar class="h-3.5 w-3.5" />
+                </span>
+              )
+            }
+          </div>
+          <p class="mt-1 font-mono text-[11px] text-muted">
+            {model.provider} · {model.params}{
+              model.activeParams ? ` (${model.activeParams})` : ""
+            } · {model.architecture === "moe" ? "Mixture of Experts" : "Dense"}
+          </p>
+          <p class="mt-3 text-sm leading-relaxed text-secondary">
+            {model.description}
+          </p>
+          <!-- Links -->
+          <div class="mt-4 flex flex-wrap items-center gap-3">
+            <a
+              href={model.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex items-center gap-2 rounded-full bg-[#FFD21E]/10 px-3.5 py-1.5 font-mono text-[11px] text-[#FFD21E] transition-colors hover:bg-[#FFD21E]/20"
+            >
+              <IconHuggingFace class="h-4 w-4" />
+              HuggingFace
+            </a>
+            {
+              model.ollamaId && (
+                <a
+                  href={`https://ollama.com/library/${model.ollamaId.split(":")[0]}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="inline-flex items-center gap-2 rounded-full bg-white/10 px-3.5 py-1.5 font-mono text-[11px] text-white/80 transition-colors hover:bg-white/20"
+                >
+                  <IconOllama class="h-4 w-4" />
+                  Ollama
+                </a>
+              )
+            }
+          </div>
+        </header>
+
+        <!-- Stats bar -->
+        <div
+          class="mb-8 flex flex-wrap items-center gap-4 font-mono text-[11px] text-secondary"
+        >
+          <span class="inline-flex items-center gap-1.5">
+            <IconDownload class="h-3.5 w-3.5 text-muted" />
+            {formatNum(downloads)} downloads
+          </span>
+          <span class="inline-flex items-center gap-1.5">
+            <IconHeart class="h-3.5 w-3.5 text-muted" />
+            {formatNum(likes)} likes
+          </span>
+          {
+            model.releaseDate && (
+              <span class="inline-flex items-center gap-1.5">
+                <IconCalendar class="h-3.5 w-3.5 text-muted" />
+                {model.releaseDate}
+              </span>
+            )
+          }
+          <span class="inline-flex items-center gap-1.5">
+            <IconCpu class="h-3.5 w-3.5 text-muted" />
+            {
+              model.contextLength >= 1024
+                ? `${Math.round(model.contextLength / 1024)}K`
+                : model.contextLength
+            } context
+          </span>
+        </div>
+
+        <!-- Use cases -->
+        <section class="mb-8">
+          <h2 class="mb-3 font-pixel text-xs text-muted">Use Cases</h2>
+          <div class="flex flex-wrap gap-2">
+            {
+              model.useCase.map((tag: string) => {
+                const Icon = USE_CASE_ICONS[tag];
+                return (
+                  <span class="inline-flex items-center gap-1.5 rounded-md border border-edge px-2.5 py-1.5 text-[11px] text-secondary">
+                    {Icon && <Icon class="h-3.5 w-3.5" />}
+                    {tag}
+                  </span>
+                );
+              })
+            }
+          </div>
+        </section>
+
+        <!-- MoE details -->
+        {
+          model.moe && (
+            <section class="mb-8 rounded-lg border border-info/20 bg-info/5 p-4">
+              <h2 class="mb-2 font-pixel text-xs text-info">
+                Mixture of Experts
+              </h2>
+              <div class="flex flex-wrap gap-6 font-mono text-[11px] text-secondary">
+                <div>
+                  <span class="text-muted">Total experts:</span>{" "}
+                  <span>{model.moe.numExperts}</span>
+                </div>
+                <div>
+                  <span class="text-muted">Active experts:</span>{" "}
+                  <span>{model.moe.activeExperts}</span>
+                </div>
+                <div>
+                  <span class="text-muted">Active params:</span>{" "}
+                  <span>
+                    {(model.moe.activeParameters / 1_000_000_000).toFixed(1)}B
+                  </span>
+                </div>
+              </div>
+            </section>
+          )
+        }
+
+        <!-- Quantizations table -->
+        <section class="mb-8">
+          <div class="mb-3 flex items-center gap-2">
+            <h2 class="font-pixel text-xs text-muted">Quantization Options</h2>
+            <a
+              href="/docs#quantization"
+              title="What is quantization?"
+              class="text-muted transition-colors hover:text-accent"
+            >
+              <IconHelp class="h-3.5 w-3.5" />
+            </a>
+          </div>
+          <div class="overflow-x-auto rounded-lg border border-edge">
+            <table class="w-full text-[11px]">
+              <thead>
+                <tr
+                  class="border-b border-edge bg-surface-card text-left text-[10px] uppercase tracking-wider text-muted"
+                >
+                  <th class="px-4 py-2.5">Quant</th>
+                  <th class="px-4 py-2.5">Bits</th>
+                  <th class="px-4 py-2.5">VRAM</th>
+                  <th class="px-4 py-2.5">Quality</th>
+                  <th class="px-4 py-2.5">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {
+                  model.quants.map((q: any, i: number) => (
+                    <tr
+                      data-quant-row
+                      data-vram={q.vramGB}
+                      class={`border-b border-edge/50 ${i % 2 === 0 ? "bg-surface-card/50" : ""}`}
+                    >
+                      <td class="px-4 py-2 font-mono text-primary">{q.name}</td>
+                      <td class="px-4 py-2 font-mono text-secondary">
+                        {q.bits}
+                      </td>
+                      <td class="px-4 py-2 font-mono text-secondary">
+                        {q.vramGB} GB
+                      </td>
+                      <td class="px-4 py-2 capitalize text-secondary">
+                        {q.quality}
+                      </td>
+                      <td class="px-4 py-2">
+                        <span
+                          data-quant-status
+                          class="inline-flex items-center gap-1 font-mono text-muted"
+                        >
+                          <span class="h-1.5 w-1.5 rounded-full bg-muted/30" />—
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- RIGHT COLUMN — Install & compatibility -->
+      <aside class="w-full shrink-0 lg:w-80">
+        <!-- Compatibility -->
+        <div class="pb-8 mb-8 border-b border-edge/20">
+          <h3
+            class="mb-3 inline-flex items-center gap-1.5 font-pixel text-xs text-accent"
+          >
+            <IconCpu class="h-3.5 w-3.5" />
+            Your Hardware
+          </h3>
+          <div id="hw-compat" class="space-y-2 font-mono text-[11px]">
+            <p class="text-muted italic">Detecting...</p>
+          </div>
+        </div>
+
+        <!-- Install -->
+        {
+          model.ollamaId ? (
+            <div class="pb-8 mb-8 border-b border-edge/20">
+              <h3 class="mb-3 inline-flex items-center gap-1.5 font-pixel text-xs text-accent">
+                <IconTerminal class="h-3.5 w-3.5" />
+                Install
+              </h3>
+              <p class="mb-1 font-mono text-[10px] text-muted">Ollama</p>
+              <div class="flex items-center gap-2 rounded-md border border-edge bg-black px-3 py-2">
+                <code class="flex-1 font-mono text-[11px] text-yellow-400 truncate">
+                  ollama run {model.ollamaId}
+                </code>
+                <button
+                  id="copy-ollama"
+                  class="shrink-0 text-muted transition-colors hover:text-yellow-400"
+                  data-cmd={`ollama run ${model.ollamaId}`}
+                  title="Copy"
+                >
+                  <IconCopy class="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <p class="mt-4 font-mono text-[10px] text-muted">
+                LM Studio / llama.cpp
+              </p>
+              <a
+                href={`https://huggingface.co/models?search=${encodeURIComponent(model.name + " GGUF")}`}
+                target="_blank"
+                rel="noopener"
+                class="mt-1 inline-flex items-center gap-1.5 font-mono text-[11px] text-yellow-400 underline decoration-yellow-400/30 underline-offset-2 hover:text-yellow-300"
+              >
+                <IconDownload class="h-3 w-3 shrink-0" />
+                Download GGUF from HuggingFace
+              </a>
+            </div>
+          ) : (
+            <div class="pb-8 mb-8 border-b border-edge/20">
+              <h3 class="mb-3 inline-flex items-center gap-1.5 font-pixel text-xs text-accent">
+                <IconTerminal class="h-3.5 w-3.5" />
+                Install
+              </h3>
+              <p class="mb-2 font-mono text-[10px] text-muted">
+                LM Studio / llama.cpp
+              </p>
+              <a
+                href={`https://huggingface.co/models?search=${encodeURIComponent(model.name + " GGUF")}`}
+                target="_blank"
+                rel="noopener"
+                class="inline-flex items-center gap-1.5 font-mono text-[11px] text-yellow-400 underline decoration-yellow-400/30 underline-offset-2 hover:text-yellow-300"
+              >
+                <IconDownload class="h-3 w-3 shrink-0" />
+                Download GGUF from HuggingFace
+              </a>
+              <p class="mt-3 text-[10px] text-muted">
+                No Ollama ID available for this model.
+              </p>
+            </div>
+          )
+        }
+
+        <!-- Key specs -->
+        <div class="pb-8 mb-8 border-b border-edge/20">
+          <h3
+            class="mb-3 inline-flex items-center gap-1.5 font-pixel text-xs text-accent"
+          >
+            <IconEdit class="h-3.5 w-3.5" />
+            Specs
+          </h3>
+          <dl class="space-y-2 font-mono text-[11px]">
+            <div class="flex justify-between">
+              <dt class="text-muted">Parameters</dt>
+              <dd class="text-primary">{model.params}</dd>
+            </div>
+            {
+              model.activeParams && (
+                <div class="flex justify-between">
+                  <dt class="text-muted">Active</dt>
+                  <dd class="text-primary">{model.activeParams}</dd>
+                </div>
+              )
+            }
+            <div class="flex justify-between">
+              <dt class="text-muted">Architecture</dt>
+              <dd class="text-primary">
+                {model.architecture === "moe" ? "MoE" : "Dense"}
+              </dd>
+            </div>
+            <div class="flex justify-between">
+              <dt class="text-muted">Tool Use</dt>
+              <dd class={model.tools ? "text-purple-400" : "text-muted"}>
+                {model.tools ? "Supported" : "No"}
+              </dd>
+            </div>
+            <div class="flex justify-between">
+              <dt class="text-muted">Thinking</dt>
+              <dd class={model.thinking ? "text-sky-400" : "text-muted"}>
+                {model.thinking ? "Supported" : "No"}
+              </dd>
+            </div>
+            <div class="flex justify-between">
+              <dt class="text-muted">Context</dt>
+              <dd class="text-primary">
+                {
+                  model.contextLength >= 1024
+                    ? `${Math.round(model.contextLength / 1024)}K`
+                    : model.contextLength
+                } tokens
+              </dd>
+            </div>
+            <div class="flex justify-between">
+              <dt class="text-muted">Min RAM</dt>
+              <dd class="text-primary">{model.minRamGB} GB</dd>
+            </div>
+            <div class="flex justify-between">
+              <dt class="text-muted">Recommended</dt>
+              <dd class="text-primary">{model.recommendedRamGB} GB</dd>
+            </div>
+            <div class="flex justify-between">
+              <dt class="text-muted">Family</dt>
+              <dd class="text-primary">{model.family}</dd>
+            </div>
+            {
+              model.releaseDate && (
+                <div class="flex justify-between">
+                  <dt class="text-muted">Released</dt>
+                  <dd class="text-primary">{model.releaseDate}</dd>
+                </div>
+              )
+            }
+          </dl>
+        </div>
+
+        <!-- Stats -->
+        {
+          (downloads > 0 || likes > 0) && (
+            <div>
+              <h3 class="mb-3 inline-flex items-center gap-1.5 font-pixel text-xs text-accent">
+                <IconBarChart class="h-3.5 w-3.5" />
+                HuggingFace Stats
+              </h3>
+              <dl class="space-y-2 font-mono text-[11px]">
+                <div class="flex justify-between">
+                  <dt class="inline-flex items-center gap-1.5 text-muted">
+                    <IconDownload class="h-3 w-3" />
+                    Downloads
+                  </dt>
+                  <dd class="text-primary">{formatNum(downloads)}</dd>
+                </div>
+                <div class="flex justify-between">
+                  <dt class="inline-flex items-center gap-1.5 text-muted">
+                    <IconHeart class="h-3 w-3" />
+                    Likes
+                  </dt>
+                  <dd class="text-primary">{formatNum(likes)}</dd>
+                </div>
+              </dl>
+            </div>
+          )
+        }
+      </aside>
+    </div>
+  </main>
+</Layout>
+
+<script>
+  import {
+    detectHardware,
+    evaluateModel,
+    estimateTokensPerSecond,
+    computeScore,
+    scoreToGrade,
+    memoryPercentage,
+    cleanGPUName,
+    GRADES,
+  } from "../../lib/hardware"
+
+  document.addEventListener('astro:page-load', () => {
+    const copyBtn = document.getElementById("copy-ollama")
+    if (copyBtn) {
+      copyBtn.addEventListener("click", async () => {
+        const cmd = copyBtn.dataset.cmd || ""
+        try {
+          await navigator.clipboard.writeText(cmd)
+          copyBtn.innerHTML = `<svg class="h-3.5 w-3.5 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`
+          setTimeout(() => {
+            copyBtn.innerHTML = `<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`
+          }, 2000)
+        } catch {}
+      })
+    }
+
+    const container = document.getElementById("hw-compat")!
+    if (!container) return
+
+    async function init() {
+      const hw = await detectHardware()
+
+      const gpuName = hw.gpuRenderer
+        ? cleanGPUName(hw.gpuRenderer)
+        : "Unknown GPU"
+      const ramLabel = hw.ramGB ? `${hw.ramGB} GB` : "Unknown"
+
+      const rows = document.querySelectorAll<HTMLElement>("[data-quant-row]")
+      let defaultVram = 0
+      rows.forEach((row, i) => {
+        const vram = parseFloat(row.dataset.vram || "0")
+        if (i === 2) defaultVram = vram
+
+        const status = evaluateModel(vram, hw)
+        const toks = estimateTokensPerSecond(vram, hw)
+        const memPct = memoryPercentage(vram, hw)
+        const score = computeScore(status, toks, 0, memPct)
+        const grade = scoreToGrade(score, status)
+        const info = GRADES[grade]
+
+        const statusEl = row.querySelector("[data-quant-status]") as HTMLElement
+        if (statusEl) {
+          statusEl.innerHTML = `<span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color:${info.color}"></span>${info.label}${toks ? ` · ~${toks} t/s` : ""}`
+        }
+      })
+
+      if (defaultVram === 0 && rows.length > 0) {
+        defaultVram = parseFloat((rows[0] as HTMLElement).dataset.vram || "0")
+      }
+      const status = evaluateModel(defaultVram, hw)
+      const toks = estimateTokensPerSecond(defaultVram, hw)
+      const score = computeScore(status, toks, 0)
+      const grade = scoreToGrade(score, status)
+      const info = GRADES[grade]
+
+      container.innerHTML = `
+        <div class="flex items-center justify-between">
+          <span class="text-muted">GPU</span>
+          <span class="text-primary truncate ml-2 text-right max-w-[180px]">${gpuName}</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-muted">RAM</span>
+          <span class="text-primary">${ramLabel}</span>
+        </div>
+        ${hw.memoryBandwidth ? `<div class="flex items-center justify-between"><span class="text-muted">Bandwidth</span><span class="text-primary">~${hw.memoryBandwidth} GB/s</span></div>` : ""}
+        <div class="mt-2 flex items-center justify-between border-t border-edge pt-2">
+          <span class="text-muted">Q4_K_M</span>
+          <span class="inline-flex items-center gap-1.5" style="color:${info.color}">
+            <span class="h-1.5 w-1.5 rounded-full" style="background-color:${info.color}"></span>
+            <span class="font-pixel text-xs">${info.letter}</span>
+            ${info.label}
+            ${toks ? `<span class="text-muted">· ~${toks} t/s</span>` : ""}
+          </span>
+        </div>
+      `
+    }
+
+    init()
+  })
+</script>
