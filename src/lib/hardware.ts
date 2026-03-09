@@ -1,17 +1,17 @@
 // ── Types ──────────────────────────────────────────────────
 
 export interface HardwareInfo {
-  cpuCores: number | null;
-  ramGB: number | null;
   gpuRenderer: string | null;
   gpuVendor: string | null;
+  gpuCores: number | null;
+  ramGB: number | null;
   estimatedVRAM: number | null;
+  memoryBandwidth: number | null;
   webgpu: boolean;
   webgpuDevice: string | null;
   webgpuArch: string | null;
   isAppleSilicon: boolean;
   totalUsableRAM: number | null;
-  memoryBandwidth: number | null;
   platform: string | null;
   cpuBenchmark: number | null;
   isMobile: boolean;
@@ -29,68 +29,68 @@ export interface GradeInfo {
 
 // ── GPU Database ───────────────────────────────────────────
 
-const GPU_DB: Record<string, { vram: number; bw: number }> = {
-  "RTX 4090": { vram: 24, bw: 1008 },
-  "RTX 4080 SUPER": { vram: 16, bw: 736 },
-  "RTX 4080": { vram: 16, bw: 717 },
-  "RTX 4070 Ti SUPER": { vram: 16, bw: 672 },
-  "RTX 4070 Ti": { vram: 12, bw: 504 },
-  "RTX 4070 SUPER": { vram: 12, bw: 504 },
-  "RTX 4070": { vram: 12, bw: 504 },
-  "RTX 4060 Ti 16GB": { vram: 16, bw: 288 },
-  "RTX 4060 Ti": { vram: 8, bw: 288 },
-  "RTX 4060": { vram: 8, bw: 272 },
-  "RTX 3090 Ti": { vram: 24, bw: 1008 },
-  "RTX 3090": { vram: 24, bw: 936 },
-  "RTX 3080 Ti": { vram: 12, bw: 912 },
-  "RTX 3080": { vram: 10, bw: 760 },
-  "RTX 3070 Ti": { vram: 8, bw: 608 },
-  "RTX 3070": { vram: 8, bw: 448 },
-  "RTX 3060 Ti": { vram: 8, bw: 448 },
-  "RTX 3060": { vram: 12, bw: 360 },
-  "RTX 3050": { vram: 8, bw: 224 },
-  "RTX 5090": { vram: 32, bw: 1792 },
-  "RTX 5080": { vram: 16, bw: 960 },
-  "RTX 5070 Ti": { vram: 16, bw: 896 },
-  "RTX 5070": { vram: 12, bw: 672 },
-  "RTX A6000": { vram: 48, bw: 768 },
-  "RTX A5000": { vram: 24, bw: 768 },
-  "RTX A4000": { vram: 16, bw: 448 },
-  "A100": { vram: 80, bw: 2039 },
-  "H100": { vram: 80, bw: 3350 },
-  "L40S": { vram: 48, bw: 864 },
-  "L4": { vram: 24, bw: 300 },
-  "T4": { vram: 16, bw: 300 },
-  "RX 7900 XTX": { vram: 24, bw: 960 },
-  "RX 7900 XT": { vram: 20, bw: 800 },
-  "RX 7800 XT": { vram: 16, bw: 624 },
-  "RX 7700 XT": { vram: 12, bw: 432 },
-  "RX 7600": { vram: 8, bw: 288 },
-  "RX 6900 XT": { vram: 16, bw: 512 },
-  "RX 6800 XT": { vram: 16, bw: 512 },
-  "RX 6800": { vram: 16, bw: 512 },
-  "RX 6700 XT": { vram: 12, bw: 384 },
-  "Arc A770": { vram: 16, bw: 560 },
-  "Arc A750": { vram: 8, bw: 512 },
+const GPU_DB: Record<string, { vram: number; bw: number; cores: number }> = {
+  "RTX 5090": { vram: 32, bw: 1792, cores: 21760 },
+  "RTX 5080": { vram: 16, bw: 960, cores: 10752 },
+  "RTX 5070 Ti": { vram: 16, bw: 896, cores: 8960 },
+  "RTX 5070": { vram: 12, bw: 672, cores: 6144 },
+  "RTX 4090": { vram: 24, bw: 1008, cores: 16384 },
+  "RTX 4080 SUPER": { vram: 16, bw: 736, cores: 10240 },
+  "RTX 4080": { vram: 16, bw: 717, cores: 9728 },
+  "RTX 4070 Ti SUPER": { vram: 16, bw: 672, cores: 8448 },
+  "RTX 4070 Ti": { vram: 12, bw: 504, cores: 7680 },
+  "RTX 4070 SUPER": { vram: 12, bw: 504, cores: 7168 },
+  "RTX 4070": { vram: 12, bw: 504, cores: 5888 },
+  "RTX 4060 Ti 16GB": { vram: 16, bw: 288, cores: 4352 },
+  "RTX 4060 Ti": { vram: 8, bw: 288, cores: 4352 },
+  "RTX 4060": { vram: 8, bw: 272, cores: 3072 },
+  "RTX 3090 Ti": { vram: 24, bw: 1008, cores: 10752 },
+  "RTX 3090": { vram: 24, bw: 936, cores: 10496 },
+  "RTX 3080 Ti": { vram: 12, bw: 912, cores: 10240 },
+  "RTX 3080": { vram: 10, bw: 760, cores: 8704 },
+  "RTX 3070 Ti": { vram: 8, bw: 608, cores: 6144 },
+  "RTX 3070": { vram: 8, bw: 448, cores: 5888 },
+  "RTX 3060 Ti": { vram: 8, bw: 448, cores: 4864 },
+  "RTX 3060": { vram: 12, bw: 360, cores: 3584 },
+  "RTX 3050": { vram: 8, bw: 224, cores: 2560 },
+  "RTX A6000": { vram: 48, bw: 768, cores: 10752 },
+  "RTX A5000": { vram: 24, bw: 768, cores: 8192 },
+  "RTX A4000": { vram: 16, bw: 448, cores: 6144 },
+  "A100": { vram: 80, bw: 2039, cores: 6912 },
+  "H100": { vram: 80, bw: 3350, cores: 14592 },
+  "L40S": { vram: 48, bw: 864, cores: 18176 },
+  "L4": { vram: 24, bw: 300, cores: 7424 },
+  "T4": { vram: 16, bw: 300, cores: 2560 },
+  "RX 7900 XTX": { vram: 24, bw: 960, cores: 6144 },
+  "RX 7900 XT": { vram: 20, bw: 800, cores: 5376 },
+  "RX 7800 XT": { vram: 16, bw: 624, cores: 3840 },
+  "RX 7700 XT": { vram: 12, bw: 432, cores: 3456 },
+  "RX 7600": { vram: 8, bw: 288, cores: 2048 },
+  "RX 6900 XT": { vram: 16, bw: 512, cores: 5120 },
+  "RX 6800 XT": { vram: 16, bw: 512, cores: 4608 },
+  "RX 6800": { vram: 16, bw: 512, cores: 3840 },
+  "RX 6700 XT": { vram: 12, bw: 384, cores: 2560 },
+  "Arc A770": { vram: 16, bw: 560, cores: 4096 },
+  "Arc A750": { vram: 8, bw: 512, cores: 3584 },
 };
 
-const APPLE_DB: Record<string, { ram: number; bw: number }> = {
-  "m4 ultra": { ram: 192, bw: 819 },
-  "m4 max": { ram: 36, bw: 546 },
-  "m4 pro": { ram: 24, bw: 273 },
-  "m4": { ram: 16, bw: 120 },
-  "m3 ultra": { ram: 64, bw: 819 },
-  "m3 max": { ram: 36, bw: 408 },
-  "m3 pro": { ram: 18, bw: 150 },
-  "m3": { ram: 8, bw: 100 },
-  "m2 ultra": { ram: 64, bw: 819 },
-  "m2 max": { ram: 32, bw: 408 },
-  "m2 pro": { ram: 16, bw: 200 },
-  "m2": { ram: 8, bw: 100 },
-  "m1 ultra": { ram: 64, bw: 819 },
-  "m1 max": { ram: 32, bw: 408 },
-  "m1 pro": { ram: 16, bw: 200 },
-  "m1": { ram: 8, bw: 68 },
+const APPLE_DB: Record<string, { ram: number; bw: number; cpuCores: number; gpuCores: number }> = {
+  "m4 ultra": { ram: 192, bw: 819, cpuCores: 28, gpuCores: 60 },
+  "m4 max": { ram: 36, bw: 546, cpuCores: 12, gpuCores: 32 },
+  "m4 pro": { ram: 24, bw: 273, cpuCores: 12, gpuCores: 18 },
+  "m4": { ram: 16, bw: 120, cpuCores: 10, gpuCores: 10 },
+  "m3 ultra": { ram: 64, bw: 819, cpuCores: 24, gpuCores: 60 },
+  "m3 max": { ram: 36, bw: 408, cpuCores: 14, gpuCores: 30 },
+  "m3 pro": { ram: 18, bw: 150, cpuCores: 11, gpuCores: 14 },
+  "m3": { ram: 8, bw: 100, cpuCores: 8, gpuCores: 10 },
+  "m2 ultra": { ram: 64, bw: 819, cpuCores: 24, gpuCores: 60 },
+  "m2 max": { ram: 32, bw: 408, cpuCores: 12, gpuCores: 30 },
+  "m2 pro": { ram: 16, bw: 200, cpuCores: 10, gpuCores: 16 },
+  "m2": { ram: 8, bw: 100, cpuCores: 8, gpuCores: 10 },
+  "m1 ultra": { ram: 64, bw: 819, cpuCores: 20, gpuCores: 48 },
+  "m1 max": { ram: 32, bw: 408, cpuCores: 10, gpuCores: 24 },
+  "m1 pro": { ram: 16, bw: 200, cpuCores: 8, gpuCores: 14 },
+  "m1": { ram: 8, bw: 68, cpuCores: 8, gpuCores: 7 },
 };
 
 // ── Mobile GPU Database (Android) ──────────────────────────
@@ -139,6 +139,8 @@ interface MobileDeviceInfo {
   name: string;
   ram: number;
   bw: number;
+  cpuCores: number;
+  gpuCores: number;
   isTablet: boolean;
 }
 
@@ -148,23 +150,27 @@ function detectIOSDevice(cpuBenchmark: number): MobileDeviceInfo {
   const dpr = window.devicePixelRatio;
   const key = `${w}x${h}x${dpr}`;
 
-  // Unique iPhone 16 Pro screens
-  if (key === "440x956x3") return { name: "iPhone 16 Pro Max", ram: 8, bw: 68, isTablet: false };
-  if (key === "402x874x3") return { name: "iPhone 16 Pro", ram: 8, bw: 68, isTablet: false };
-
   // iPad detection (logical width ≥ 744pt)
   if (w >= 744) {
-    if (cpuBenchmark > 100) return { name: "iPad Pro (M-series)", ram: 16, bw: 100, isTablet: true };
-    if (cpuBenchmark > 80) return { name: "iPad Air", ram: 8, bw: 68, isTablet: true };
-    return { name: "iPad", ram: 4, bw: 42, isTablet: true };
+    if (cpuBenchmark > 100) return { name: "iPad Pro (M-series)", ram: 16, bw: 100, cpuCores: 10, gpuCores: 10, isTablet: true };
+    if (cpuBenchmark > 80) return { name: "iPad Air", ram: 8, bw: 68, cpuCores: 8, gpuCores: 10, isTablet: true };
+    return { name: "iPad", ram: 4, bw: 42, cpuCores: 6, gpuCores: 4, isTablet: true };
   }
 
-  // iPhone — use CPU benchmark to estimate chip generation
-  if (cpuBenchmark > 105) return { name: "iPhone (A17 Pro / A18)", ram: 8, bw: 68, isTablet: false };
-  if (cpuBenchmark > 85) return { name: "iPhone (A16)", ram: 6, bw: 51, isTablet: false };
-  if (cpuBenchmark > 70) return { name: "iPhone (A15)", ram: 6, bw: 51, isTablet: false };
-  if (cpuBenchmark > 55) return { name: "iPhone (A14)", ram: 4, bw: 42, isTablet: false };
-  return { name: "iPhone (A13 or older)", ram: 4, bw: 34, isTablet: false };
+  // Screen sizes exclusive to Pro / Pro Max models (higher RAM)
+  const proMaxScreens = ["440x956x3"];
+  const proScreens = ["402x874x3"];
+  const isPro = proScreens.includes(key) || proMaxScreens.includes(key);
+  const suffix = proMaxScreens.includes(key) ? " Pro Max" : proScreens.includes(key) ? " Pro" : "";
+
+  // Estimate chip generation from CPU benchmark + screen tier
+  if (cpuBenchmark > 115) return { name: `iPhone${suffix} (A19 Pro)`, ram: 8, bw: 77, cpuCores: 6, gpuCores: 6, isTablet: false };
+  if (cpuBenchmark > 105) return { name: `iPhone${suffix} (A18 Pro)`, ram: 8, bw: 68, cpuCores: 6, gpuCores: 6, isTablet: false };
+  if (cpuBenchmark > 90) return { name: `iPhone${suffix} (A17 Pro)`, ram: 8, bw: 68, cpuCores: 6, gpuCores: 6, isTablet: false };
+  if (cpuBenchmark > 75) return { name: `iPhone (A16)`, ram: isPro ? 8 : 6, bw: 51, cpuCores: 6, gpuCores: 5, isTablet: false };
+  if (cpuBenchmark > 60) return { name: `iPhone (A15)`, ram: 6, bw: 51, cpuCores: 6, gpuCores: 5, isTablet: false };
+  if (cpuBenchmark > 45) return { name: `iPhone (A14)`, ram: 4, bw: 42, cpuCores: 6, gpuCores: 4, isTablet: false };
+  return { name: "iPhone (A13 or older)", ram: 4, bw: 34, cpuCores: 6, gpuCores: 4, isTablet: false };
 }
 
 function matchMobileGPU(renderer: string): { name: string; bw: number } | null {
@@ -252,12 +258,13 @@ function runCPUBenchmark(): number {
 
 function detectPlatform(): string | null {
   const ua = navigator.userAgent;
+  // iPhone/iPad must be checked before "Mac OS X" — iOS UAs contain both
+  if (ua.includes("iPhone") || ua.includes("iPad")) return "iOS";
   if (ua.includes("Mac OS X")) return "macOS";
   if (ua.includes("Windows")) return "Windows";
-  if (ua.includes("Linux")) return "Linux";
-  if (ua.includes("CrOS")) return "ChromeOS";
   if (ua.includes("Android")) return "Android";
-  if (ua.includes("iPhone") || ua.includes("iPad")) return "iOS";
+  if (ua.includes("CrOS")) return "ChromeOS";
+  if (ua.includes("Linux")) return "Linux";
   return null;
 }
 
@@ -296,8 +303,91 @@ async function getWebGPUInfo(): Promise<{
   }
 }
 
+// ── GPU Core Estimation (WebGPU benchmark fallback) ───────
+
+const GFLOPS_PER_CORE: Record<string, number> = {
+  apple: 400,
+  nvidia: 5,
+  amd: 4.5,
+  ati: 4.5,
+  intel: 16,
+  qualcomm: 3,
+  arm: 8,
+};
+
+async function estimateGPUCores(adapter: any, vendor: string | null): Promise<number | null> {
+  try {
+    const device = await adapter.requestDevice();
+    const numElements = 512 * 1024;
+    const iterations = 512;
+
+    const module = device.createShaderModule({
+      code: `
+        @group(0) @binding(0) var<storage, read_write> data: array<f32>;
+        @compute @workgroup_size(256)
+        fn main(@builtin(global_invocation_id) id: vec3u) {
+          let idx = id.x;
+          if (idx >= ${numElements}u) { return; }
+          var x: f32 = f32(idx) * 0.001;
+          for (var i: u32 = 0; i < ${iterations}u; i++) {
+            x = x * 1.0001 + 0.0001;
+          }
+          data[idx] = x;
+        }
+      `,
+    });
+
+    const buffer = device.createBuffer({
+      size: numElements * 4,
+      usage: GPUBufferUsage.STORAGE,
+    });
+
+    const pipeline = device.createComputePipeline({
+      layout: "auto",
+      compute: { module, entryPoint: "main" },
+    });
+
+    const bindGroup = device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [{ binding: 0, resource: { buffer } }],
+    });
+
+    const dispatch = () => {
+      const enc = device.createCommandEncoder();
+      const pass = enc.beginComputePass();
+      pass.setPipeline(pipeline);
+      pass.setBindGroup(0, bindGroup);
+      pass.dispatchWorkgroups(Math.ceil(numElements / 256));
+      pass.end();
+      device.queue.submit([enc.finish()]);
+      return device.queue.onSubmittedWorkDone();
+    };
+
+    // Warmup pass
+    await dispatch();
+
+    // Timed pass
+    const start = performance.now();
+    await dispatch();
+    const elapsed = performance.now() - start;
+
+    buffer.destroy();
+    device.destroy();
+
+    // 2 FLOPs per iteration (multiply + add)
+    const gflops = (numElements * iterations * 2) / elapsed / 1e6;
+
+    const v = (vendor || "").toLowerCase();
+    for (const [key, ratio] of Object.entries(GFLOPS_PER_CORE)) {
+      if (v.includes(key)) return Math.round(gflops / ratio);
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function detectHardware(): Promise<HardwareInfo> {
-  const cpuCores = navigator.hardwareConcurrency || null;
   const deviceMemory = (navigator as any).deviceMemory || null;
   const { renderer, vendor } = getGPUInfo();
   const platform = detectPlatform();
@@ -314,13 +404,14 @@ export async function detectHardware(): Promise<HardwareInfo> {
   let estimatedVRAM: number | null = null;
   let memoryBandwidth: number | null = null;
   let deviceName: string | null = null;
+  let gpuCores: number | null = null;
 
   if (platform === "iOS") {
     const iosDevice = detectIOSDevice(cpuBenchmark);
     deviceName = iosDevice.name;
     totalUsableRAM = iosDevice.ram;
     memoryBandwidth = iosDevice.bw;
-    // Only iPad Pro M-series should be treated as Apple Silicon
+    gpuCores = iosDevice.gpuCores;
     isApple = iosDevice.isTablet && cpuBenchmark > 100;
   } else if (platform === "Android") {
     const mobileGPU = renderer ? matchMobileGPU(renderer) : null;
@@ -333,26 +424,33 @@ export async function detectHardware(): Promise<HardwareInfo> {
   } else if (isApple && appleMatch) {
     totalUsableRAM = appleMatch.ram;
     memoryBandwidth = appleMatch.bw;
+    gpuCores = appleMatch.gpuCores;
   } else if (gpuMatch) {
     estimatedVRAM = gpuMatch.vram;
     memoryBandwidth = gpuMatch.bw;
+    gpuCores = gpuMatch.cores;
     totalUsableRAM = deviceMemory;
   } else {
     totalUsableRAM = deviceMemory;
   }
 
+  // Fallback: estimate GPU cores via WebGPU compute benchmark
+  if (!gpuCores && webgpuInfo.adapter) {
+    gpuCores = await estimateGPUCores(webgpuInfo.adapter, vendor);
+  }
+
   return {
-    cpuCores,
-    ramGB: totalUsableRAM,
     gpuRenderer: renderer,
     gpuVendor: vendor,
+    gpuCores,
+    ramGB: totalUsableRAM,
     estimatedVRAM,
+    memoryBandwidth,
     webgpu: webgpuInfo.supported,
     webgpuDevice: webgpuInfo.device,
     webgpuArch: webgpuInfo.arch,
     isAppleSilicon: isApple,
     totalUsableRAM,
-    memoryBandwidth,
     platform,
     cpuBenchmark,
     isMobile,
