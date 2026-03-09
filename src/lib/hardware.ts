@@ -14,6 +14,8 @@ export interface HardwareInfo {
   memoryBandwidth: number | null;
   platform: string | null;
   cpuBenchmark: number | null;
+  isMobile: boolean;
+  deviceName: string | null;
 }
 
 export type ModelStatus = "can-run" | "tight" | "cannot-run" | "unknown";
@@ -90,6 +92,88 @@ const APPLE_DB: Record<string, { ram: number; bw: number }> = {
   "m1 pro": { ram: 16, bw: 200 },
   "m1": { ram: 8, bw: 68 },
 };
+
+// ── Mobile GPU Database (Android) ──────────────────────────
+
+const MOBILE_GPU_DB: Record<string, { bw: number }> = {
+  "Adreno 830": { bw: 90 },
+  "Adreno 750": { bw: 77 },
+  "Adreno 740": { bw: 62 },
+  "Adreno 735": { bw: 51 },
+  "Adreno 730": { bw: 51 },
+  "Adreno 725": { bw: 44 },
+  "Adreno 720": { bw: 38 },
+  "Adreno 710": { bw: 34 },
+  "Adreno 660": { bw: 44 },
+  "Adreno 650": { bw: 44 },
+  "Adreno 642": { bw: 17 },
+  "Adreno 640": { bw: 34 },
+  "Adreno 630": { bw: 30 },
+  "Adreno 620": { bw: 17 },
+  "Adreno 619": { bw: 17 },
+  "Adreno 618": { bw: 14 },
+  "Adreno 616": { bw: 14 },
+  "Adreno 612": { bw: 10 },
+  "Immortalis-G925": { bw: 77 },
+  "Immortalis-G720": { bw: 77 },
+  "Immortalis-G715": { bw: 51 },
+  "Mali-G925": { bw: 77 },
+  "Mali-G720": { bw: 77 },
+  "Mali-G715": { bw: 51 },
+  "Mali-G710": { bw: 44 },
+  "Mali-G78": { bw: 35 },
+  "Mali-G77": { bw: 30 },
+  "Mali-G76": { bw: 25 },
+  "Mali-G72": { bw: 20 },
+  "Mali-G71": { bw: 15 },
+  "Mali-G57": { bw: 17 },
+  "Mali-G52": { bw: 12 },
+  "Xclipse 940": { bw: 51 },
+  "Xclipse 930": { bw: 44 },
+  "Xclipse 920": { bw: 38 },
+};
+
+// ── iOS Device Detection ──────────────────────────────────
+
+interface MobileDeviceInfo {
+  name: string;
+  ram: number;
+  bw: number;
+  isTablet: boolean;
+}
+
+function detectIOSDevice(cpuBenchmark: number): MobileDeviceInfo {
+  const w = Math.min(screen.width, screen.height);
+  const h = Math.max(screen.width, screen.height);
+  const dpr = window.devicePixelRatio;
+  const key = `${w}x${h}x${dpr}`;
+
+  // Unique iPhone 16 Pro screens
+  if (key === "440x956x3") return { name: "iPhone 16 Pro Max", ram: 8, bw: 68, isTablet: false };
+  if (key === "402x874x3") return { name: "iPhone 16 Pro", ram: 8, bw: 68, isTablet: false };
+
+  // iPad detection (logical width ≥ 744pt)
+  if (w >= 744) {
+    if (cpuBenchmark > 100) return { name: "iPad Pro (M-series)", ram: 16, bw: 100, isTablet: true };
+    if (cpuBenchmark > 80) return { name: "iPad Air", ram: 8, bw: 68, isTablet: true };
+    return { name: "iPad", ram: 4, bw: 42, isTablet: true };
+  }
+
+  // iPhone — use CPU benchmark to estimate chip generation
+  if (cpuBenchmark > 105) return { name: "iPhone (A17 Pro / A18)", ram: 8, bw: 68, isTablet: false };
+  if (cpuBenchmark > 85) return { name: "iPhone (A16)", ram: 6, bw: 51, isTablet: false };
+  if (cpuBenchmark > 70) return { name: "iPhone (A15)", ram: 6, bw: 51, isTablet: false };
+  if (cpuBenchmark > 55) return { name: "iPhone (A14)", ram: 4, bw: 42, isTablet: false };
+  return { name: "iPhone (A13 or older)", ram: 4, bw: 34, isTablet: false };
+}
+
+function matchMobileGPU(renderer: string): { name: string; bw: number } | null {
+  const normalized = renderer.toUpperCase().replace(/\(TM\)/gi, "").replace(/\s+/g, " ").trim();
+  for (const [name, data] of Object.entries(MOBILE_GPU_DB)) {
+    if (normalized.includes(name.toUpperCase())) return { name, bw: data.bw };
+  }
+  return null;
+}
 
 // ── Detection ──────────────────────────────────────────────
 
@@ -218,19 +302,35 @@ export async function detectHardware(): Promise<HardwareInfo> {
   const { renderer, vendor } = getGPUInfo();
   const platform = detectPlatform();
 
-  // Run CPU benchmark and WebGPU detection in parallel
   const cpuBenchmark = runCPUBenchmark();
   const webgpuInfo = await getWebGPUInfo();
 
-  const apple = renderer ? isAppleSiliconCheck(renderer) : false;
+  let isApple = renderer ? isAppleSiliconCheck(renderer) : false;
   const gpuMatch = renderer ? matchGPU(renderer) : null;
   const appleMatch = renderer ? matchApple(renderer) : null;
+  const isMobile = platform === "iOS" || platform === "Android";
 
   let totalUsableRAM: number | null = null;
   let estimatedVRAM: number | null = null;
   let memoryBandwidth: number | null = null;
+  let deviceName: string | null = null;
 
-  if (apple && appleMatch) {
+  if (platform === "iOS") {
+    const iosDevice = detectIOSDevice(cpuBenchmark);
+    deviceName = iosDevice.name;
+    totalUsableRAM = iosDevice.ram;
+    memoryBandwidth = iosDevice.bw;
+    // Only iPad Pro M-series should be treated as Apple Silicon
+    isApple = iosDevice.isTablet && cpuBenchmark > 100;
+  } else if (platform === "Android") {
+    const mobileGPU = renderer ? matchMobileGPU(renderer) : null;
+    if (mobileGPU) {
+      memoryBandwidth = mobileGPU.bw;
+      deviceName = mobileGPU.name;
+    }
+    totalUsableRAM = deviceMemory;
+    isApple = false;
+  } else if (isApple && appleMatch) {
     totalUsableRAM = appleMatch.ram;
     memoryBandwidth = appleMatch.bw;
   } else if (gpuMatch) {
@@ -250,17 +350,27 @@ export async function detectHardware(): Promise<HardwareInfo> {
     webgpu: webgpuInfo.supported,
     webgpuDevice: webgpuInfo.device,
     webgpuArch: webgpuInfo.arch,
-    isAppleSilicon: apple,
+    isAppleSilicon: isApple,
     totalUsableRAM,
     memoryBandwidth,
     platform,
     cpuBenchmark,
+    isMobile,
+    deviceName,
   };
 }
 
 // ── Evaluation ─────────────────────────────────────────────
 
 export function evaluateModel(vramNeeded: number, hw: HardwareInfo): ModelStatus {
+  // Mobile (non-Apple-Silicon): OS reserves 45-50% of RAM
+  if (hw.isMobile && !hw.isAppleSilicon && hw.totalUsableRAM) {
+    const factor = hw.platform === "iOS" ? 0.50 : 0.55;
+    const usable = hw.totalUsableRAM * factor;
+    if (vramNeeded <= usable * 0.7) return "can-run";
+    if (vramNeeded <= usable) return "tight";
+    return "cannot-run";
+  }
   if (hw.isAppleSilicon && hw.totalUsableRAM) {
     const usable = hw.totalUsableRAM * 0.75;
     if (vramNeeded <= usable * 0.7) return "can-run";
@@ -282,13 +392,20 @@ export function evaluateModel(vramNeeded: number, hw: HardwareInfo): ModelStatus
 
 export function estimateTokensPerSecond(modelVRAM: number, hw: HardwareInfo): number | null {
   if (!hw.memoryBandwidth) return null;
-  const efficiency = hw.isAppleSilicon ? 0.65 : 0.70;
+  let efficiency: number;
+  if (hw.isMobile && !hw.isAppleSilicon) {
+    efficiency = 0.40; // thermal throttling + shared bus contention
+  } else if (hw.isAppleSilicon) {
+    efficiency = 0.65;
+  } else {
+    efficiency = 0.70;
+  }
   const toks = (hw.memoryBandwidth / modelVRAM) * efficiency;
   return Math.round(toks);
 }
 
 export function memoryPercentage(vramNeeded: number, hw: HardwareInfo): number | null {
-  const total = hw.isAppleSilicon ? hw.totalUsableRAM : (hw.estimatedVRAM || hw.totalUsableRAM);
+  const total = (hw.isMobile || hw.isAppleSilicon) ? hw.totalUsableRAM : (hw.estimatedVRAM || hw.totalUsableRAM);
   if (!total) return null;
   return Math.round((vramNeeded / total) * 100);
 }
@@ -340,6 +457,12 @@ export function scoreToGrade(score: number, status: ModelStatus): Grade {
   if (score >= 40) return "C";
   if (score >= 20) return "D";
   return "F";
+}
+
+export function getDisplayName(hw: HardwareInfo): string {
+  if (hw.deviceName) return hw.deviceName;
+  if (hw.gpuRenderer) return cleanGPUName(hw.gpuRenderer);
+  return "Unknown";
 }
 
 export const GRADES: Record<Grade, GradeInfo> = {
