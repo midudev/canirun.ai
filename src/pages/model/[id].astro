@@ -343,7 +343,7 @@ const USE_CASE_ICONS: Record<string, any> = {
             <IconCpu class="h-3.5 w-3.5" />
             Your Hardware
           </h3>
-          <div id="hw-compat" class="space-y-2 font-mono text-[11px]">
+          <div id="hw-compat" class="space-y-2 font-mono text-[11px]" data-params={model.paramsBillions}>
             <p class="text-muted italic">Detecting...</p>
           </div>
         </div>
@@ -551,6 +551,7 @@ const USE_CASE_ICONS: Record<string, any> = {
     const container = document.getElementById("hw-compat")!
     if (!container) return
 
+    const paramsBillions = parseFloat(container.dataset.params || "0")
     let detectedHW: HardwareInfo
     let currentHW: HardwareInfo
 
@@ -574,7 +575,7 @@ const USE_CASE_ICONS: Record<string, any> = {
         const status = evaluateModel(vram, hw)
         const toks = estimateTokensPerSecond(vram, hw)
         const memPct = memoryPercentage(vram, hw)
-        const score = computeScore(status, toks, 0, memPct)
+        const score = computeScore(status, toks, paramsBillions, memPct)
         const grade = scoreToGrade(score, status)
         const info = GRADES[grade]
         const statusEl = row.querySelector("[data-quant-status]") as HTMLElement
@@ -597,7 +598,8 @@ const USE_CASE_ICONS: Record<string, any> = {
 
       const status = evaluateModel(defaultVram, hw)
       const toks = estimateTokensPerSecond(defaultVram, hw)
-      const score = computeScore(status, toks, 0)
+      const defaultMemPct = memoryPercentage(defaultVram, hw)
+      const score = computeScore(status, toks, paramsBillions, defaultMemPct)
       const grade = scoreToGrade(score, status)
       const info = GRADES[grade]
 
