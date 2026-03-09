@@ -1,11 +1,1352 @@
 ---
-import Welcome from '../components/Welcome.astro';
-import Layout from '../layouts/Layout.astro';
+import Layout from "../layouts/Layout.astro";
+import NavHeader from "../components/NavHeader.astro";
+import { models } from "../data/models";
+import IconCpu from "../icons/cpu.svg";
+import IconRam from "../icons/ram.svg";
+import IconGpu from "../icons/gpu.svg";
+import IconBandwidth from "../icons/bandwidth.svg";
+import IconCheck from "../icons/check.svg";
+import IconSearch from "../icons/search.svg";
+import IconGrid from "../icons/grid.svg";
+import IconGridDots from "../icons/grid-dots.svg";
+import IconList from "../icons/list.svg";
+import IconMoe from "../icons/moe.svg";
+import IconTool from "../icons/tool.svg";
+import IconThinking from "../icons/thinking.svg";
+import IconVision from "../icons/vision.svg";
+import IconStar from "../icons/star.svg";
 
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+const sortedModels = [...models].sort(
+  (a, b) => a.paramsBillions - b.paramsBillions
+);
+const featuredModels = sortedModels.filter((m) => m.featured);
+const otherModels = sortedModels.filter((m) => !m.featured);
+
+const providers = [...new Set(models.map((m) => m.provider))].sort();
+
+function timeAgo(dateStr: string | null): string {
+  if (!dateStr) return "";
+  const now = new Date();
+  const date = new Date(dateStr + "-01");
+  const diffMs = now.getTime() - date.getTime();
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (days < 0) return "upcoming";
+  if (days === 0) return "today";
+  if (days === 1) return "1 day ago";
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  if (months === 1) return "1 month ago";
+  if (months < 12) return `${months}mo ago`;
+  const years = Math.floor(months / 12);
+  if (years === 1) return "1 year ago";
+  return `${years}y ago`;
+}
 ---
 
 <Layout>
-	<Welcome />
+  <NavHeader />
+  <main id="results" class="mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-6">
+    <!-- Header -->
+    <header class="mb-10 text-center">
+      <h1 class="font-pixel text-3xl tracking-tight text-accent sm:text-4xl">
+        Can I Run AI locally?
+      </h1>
+      <p class="mt-2 text-sm text-muted">
+        Find out which AI models your machine can actually run.
+      </p>
+    </header>
+
+    <!-- Hardware Panel — fixed height to prevent CLS -->
+    <section id="hw-panel" class="mb-10 min-h-[52px]">
+      <div id="hw-bar" class="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 font-mono text-xs text-secondary">
+        <!-- CPU -->
+        <span id="hw-cpu" class="inline-flex items-center gap-1.5 text-muted">
+          <IconCpu class="h-3.5 w-3.5 shrink-0" stroke-width="1.5" />
+          <span>detecting...</span>
+        </span>
+        <span class="text-edge/40">|</span>
+        <!-- RAM -->
+        <span id="hw-ram" class="inline-flex items-center gap-1.5 text-muted">
+          <IconRam class="h-3.5 w-3.5 shrink-0" />
+          <span>—</span>
+        </span>
+        <span class="text-edge/40">|</span>
+        <!-- GPU -->
+        <span id="hw-gpu" class="inline-flex items-center gap-1.5 text-muted">
+          <IconGpu class="h-3.5 w-3.5 shrink-0" />
+          <span>—</span>
+        </span>
+        <!-- Bandwidth -->
+        <span id="hw-bw" class="hidden inline-flex items-center gap-1.5">
+          <span class="text-edge/40">|</span>
+          <IconBandwidth class="h-3.5 w-3.5 shrink-0 text-muted" />
+          <span id="hw-bw-val"></span>
+        </span>
+        <!-- WebGPU -->
+        <span id="hw-webgpu-badge" class="hidden inline-flex items-center gap-1 rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] text-accent">
+          <IconCheck class="h-3 w-3" />
+          <span>WebGPU</span>
+        </span>
+      </div>
+      <p id="hw-notice" class="mt-1.5 text-center text-[10px] text-muted invisible">
+        Estimates based on browser APIs. Actual specs may vary.
+      </p>
+    </section>
+
+    <!-- Summary counters — grade distribution -->
+    <div id="summary-bar" class="mb-8 invisible">
+      <div class="flex items-center justify-center gap-4 font-mono text-[11px] sm:gap-6">
+        <span class="flex items-center gap-1" style="color: var(--color-can-run)">
+          <span class="font-pixel text-xs">S</span>
+          <span id="count-s" class="font-bold">0</span>
+        </span>
+        <span class="flex items-center gap-1" style="color: var(--color-grade-a)">
+          <span class="font-pixel text-xs">A</span>
+          <span id="count-a" class="font-bold">0</span>
+        </span>
+        <span class="flex items-center gap-1" style="color: var(--color-grade-b)">
+          <span class="font-pixel text-xs">B</span>
+          <span id="count-b" class="font-bold">0</span>
+        </span>
+        <span class="flex items-center gap-1" style="color: var(--color-maybe)">
+          <span class="font-pixel text-xs">C</span>
+          <span id="count-c" class="font-bold">0</span>
+        </span>
+        <span class="flex items-center gap-1" style="color: var(--color-grade-d)">
+          <span class="font-pixel text-xs">D</span>
+          <span id="count-d" class="font-bold">0</span>
+        </span>
+        <span class="flex items-center gap-1" style="color: var(--color-cannot-run)">
+          <span class="font-pixel text-xs">F</span>
+          <span id="count-f" class="font-bold">0</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Search + Filters bar (single line) -->
+    <div class="mb-6 flex flex-wrap items-center gap-2">
+      <!-- Search -->
+      <div class="relative flex-1 min-w-[180px] max-w-xs">
+        <IconSearch class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
+        <input
+          id="search-input"
+          type="text"
+          placeholder="Search models..."
+          class="filter-select w-full !pl-8 pr-8"
+          autocomplete="off"
+        />
+        <kbd class="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 rounded border border-edge/60 bg-surface-raised px-1.5 py-0.5 font-mono text-[10px] leading-none text-secondary shadow-[0_1px_0_0_var(--color-edge)] sm:inline-block">/</kbd>
+      </div>
+
+      <span class="hidden h-4 w-px bg-edge/40 sm:block"></span>
+
+      <!-- Status filter -->
+      <select id="filter-status" class="filter-select">
+        <option value="all">All grades</option>
+        <option value="featured">Popular</option>
+        <option value="can-run">Can run (S/A/B)</option>
+        <option value="tight">Tight fit (C/D)</option>
+        <option value="cannot-run">Too heavy (F)</option>
+      </select>
+
+      <!-- Use case filter -->
+      <select id="filter-use" class="filter-select">
+        <option value="all">All tasks</option>
+        <option value="chat">Chat</option>
+        <option value="code">Code</option>
+        <option value="reasoning">Reasoning</option>
+        <option value="vision">Vision</option>
+      </select>
+
+      <!-- Provider filter -->
+      <select id="filter-provider" class="filter-select">
+        <option value="all">All providers</option>
+        {providers.map((p) => (
+          <option value={p}>{p}</option>
+        ))}
+      </select>
+
+      <!-- Sort -->
+      <select id="sort-select" class="filter-select">
+        <option value="score">Sort: Score</option>
+        <option value="params-asc">Sort: Params ↑</option>
+        <option value="params-desc">Sort: Params ↓</option>
+        <option value="release">Sort: Newest</option>
+        <option value="context">Sort: Context</option>
+        <option value="toks">Sort: Speed</option>
+        <option value="vram">Sort: VRAM ↑</option>
+      </select>
+
+      <span class="hidden h-4 w-px bg-edge/40 sm:block"></span>
+
+      <!-- View mode toggle -->
+      <button id="view-toggle" class="filter-select hidden items-center gap-1.5 cursor-pointer sm:inline-flex" title="Toggle view mode">
+        <!-- Simple: grid icon -->
+        <IconGrid id="view-icon-simple" class="h-3 w-3" />
+        <!-- Advanced: detailed grid icon -->
+        <IconGridDots id="view-icon-advanced" class="hidden h-3 w-3" />
+        <!-- List: rows icon -->
+        <IconList id="view-icon-list" class="hidden h-3 w-3" />
+        <span id="view-label" class="text-[10px]">Simple</span>
+      </button>
+    </div>
+
+    <!-- Popular models -->
+    <div id="models-grid" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {featuredModels.map((model) => (
+        <a href={`/model/${model.id}`} class="block">
+          <article
+            data-model-id={model.id}
+            data-model-name={model.name}
+            data-quants={JSON.stringify(model.quants)}
+            data-params={model.paramsBillions}
+            data-arch={model.architecture}
+            data-uses={model.useCase.join(",")}
+            data-provider={model.provider}
+            data-context={model.contextLength}
+            data-release={model.releaseDate || ""}
+            data-featured="true"
+            class="model-card group relative flex h-full flex-col rounded-lg border border-edge/60 bg-black transition-all hover:border-accent/30 hover:bg-surface-hover"
+          >
+            <div data-card-body class="flex flex-col p-4 pb-3">
+              <div data-card-top class="min-w-0">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <h3 class="truncate font-pixel text-sm text-primary" transition:name={`model-title-${model.id}`}>{model.name}</h3>
+                    {model.architecture === "moe" && (
+                      <span class="shrink-0 rounded border border-info/20 bg-info/5 p-0.5 text-info" title="Mixture of Experts">
+                        <IconMoe class="h-3 w-3" />
+                      </span>
+                    )}
+                    {model.tools && (
+                      <span class="shrink-0 rounded border border-purple-400/30 bg-purple-400/10 p-0.5 text-purple-400" title="Tool Use">
+                        <IconTool class="h-3 w-3" />
+                      </span>
+                    )}
+                    {model.thinking && (
+                      <span class="shrink-0 rounded border border-sky-400/30 bg-sky-400/10 p-0.5 text-sky-400" title="Thinking / Reasoning">
+                        <IconThinking class="h-3 w-3" />
+                      </span>
+                    )}
+                    {model.useCase.includes("vision") && (
+                      <span class="shrink-0 rounded border border-rose-400/30 bg-rose-400/10 p-0.5 text-rose-400" title="Vision">
+                        <IconVision class="h-3 w-3" />
+                      </span>
+                    )}
+                    <span class="shrink-0 rounded border border-yellow-400/30 bg-yellow-400/10 p-0.5 text-yellow-400" title="Popular">
+                      <IconStar class="h-3 w-3" />
+                    </span>
+                  </div>
+                  {model.releaseDate && (
+                    <span class="shrink-0 font-mono text-[9px] text-muted/60">{timeAgo(model.releaseDate)}</span>
+                  )}
+                </div>
+                <p data-card-provider class="mt-0.5 font-mono text-[11px] text-muted">
+                  {model.provider} · {model.params}
+                </p>
+                <p data-description class="mt-1 text-[11px] leading-snug text-secondary/60 italic">{model.description}</p>
+              </div>
+              <div data-card-stats class="mt-3 flex items-center gap-3 font-mono text-[11px]">
+                <span class="inline-flex items-center gap-1 text-muted"><span data-vram-val class="text-secondary">{(model.quants.find(q => q.name === "Q4_K_M") || model.quants[0]).vramGB}</span> GB <span data-mem-pct-pill class="hidden rounded-full px-1.5 py-px text-[9px] font-medium" data-mem-pct></span></span>
+                <span class="text-edge/40">·</span>
+                <span class="text-muted"><span class="text-secondary">{model.contextLength >= 1024 ? `${Math.round(model.contextLength / 1024)}K` : model.contextLength}</span> ctx</span>
+                <span class="text-edge/40">·</span>
+                <span data-tok-speed class="text-muted"></span>
+              </div>
+              <div data-advanced class="mt-3 hidden border-t border-edge/30 pt-3">
+                <div class="mb-2 flex flex-wrap gap-1">
+                  {model.quants.map((q, i) => (
+                    <button
+                      data-quant-btn={i}
+                      class={`quant-btn rounded px-1.5 py-0.5 text-[10px] font-mono transition-colors ${i === 2 ? "border border-accent/30 bg-accent/10 text-accent" : "border border-transparent text-muted hover:text-secondary"}`}
+                    >
+                      {q.name}
+                    </button>
+                  ))}
+                </div>
+                <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
+                  <div class="flex justify-between">
+                    <span class="text-muted">Released</span>
+                    <span class="font-mono text-secondary">{model.releaseDate}</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-muted">Architecture</span>
+                    <span class="font-mono text-secondary">{model.architecture === "moe" ? "MoE" : "Dense"}</span>
+                  </div>
+                  {model.activeParams && (
+                    <div class="flex justify-between">
+                      <span class="text-muted">Active</span>
+                      <span class="font-mono text-secondary">{model.activeParams}</span>
+                    </div>
+                  )}
+                  <div data-mem-pct-row class="flex justify-between">
+                    <span class="text-muted">Memory</span>
+                    <span data-mem-pct-detail class="font-mono text-secondary">—</span>
+                  </div>
+                </div>
+                <div class="mt-2 flex flex-wrap gap-1">
+                  {model.useCase.map((tag) => (
+                    <span class="rounded border border-edge/40 px-1.5 py-0.5 text-[9px] text-muted">{tag}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div data-card-footer class="mt-auto flex items-center justify-between px-4 pb-3">
+              <span class="inline-flex items-center gap-1.5">
+                <span data-status-dot class="h-2 w-2 shrink-0 rounded-full bg-muted/30 transition-colors"></span>
+                <span data-status-label class="font-mono text-[9px] font-medium uppercase tracking-wider text-muted"></span>
+              </span>
+              <span class="flex flex-col items-center">
+                <span data-score class="font-pixel text-lg leading-none text-muted"></span>
+                <span data-score-num class="font-mono text-[9px] text-muted/50"></span>
+              </span>
+            </div>
+          </article>
+        </a>
+      ))}
+    </div>
+
+    <!-- Section divider -->
+    <div id="rest-divider" class="my-8 flex items-center gap-4">
+      <div class="h-px flex-1 bg-edge/30"></div>
+      <span class="font-mono text-[11px] text-muted/60">All models</span>
+      <div class="h-px flex-1 bg-edge/30"></div>
+    </div>
+
+    <!-- Rest of models -->
+    <div id="models-grid-rest" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {otherModels.map((model) => (
+        <a href={`/model/${model.id}`} class="block">
+          <article
+            data-model-id={model.id}
+            data-model-name={model.name}
+            data-quants={JSON.stringify(model.quants)}
+            data-params={model.paramsBillions}
+            data-arch={model.architecture}
+            data-uses={model.useCase.join(",")}
+            data-provider={model.provider}
+            data-context={model.contextLength}
+            data-release={model.releaseDate || ""}
+            class="model-card group relative flex h-full flex-col rounded-lg border border-edge/60 bg-black transition-all hover:border-accent/30 hover:bg-surface-hover"
+          >
+            <div data-card-body class="flex flex-col p-4 pb-3">
+              <div data-card-top class="min-w-0">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <h3 class="truncate font-pixel text-sm text-primary" transition:name={`model-title-${model.id}`}>{model.name}</h3>
+                    {model.architecture === "moe" && (
+                      <span class="shrink-0 rounded border border-info/20 bg-info/5 p-0.5 text-info" title="Mixture of Experts">
+                        <IconMoe class="h-3 w-3" />
+                      </span>
+                    )}
+                    {model.tools && (
+                      <span class="shrink-0 rounded border border-purple-400/30 bg-purple-400/10 p-0.5 text-purple-400" title="Tool Use">
+                        <IconTool class="h-3 w-3" />
+                      </span>
+                    )}
+                    {model.thinking && (
+                      <span class="shrink-0 rounded border border-sky-400/30 bg-sky-400/10 p-0.5 text-sky-400" title="Thinking / Reasoning">
+                        <IconThinking class="h-3 w-3" />
+                      </span>
+                    )}
+                    {model.useCase.includes("vision") && (
+                      <span class="shrink-0 rounded border border-rose-400/30 bg-rose-400/10 p-0.5 text-rose-400" title="Vision">
+                        <IconVision class="h-3 w-3" />
+                      </span>
+                    )}
+                  </div>
+                  {model.releaseDate && (
+                    <span class="shrink-0 font-mono text-[9px] text-muted/60">{timeAgo(model.releaseDate)}</span>
+                  )}
+                </div>
+                <p data-card-provider class="mt-0.5 font-mono text-[11px] text-muted">
+                  {model.provider} · {model.params}
+                </p>
+                <p data-description class="mt-1 text-[11px] leading-snug text-secondary/60 italic">{model.description}</p>
+              </div>
+              <div data-card-stats class="mt-3 flex items-center gap-3 font-mono text-[11px]">
+                <span class="inline-flex items-center gap-1 text-muted"><span data-vram-val class="text-secondary">{(model.quants.find(q => q.name === "Q4_K_M") || model.quants[0]).vramGB}</span> GB <span data-mem-pct-pill class="hidden rounded-full px-1.5 py-px text-[9px] font-medium" data-mem-pct></span></span>
+                <span class="text-edge/40">·</span>
+                <span class="text-muted"><span class="text-secondary">{model.contextLength >= 1024 ? `${Math.round(model.contextLength / 1024)}K` : model.contextLength}</span> ctx</span>
+                <span class="text-edge/40">·</span>
+                <span data-tok-speed class="text-muted"></span>
+              </div>
+              <div data-advanced class="mt-3 hidden border-t border-edge/30 pt-3">
+                <div class="mb-2 flex flex-wrap gap-1">
+                  {model.quants.map((q, i) => (
+                    <button
+                      data-quant-btn={i}
+                      class={`quant-btn rounded px-1.5 py-0.5 text-[10px] font-mono transition-colors ${i === 2 ? "border border-accent/30 bg-accent/10 text-accent" : "border border-transparent text-muted hover:text-secondary"}`}
+                    >
+                      {q.name}
+                    </button>
+                  ))}
+                </div>
+                <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
+                  <div class="flex justify-between">
+                    <span class="text-muted">Released</span>
+                    <span class="font-mono text-secondary">{model.releaseDate}</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-muted">Architecture</span>
+                    <span class="font-mono text-secondary">{model.architecture === "moe" ? "MoE" : "Dense"}</span>
+                  </div>
+                  {model.activeParams && (
+                    <div class="flex justify-between">
+                      <span class="text-muted">Active</span>
+                      <span class="font-mono text-secondary">{model.activeParams}</span>
+                    </div>
+                  )}
+                  <div data-mem-pct-row class="flex justify-between">
+                    <span class="text-muted">Memory</span>
+                    <span data-mem-pct-detail class="font-mono text-secondary">—</span>
+                  </div>
+                </div>
+                <div class="mt-2 flex flex-wrap gap-1">
+                  {model.useCase.map((tag) => (
+                    <span class="rounded border border-edge/40 px-1.5 py-0.5 text-[9px] text-muted">{tag}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div data-card-footer class="mt-auto flex items-center justify-between px-4 pb-3">
+              <span class="inline-flex items-center gap-1.5">
+                <span data-status-dot class="h-2 w-2 shrink-0 rounded-full bg-muted/30 transition-colors"></span>
+                <span data-status-label class="font-mono text-[9px] font-medium uppercase tracking-wider text-muted"></span>
+              </span>
+              <span class="flex flex-col items-center">
+                <span data-score class="font-pixel text-lg leading-none text-muted"></span>
+                <span data-score-num class="font-mono text-[9px] text-muted/50"></span>
+              </span>
+            </div>
+          </article>
+        </a>
+      ))}
+    </div>
+
+    <!-- Data source -->
+    <p class="mt-20 text-center text-[11px] text-muted/50">
+      Data sourced from <a href="https://github.com/ggerganov/llama.cpp" target="_blank" rel="noopener" class="text-muted/70 underline decoration-edge underline-offset-2 hover:text-primary">llama.cpp</a>, <a href="https://ollama.com" target="_blank" rel="noopener" class="text-muted/70 underline decoration-edge underline-offset-2 hover:text-primary">Ollama</a> and <a href="https://lmstudio.ai" target="_blank" rel="noopener" class="text-muted/70 underline decoration-edge underline-offset-2 hover:text-primary">LM Studio</a>.
+    </p>
+
+    <!-- Footer -->
+    <footer class="mt-3 text-center text-xs text-muted/60">
+      <p>
+        Built by <a href="https://midu.dev" target="_blank" rel="noopener" class="text-muted underline decoration-edge underline-offset-2 hover:text-primary">midudev</a>
+      </p>
+    </footer>
+  </main>
 </Layout>
+
+<script>
+  // ── Types ──────────────────────────────────────────────────
+
+  interface HardwareInfo {
+    cpuCores: number | null;
+    ramGB: number | null;
+    gpuRenderer: string | null;
+    gpuVendor: string | null;
+    estimatedVRAM: number | null;
+    webgpu: boolean;
+    isAppleSilicon: boolean;
+    totalUsableRAM: number | null;
+    memoryBandwidth: number | null;
+  }
+
+  type ModelStatus = "can-run" | "tight" | "cannot-run" | "unknown";
+
+  // ── GPU Database ───────────────────────────────────────────
+
+  const GPU_DB: Record<string, { vram: number; bw: number }> = {
+    // NVIDIA RTX 40 series
+    "RTX 4090": { vram: 24, bw: 1008 },
+    "RTX 4080 SUPER": { vram: 16, bw: 736 },
+    "RTX 4080": { vram: 16, bw: 717 },
+    "RTX 4070 Ti SUPER": { vram: 16, bw: 672 },
+    "RTX 4070 Ti": { vram: 12, bw: 504 },
+    "RTX 4070 SUPER": { vram: 12, bw: 504 },
+    "RTX 4070": { vram: 12, bw: 504 },
+    "RTX 4060 Ti 16GB": { vram: 16, bw: 288 },
+    "RTX 4060 Ti": { vram: 8, bw: 288 },
+    "RTX 4060": { vram: 8, bw: 272 },
+    // NVIDIA RTX 30 series
+    "RTX 3090 Ti": { vram: 24, bw: 1008 },
+    "RTX 3090": { vram: 24, bw: 936 },
+    "RTX 3080 Ti": { vram: 12, bw: 912 },
+    "RTX 3080": { vram: 10, bw: 760 },
+    "RTX 3070 Ti": { vram: 8, bw: 608 },
+    "RTX 3070": { vram: 8, bw: 448 },
+    "RTX 3060 Ti": { vram: 8, bw: 448 },
+    "RTX 3060": { vram: 12, bw: 360 },
+    "RTX 3050": { vram: 8, bw: 224 },
+    // NVIDIA RTX 50 series
+    "RTX 5090": { vram: 32, bw: 1792 },
+    "RTX 5080": { vram: 16, bw: 960 },
+    "RTX 5070 Ti": { vram: 16, bw: 896 },
+    "RTX 5070": { vram: 12, bw: 672 },
+    // NVIDIA Pro
+    "RTX A6000": { vram: 48, bw: 768 },
+    "RTX A5000": { vram: 24, bw: 768 },
+    "RTX A4000": { vram: 16, bw: 448 },
+    "A100": { vram: 80, bw: 2039 },
+    "H100": { vram: 80, bw: 3350 },
+    "L40S": { vram: 48, bw: 864 },
+    "L4": { vram: 24, bw: 300 },
+    "T4": { vram: 16, bw: 300 },
+    // AMD
+    "RX 7900 XTX": { vram: 24, bw: 960 },
+    "RX 7900 XT": { vram: 20, bw: 800 },
+    "RX 7800 XT": { vram: 16, bw: 624 },
+    "RX 7700 XT": { vram: 12, bw: 432 },
+    "RX 7600": { vram: 8, bw: 288 },
+    "RX 6900 XT": { vram: 16, bw: 512 },
+    "RX 6800 XT": { vram: 16, bw: 512 },
+    "RX 6800": { vram: 16, bw: 512 },
+    "RX 6700 XT": { vram: 12, bw: 384 },
+    // Intel
+    "Arc A770": { vram: 16, bw: 560 },
+    "Arc A750": { vram: 8, bw: 512 },
+  };
+
+  // Apple Silicon: { ram (base config), bandwidth GB/s }
+  const APPLE_DB: Record<string, { ram: number; bw: number }> = {
+    "m4 ultra": { ram: 192, bw: 819 },
+    "m4 max": { ram: 36, bw: 546 },
+    "m4 pro": { ram: 24, bw: 273 },
+    "m4": { ram: 16, bw: 120 },
+    "m3 ultra": { ram: 64, bw: 819 },
+    "m3 max": { ram: 36, bw: 408 },
+    "m3 pro": { ram: 18, bw: 150 },
+    "m3": { ram: 8, bw: 100 },
+    "m2 ultra": { ram: 64, bw: 819 },
+    "m2 max": { ram: 32, bw: 408 },
+    "m2 pro": { ram: 16, bw: 200 },
+    "m2": { ram: 8, bw: 100 },
+    "m1 ultra": { ram: 64, bw: 819 },
+    "m1 max": { ram: 32, bw: 408 },
+    "m1 pro": { ram: 16, bw: 200 },
+    "m1": { ram: 8, bw: 68 },
+  };
+
+  // ── Detection ──────────────────────────────────────────────
+
+  function getGPUInfo(): { renderer: string | null; vendor: string | null } {
+    try {
+      const canvas = document.createElement("canvas");
+      const gl = canvas.getContext("webgl2") || canvas.getContext("webgl");
+      if (!gl) return { renderer: null, vendor: null };
+      const ext = gl.getExtension("WEBGL_debug_renderer_info");
+      if (!ext) return { renderer: null, vendor: null };
+      return {
+        renderer: gl.getParameter(ext.UNMASKED_RENDERER_WEBGL),
+        vendor: gl.getParameter(ext.UNMASKED_VENDOR_WEBGL),
+      };
+    } catch {
+      return { renderer: null, vendor: null };
+    }
+  }
+
+  function matchGPU(renderer: string): { vram: number; bw: number } | null {
+    const upper = renderer.toUpperCase();
+    for (const [name, data] of Object.entries(GPU_DB)) {
+      if (upper.includes(name.toUpperCase())) return data;
+    }
+    return null;
+  }
+
+  function matchApple(renderer: string): { ram: number; bw: number } | null {
+    const lower = renderer.toLowerCase();
+    for (const [chip, data] of Object.entries(APPLE_DB)) {
+      if (lower.includes(chip)) return data;
+    }
+    if (lower.includes("apple")) return APPLE_DB["m1"]; // fallback
+    return null;
+  }
+
+  function isAppleSilicon(renderer: string): boolean {
+    const r = renderer.toLowerCase();
+    return r.includes("apple") && (r.includes("m1") || r.includes("m2") || r.includes("m3") || r.includes("m4") || r.includes("gpu"));
+  }
+
+  function cleanGPUName(renderer: string): string {
+    let name = renderer
+      .replace(/^ANGLE\s*\(\s*/, "")
+      .replace(/\)\s*$/, "")
+      .replace(/,\s*ANGLE Metal Renderer:\s*/, " — ")
+      .replace(/,\s*Unspecified Version\s*/i, "")
+      .replace(/,\s*Direct3D.*$/i, "")
+      .replace(/,\s*OpenGL.*$/i, "")
+      .replace(/,\s*Vulkan.*$/i, "")
+      .replace(/vs_\d+_\d+.*$/, "")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+    const metalMatch = name.match(/Apple\s*(?:—\s*)?(.+)/i);
+    if (metalMatch) name = metalMatch[1].trim() || name;
+    return name;
+  }
+
+  async function detectHardware(): Promise<HardwareInfo> {
+    const cpuCores = navigator.hardwareConcurrency || null;
+    const deviceMemory = (navigator as any).deviceMemory || null;
+    const { renderer, vendor } = getGPUInfo();
+
+    let webgpu = false;
+    try {
+      webgpu = "gpu" in navigator && !!(await (navigator as any).gpu?.requestAdapter());
+    } catch {}
+
+    const apple = renderer ? isAppleSilicon(renderer) : false;
+    const gpuMatch = renderer ? matchGPU(renderer) : null;
+    const appleMatch = renderer ? matchApple(renderer) : null;
+
+    let totalUsableRAM: number | null = null;
+    let estimatedVRAM: number | null = null;
+    let memoryBandwidth: number | null = null;
+
+    if (apple && appleMatch) {
+      totalUsableRAM = appleMatch.ram;
+      memoryBandwidth = appleMatch.bw;
+    } else if (gpuMatch) {
+      estimatedVRAM = gpuMatch.vram;
+      memoryBandwidth = gpuMatch.bw;
+      totalUsableRAM = deviceMemory;
+    } else {
+      totalUsableRAM = deviceMemory;
+    }
+
+    return {
+      cpuCores,
+      ramGB: totalUsableRAM,
+      gpuRenderer: renderer,
+      gpuVendor: vendor,
+      estimatedVRAM,
+      webgpu,
+      isAppleSilicon: apple,
+      totalUsableRAM,
+      memoryBandwidth,
+    };
+  }
+
+  // ── Evaluation ─────────────────────────────────────────────
+
+  function evaluateModel(vramNeeded: number, hw: HardwareInfo): ModelStatus {
+    if (hw.isAppleSilicon && hw.totalUsableRAM) {
+      const usable = hw.totalUsableRAM * 0.75;
+      if (vramNeeded <= usable * 0.7) return "can-run";
+      if (vramNeeded <= usable) return "tight";
+      return "cannot-run";
+    }
+    if (hw.estimatedVRAM) {
+      if (vramNeeded <= hw.estimatedVRAM * 0.85) return "can-run";
+      if (vramNeeded <= hw.estimatedVRAM * 1.1) return "tight";
+    }
+    if (hw.totalUsableRAM) {
+      const usable = hw.totalUsableRAM * 0.7;
+      if (vramNeeded <= usable * 0.7) return "can-run";
+      if (vramNeeded <= usable) return "tight";
+      return "cannot-run";
+    }
+    return "unknown";
+  }
+
+  function estimateTokensPerSecond(modelVRAM: number, hw: HardwareInfo): number | null {
+    if (!hw.memoryBandwidth) return null;
+    const efficiency = hw.isAppleSilicon ? 0.65 : 0.70;
+    const toks = (hw.memoryBandwidth / modelVRAM) * efficiency;
+    return Math.round(toks);
+  }
+
+  // Linear interpolation helper for smooth scoring
+  function lerp(x: number, x0: number, x1: number, y0: number, y1: number): number {
+    return y0 + (y1 - y0) * ((x - x0) / (x1 - x0));
+  }
+
+  function computeScore(status: ModelStatus, toksPerSec: number | null, paramsBillions: number, memPct: number | null): number {
+    if (status === "cannot-run" || status === "unknown") return 0;
+
+    // Speed score — continuous interpolation for smooth distribution
+    let speedScore = 0;
+    if (toksPerSec !== null) {
+      if (toksPerSec >= 80) speedScore = 100;
+      else if (toksPerSec >= 40) speedScore = lerp(toksPerSec, 40, 80, 80, 100);
+      else if (toksPerSec >= 20) speedScore = lerp(toksPerSec, 20, 40, 55, 80);
+      else if (toksPerSec >= 10) speedScore = lerp(toksPerSec, 10, 20, 35, 55);
+      else if (toksPerSec >= 5) speedScore = lerp(toksPerSec, 5, 10, 15, 35);
+      else speedScore = lerp(Math.max(toksPerSec, 0), 0, 5, 0, 15);
+    } else {
+      speedScore = status === "can-run" ? 45 : 20;
+    }
+
+    // Memory headroom score — continuous interpolation
+    let headroomScore = 45;
+    if (memPct !== null) {
+      if (memPct <= 20) headroomScore = 100;
+      else if (memPct <= 40) headroomScore = lerp(memPct, 20, 40, 100, 75);
+      else if (memPct <= 60) headroomScore = lerp(memPct, 40, 60, 75, 45);
+      else if (memPct <= 80) headroomScore = lerp(memPct, 60, 80, 45, 20);
+      else headroomScore = lerp(Math.min(memPct, 100), 80, 100, 20, 0);
+    }
+
+    // Quality bonus — larger models get a small boost
+    const qualityBonus = Math.min(12, Math.log2(paramsBillions + 1) * 2);
+
+    // Tight fit penalty — gentler than before
+    const fitMultiplier = status === "tight" ? 0.75 : 1;
+
+    return Math.round(((speedScore * 0.55 + headroomScore * 0.35 + qualityBonus) * fitMultiplier));
+  }
+
+  function memoryPercentage(vramNeeded: number, hw: HardwareInfo): number | null {
+    const total = hw.isAppleSilicon ? hw.totalUsableRAM : (hw.estimatedVRAM || hw.totalUsableRAM);
+    if (!total) return null;
+    return Math.round((vramNeeded / total) * 100);
+  }
+
+  // ── Grades ─────────────────────────────────────────────────
+
+  type Grade = "S" | "A" | "B" | "C" | "D" | "F" | "?";
+
+  interface GradeInfo {
+    letter: string;
+    label: string;
+    color: string;
+  }
+
+  const GRADES: Record<Grade, GradeInfo> = {
+    "S": { letter: "S",  label: "Runs great",  color: "var(--color-can-run)" },
+    "A": { letter: "A",  label: "Runs well",   color: "var(--color-grade-a)" },
+    "B": { letter: "B",  label: "Decent",       color: "var(--color-grade-b)" },
+    "C": { letter: "C",  label: "Tight fit",    color: "var(--color-maybe)" },
+    "D": { letter: "D",  label: "Barely runs",  color: "var(--color-grade-d)" },
+    "F": { letter: "F",  label: "Too heavy",    color: "var(--color-cannot-run)" },
+    "?": { letter: "?",  label: "Unknown",      color: "var(--color-muted)" },
+  };
+
+  function scoreToGrade(score: number, status: ModelStatus): Grade {
+    if (status === "cannot-run") return "F";
+    if (status === "unknown") return "?";
+    if (score >= 85) return "S";
+    if (score >= 70) return "A";
+    if (score >= 55) return "B";
+    if (score >= 40) return "C";
+    if (score >= 20) return "D";
+    return "F";
+  }
+
+  // Keep old status colors for backward compat (filters, etc.)
+  const STATUS_COLORS: Record<ModelStatus, string> = {
+    "can-run": "var(--color-can-run)",
+    "tight": "var(--color-maybe)",
+    "cannot-run": "var(--color-cannot-run)",
+    "unknown": "var(--color-muted)",
+  };
+
+  // ── Main Logic ─────────────────────────────────────────────
+
+  let currentHW: HardwareInfo;
+
+  function updateHardwarePanel(hw: HardwareInfo) {
+    const $ = (id: string) => document.getElementById(id);
+
+    // Target the inner <span> (last child) to preserve SVG icons
+    const cpuText = $("hw-cpu")!.querySelector("span")!;
+    cpuText.textContent = hw.cpuCores ? `${hw.cpuCores} cores` : "Unknown";
+    $("hw-cpu")!.classList.replace("text-muted", "text-secondary");
+
+    const ramText = $("hw-ram")!.querySelector("span")!;
+    ramText.textContent = hw.ramGB ? `${hw.ramGB} GB` : "Unknown";
+    $("hw-ram")!.classList.replace("text-muted", "text-secondary");
+
+    const gpuText = $("hw-gpu")!.querySelector("span")!;
+    if (hw.gpuRenderer) {
+      const name = cleanGPUName(hw.gpuRenderer);
+      gpuText.textContent = hw.estimatedVRAM ? `${name} (${hw.estimatedVRAM} GB)` : name;
+    } else {
+      gpuText.textContent = "Unknown";
+    }
+    $("hw-gpu")!.classList.replace("text-muted", "text-secondary");
+
+    if (hw.memoryBandwidth) {
+      const bwSpan = $("hw-bw")!;
+      bwSpan.classList.remove("hidden");
+      $("hw-bw-val")!.textContent = `~${hw.memoryBandwidth} GB/s`;
+    }
+
+    $("hw-notice")!.classList.remove("invisible");
+    if (hw.webgpu) $("hw-webgpu-badge")!.classList.remove("hidden");
+  }
+
+  function updateModelCard(card: HTMLElement, hw: HardwareInfo, quantIndex: number = 0) {
+    const quants = JSON.parse(card.dataset.quants || "[]");
+    const quant = quants[quantIndex] || quants[0];
+    if (!quant) return;
+
+    const vram = quant.vramGB;
+    const status = evaluateModel(vram, hw);
+    const toks = estimateTokensPerSecond(vram, hw);
+    const params = parseFloat(card.dataset.params || "0");
+    const memPct = memoryPercentage(vram, hw);
+    const score = computeScore(status, toks, params, memPct);
+
+    const grade = scoreToGrade(score, status);
+    const gradeInfo = GRADES[grade];
+
+    // Status dot — use grade color
+    const dot = card.querySelector<HTMLElement>("[data-status-dot]");
+    if (dot) dot.style.backgroundColor = gradeInfo.color;
+
+    // Status label — show grade label (bottom left)
+    const label = card.querySelector<HTMLElement>("[data-status-label]");
+    if (label) {
+      label.textContent = gradeInfo.label;
+      label.style.color = gradeInfo.color;
+    }
+
+    // Grade letter — bottom right, large, full opacity
+    const scoreEl = card.querySelector<HTMLElement>("[data-score]");
+    if (scoreEl) {
+      scoreEl.textContent = gradeInfo.letter;
+      scoreEl.style.color = gradeInfo.color;
+    }
+    // Numerical score below grade
+    const scoreNumEl = card.querySelector<HTMLElement>("[data-score-num]");
+    if (scoreNumEl && score > 0) {
+      scoreNumEl.textContent = `${score}/100`;
+      scoreNumEl.style.color = gradeInfo.color;
+    }
+
+    card.dataset.grade = grade;
+
+    // Memory % — pill in simple mode
+    const memPill = card.querySelector<HTMLElement>("[data-mem-pct-pill]");
+    if (memPill) {
+      if (memPct !== null) {
+        memPill.textContent = `${memPct}%`;
+        memPill.classList.remove("hidden");
+        if (memPct > 100) {
+          memPill.className = "rounded-full bg-cannot-run/15 px-1.5 py-px text-[9px] font-medium text-cannot-run";
+        } else if (memPct > 75) {
+          memPill.className = "rounded-full bg-maybe/15 px-1.5 py-px text-[9px] font-medium text-maybe";
+        } else {
+          memPill.className = "rounded-full bg-can-run/15 px-1.5 py-px text-[9px] font-medium text-can-run";
+        }
+      }
+    }
+    // Memory % — detail in advanced mode
+    const memDetail = card.querySelector<HTMLElement>("[data-mem-pct-detail]");
+    if (memDetail) {
+      if (memPct !== null) {
+        memDetail.textContent = `${memPct}%`;
+        if (memPct > 100) memDetail.style.color = "var(--color-cannot-run)";
+        else if (memPct > 75) memDetail.style.color = "var(--color-maybe)";
+        else memDetail.style.color = "var(--color-can-run)";
+      } else {
+        memDetail.textContent = "—";
+      }
+    }
+
+    // Tokens/s with color coding
+    const tokEl = card.querySelector<HTMLElement>("[data-tok-speed]");
+    if (tokEl) {
+      if (toks !== null && status !== "cannot-run") {
+        tokEl.textContent = `~${toks} tok/s`;
+        // Color based on speed
+        if (toks >= 60) tokEl.className = "font-mono text-[11px] text-can-run";
+        else if (toks >= 30) tokEl.className = "font-mono text-[11px] text-can-run/70";
+        else if (toks >= 15) tokEl.className = "font-mono text-[11px] text-maybe";
+        else if (toks >= 5) tokEl.className = "font-mono text-[11px] text-maybe/70";
+        else tokEl.className = "font-mono text-[11px] text-cannot-run";
+      } else {
+        tokEl.textContent = "";
+        tokEl.className = "font-mono text-[11px] text-muted";
+      }
+    }
+
+    // Quant buttons highlight
+    const quantBtns = card.querySelectorAll<HTMLElement>("[data-quant-btn]");
+    quantBtns.forEach((btn, i) => {
+      if (i === quantIndex) {
+        btn.className = "quant-btn rounded px-1.5 py-0.5 text-[10px] font-mono transition-colors border border-accent/30 bg-accent/10 text-accent";
+      } else {
+        btn.className = "quant-btn rounded px-1.5 py-0.5 text-[10px] font-mono transition-colors border border-transparent text-muted hover:text-secondary";
+      }
+    });
+
+    // Update VRAM display
+    const vramVal = card.querySelector<HTMLElement>("[data-vram-val]");
+    if (vramVal) vramVal.textContent = String(vram);
+
+    card.dataset.status = status;
+    card.dataset.score = String(score);
+    card.dataset.selectedQuant = String(quantIndex);
+  }
+
+  function updateAllCards(hw: HardwareInfo) {
+    const cards = document.querySelectorAll<HTMLElement>("[data-model-id]");
+    cards.forEach((card) => {
+      const qi = parseInt(card.dataset.selectedQuant || "2");
+      updateModelCard(card, hw, qi);
+    });
+    updateSummary();
+    sortAndAnimateCards();
+  }
+
+  function updateSummary() {
+    const cards = document.querySelectorAll<HTMLElement>("[data-model-id]");
+    const counts: Record<string, number> = { S: 0, A: 0, B: 0, C: 0, D: 0, F: 0 };
+    cards.forEach(c => {
+      const g = c.dataset.grade || "?";
+      if (g in counts) counts[g]++;
+    });
+    document.getElementById("count-s")!.textContent = String(counts.S);
+    document.getElementById("count-a")!.textContent = String(counts.A);
+    document.getElementById("count-b")!.textContent = String(counts.B);
+    document.getElementById("count-c")!.textContent = String(counts.C);
+    document.getElementById("count-d")!.textContent = String(counts.D);
+    document.getElementById("count-f")!.textContent = String(counts.F);
+    document.getElementById("summary-bar")!.classList.remove("invisible");
+  }
+
+  let currentSort = "score";
+
+  function sortAndAnimateCards() {
+    const order: Record<string, number> = { "can-run": 0, "tight": 1, "unknown": 2, "cannot-run": 3 };
+
+    function sortComparator(a: HTMLElement, b: HTMLElement): number {
+      const cardA = a.querySelector<HTMLElement>("[data-model-id]")!;
+      const cardB = b.querySelector<HTMLElement>("[data-model-id]")!;
+
+      switch (currentSort) {
+        case "params-asc":
+          return parseFloat(cardA.dataset.params || "0") - parseFloat(cardB.dataset.params || "0");
+        case "params-desc":
+          return parseFloat(cardB.dataset.params || "0") - parseFloat(cardA.dataset.params || "0");
+        case "release": {
+          const ra = cardA.dataset.release || "";
+          const rb = cardB.dataset.release || "";
+          return rb.localeCompare(ra);
+        }
+        case "context":
+          return parseInt(cardB.dataset.context || "0") - parseInt(cardA.dataset.context || "0");
+        case "toks": {
+          const tokA = cardA.querySelector<HTMLElement>("[data-tok-speed]")?.textContent || "";
+          const tokB = cardB.querySelector<HTMLElement>("[data-tok-speed]")?.textContent || "";
+          const tA = parseInt(tokA.replace(/[^0-9]/g, "")) || 0;
+          const tB = parseInt(tokB.replace(/[^0-9]/g, "")) || 0;
+          return tB - tA;
+        }
+        case "vram": {
+          const qA = JSON.parse(cardA.dataset.quants || "[]");
+          const qB = JSON.parse(cardB.dataset.quants || "[]");
+          const vA = qA[parseInt(cardA.dataset.selectedQuant || "2")]?.vramGB || 0;
+          const vB = qB[parseInt(cardB.dataset.selectedQuant || "2")]?.vramGB || 0;
+          return vA - vB;
+        }
+        default: { // score
+          const sa = order[cardA.dataset.status || "unknown"] ?? 2;
+          const sb = order[cardB.dataset.status || "unknown"] ?? 2;
+          if (sa !== sb) return sa - sb;
+          const scoreA = parseInt(cardA.dataset.score || "0");
+          const scoreB = parseInt(cardB.dataset.score || "0");
+          if (scoreA !== scoreB) return scoreB - scoreA;
+          return parseFloat(cardA.dataset.params || "0") - parseFloat(cardB.dataset.params || "0");
+        }
+      }
+    }
+
+    // Sort both grids independently
+    let animIdx = 0;
+    for (const gridId of ["models-grid", "models-grid-rest"]) {
+      const grid = document.getElementById(gridId);
+      if (!grid) continue;
+      const links = Array.from(grid.children) as HTMLElement[];
+      links.sort(sortComparator);
+      links.forEach((link) => {
+        const card = link.querySelector<HTMLElement>("[data-model-id]");
+        if (card) {
+          card.style.animationDelay = `${animIdx * 25}ms`;
+          card.classList.add("fade-in");
+        }
+        grid.appendChild(link);
+        animIdx++;
+      });
+    }
+  }
+
+  // ── Filters ────────────────────────────────────────────────
+
+  let activeStatusFilter = "all";
+  let activeUseFilter = "all";
+  let activeProviderFilter = "all";
+  let searchQuery = "";
+
+  function applyFilters() {
+    const links = document.querySelectorAll<HTMLElement>("#models-grid > a, #models-grid-rest > a");
+    const query = searchQuery.toLowerCase();
+    let featuredVisible = 0;
+    let restVisible = 0;
+
+    links.forEach(link => {
+      const card = link.querySelector<HTMLElement>("[data-model-id]");
+      if (!card) return;
+      const status = card.dataset.status || "unknown";
+      const uses = card.dataset.uses || "";
+      const provider = card.dataset.provider || "";
+      const name = (card.dataset.modelName || "").toLowerCase();
+      const isFeatured = card.dataset.featured === "true";
+      let show = true;
+
+      if (query && !name.includes(query)) show = false;
+      if (activeStatusFilter === "featured") {
+        if (!isFeatured) show = false;
+      } else if (activeStatusFilter !== "all" && status !== activeStatusFilter) show = false;
+      if (activeUseFilter !== "all" && !uses.includes(activeUseFilter)) show = false;
+      if (activeProviderFilter !== "all" && provider !== activeProviderFilter) show = false;
+
+      link.style.display = show ? "" : "none";
+      if (show) {
+        if (isFeatured) featuredVisible++;
+        else restVisible++;
+      }
+    });
+
+    // Hide divider and rest grid heading when no results in those sections
+    const divider = document.getElementById("rest-divider");
+    const featuredGrid = document.getElementById("models-grid");
+    if (divider) divider.style.display = (featuredVisible === 0 || restVisible === 0) ? "none" : "";
+    if (featuredGrid) featuredGrid.style.display = featuredVisible === 0 ? "none" : "";
+  }
+
+  function setupFilters() {
+    const statusSelect = document.getElementById("filter-status") as HTMLSelectElement;
+    const useSelect = document.getElementById("filter-use") as HTMLSelectElement;
+    const providerSelect = document.getElementById("filter-provider") as HTMLSelectElement;
+
+    statusSelect?.addEventListener("change", () => {
+      activeStatusFilter = statusSelect.value;
+      applyFilters();
+    });
+
+    useSelect?.addEventListener("change", () => {
+      activeUseFilter = useSelect.value;
+      applyFilters();
+    });
+
+    providerSelect?.addEventListener("change", () => {
+      activeProviderFilter = providerSelect.value;
+      applyFilters();
+    });
+  }
+
+  // ── Quant Switching ────────────────────────────────────────
+
+  function setupQuantButtons() {
+    document.querySelectorAll<HTMLElement>("[data-quant-btn]").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const card = btn.closest<HTMLElement>("[data-model-id]");
+        if (!card || !currentHW) return;
+        const qi = parseInt(btn.dataset.quantBtn || "0");
+        updateModelCard(card, currentHW, qi);
+      });
+    });
+  }
+
+  // ── Init ───────────────────────────────────────────────────
+
+  async function init() {
+    currentHW = await detectHardware();
+    updateHardwarePanel(currentHW);
+    updateAllCards(currentHW);
+  }
+
+  // ── Search ───────────────────────────────────────────────
+
+  function setupSearch() {
+    const input = document.getElementById("search-input") as HTMLInputElement;
+    if (!input) return;
+
+    input.addEventListener("input", () => {
+      searchQuery = input.value.trim();
+      applyFilters();
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "/" && document.activeElement !== input && !(document.activeElement instanceof HTMLInputElement) && !(document.activeElement instanceof HTMLTextAreaElement) && !(document.activeElement instanceof HTMLSelectElement)) {
+        e.preventDefault();
+        input.focus();
+      }
+      if (e.key === "Escape" && document.activeElement === input) {
+        input.blur();
+      }
+    });
+  }
+
+  // ── Sort ─────────────────────────────────────────────────
+
+  function setupSort() {
+    const select = document.getElementById("sort-select") as HTMLSelectElement;
+    if (!select) return;
+    select.addEventListener("change", () => {
+      currentSort = select.value;
+      sortAndAnimateCards();
+    });
+  }
+
+  // ── View Mode Toggle ────────────────────────────────────
+
+  type ViewMode = "simple" | "advanced" | "list";
+  let viewMode: ViewMode = "simple";
+
+  function applyViewMode() {
+    const grids = [document.getElementById("models-grid"), document.getElementById("models-grid-rest")];
+    const iconSimple = document.getElementById("view-icon-simple");
+    const iconAdvanced = document.getElementById("view-icon-advanced");
+    const iconList = document.getElementById("view-icon-list");
+    const label = document.getElementById("view-label");
+
+    // Show advanced sections only in advanced mode
+    document.querySelectorAll<HTMLElement>("[data-advanced]").forEach(el => {
+      el.classList.toggle("hidden", viewMode !== "advanced");
+    });
+
+    // Grid vs list layout
+    grids.forEach(grid => {
+      if (!grid) return;
+      if (viewMode === "list") {
+        grid.classList.remove("sm:grid-cols-2", "lg:grid-cols-3", "gap-3");
+        grid.classList.add("grid-cols-1", "list-view");
+      } else {
+        grid.classList.remove("grid-cols-1", "list-view");
+        grid.classList.add("sm:grid-cols-2", "lg:grid-cols-3", "gap-3");
+      }
+    });
+    document.querySelectorAll<HTMLElement>(".model-card").forEach(card => {
+      card.classList.toggle("list-mode", viewMode === "list");
+    });
+
+    // Icons
+    if (iconSimple) iconSimple.classList.toggle("hidden", viewMode !== "simple");
+    if (iconAdvanced) iconAdvanced.classList.toggle("hidden", viewMode !== "advanced");
+    if (iconList) iconList.classList.toggle("hidden", viewMode !== "list");
+    if (label) {
+      const labels: Record<ViewMode, string> = { simple: "Simple", advanced: "Advanced", list: "List" };
+      label.textContent = labels[viewMode];
+    }
+  }
+
+  function setupViewToggle() {
+    const btn = document.getElementById("view-toggle");
+    if (!btn) return;
+
+    const modes: ViewMode[] = ["simple", "advanced", "list"];
+
+    btn.addEventListener("click", () => {
+      const idx = modes.indexOf(viewMode);
+      viewMode = modes[(idx + 1) % modes.length];
+      applyViewMode();
+    });
+  }
+
+  // ── Keyboard Navigation ─────────────────────────────────
+
+  function setupKeyboardNav() {
+    let focusedCardIndex = -1;
+
+    function getVisibleLinks(): HTMLElement[] {
+      return Array.from(document.querySelectorAll<HTMLElement>("#models-grid > a, #models-grid-rest > a")).filter(
+        (link) => link.style.display !== "none"
+      );
+    }
+
+    function focusCard(index: number) {
+      const links = getVisibleLinks();
+      if (index < 0 || index >= links.length) return;
+      focusedCardIndex = index;
+      links.forEach((link, i) => {
+        const card = link.querySelector<HTMLElement>("[data-model-id]");
+        if (card) {
+          if (i === index) {
+            card.classList.add("ring-1", "ring-accent/40");
+            link.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          } else {
+            card.classList.remove("ring-1", "ring-accent/40");
+          }
+        }
+      });
+    }
+
+    function clearFocus() {
+      focusedCardIndex = -1;
+      document.querySelectorAll<HTMLElement>("[data-model-id]").forEach(card => {
+        card.classList.remove("ring-1", "ring-accent/40");
+      });
+    }
+
+    document.addEventListener("keydown", (e) => {
+      const active = document.activeElement;
+      if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement || active instanceof HTMLSelectElement) return;
+
+      const links = getVisibleLinks();
+
+      switch (e.key) {
+        case "j":
+          e.preventDefault();
+          focusCard(Math.min(focusedCardIndex + 1, links.length - 1));
+          break;
+        case "k":
+          e.preventDefault();
+          focusCard(Math.max(focusedCardIndex - 1, 0));
+          break;
+        case "Enter":
+          if (focusedCardIndex >= 0 && focusedCardIndex < links.length) {
+            e.preventDefault();
+            const link = links[focusedCardIndex] as HTMLAnchorElement;
+            if (link.href) window.location.href = link.href;
+          }
+          break;
+        case "Escape":
+          clearFocus();
+          break;
+        case "v":
+          e.preventDefault();
+          document.getElementById("view-toggle")?.click();
+          break;
+      }
+    });
+  }
+
+  document.addEventListener('astro:page-load', () => {
+    if (!document.getElementById('models-grid')) return;
+
+    activeStatusFilter = "all";
+    activeUseFilter = "all";
+    activeProviderFilter = "all";
+    searchQuery = "";
+    currentSort = "score";
+    viewMode = "simple";
+
+    setupQuantButtons();
+    setupFilters();
+    setupSearch();
+    setupSort();
+    setupViewToggle();
+    setupKeyboardNav();
+    init();
+  });
+</script>
+
+<style>
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .fade-in {
+    animation: fadeIn 0.25s ease-out both;
+  }
+
+  .model-card[data-status="cannot-run"] {
+    opacity: 0.35;
+  }
+
+  .model-card[data-status="cannot-run"]:hover {
+    opacity: 0.55;
+  }
+
+  .filter-select {
+    border: 1px solid var(--color-edge);
+    background-color: var(--color-surface-card);
+    color: var(--color-secondary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.4;
+    padding: 6px 10px;
+    border-radius: 6px;
+    outline: none;
+    transition: border-color 0.15s;
+    cursor: pointer;
+  }
+
+  .filter-select:focus {
+    border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+  }
+
+  .filter-select:hover {
+    border-color: var(--color-edge-subtle);
+    background-color: var(--color-surface-hover);
+  }
+
+  select.filter-select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2356565f' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 6px center;
+    padding-right: 22px;
+  }
+
+  select.filter-select option {
+    background-color: var(--color-surface-card);
+    color: var(--color-secondary);
+    padding: 4px 8px;
+    line-height: 1.6;
+  }
+
+  /* List mode — compact single-row cards */
+  .model-card.list-mode {
+    flex-direction: row;
+    align-items: center;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 0;
+  }
+
+  .model-card.list-mode [data-description],
+  .model-card.list-mode [data-advanced],
+  .model-card.list-mode [data-card-provider] {
+    display: none !important;
+  }
+
+  .model-card.list-mode [data-card-body] {
+    flex-direction: row;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.625rem 1rem;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .model-card.list-mode [data-card-top] {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .model-card.list-mode [data-card-stats] {
+    margin-top: 0;
+    white-space: nowrap;
+  }
+
+  .model-card.list-mode [data-card-footer] {
+    margin-top: 0;
+    padding: 0 1rem 0 0;
+    gap: 0.5rem;
+  }
+
+  /* List mode grid: remove gap, add top border */
+  #models-grid.list-view,
+  #models-grid-rest.list-view {
+    gap: 0;
+    border: 1px solid var(--color-edge);
+    border-radius: 0.5rem;
+    overflow: hidden;
+  }
+</style>
