@@ -82,19 +82,21 @@ function timeAgo(dateStr: string | null): string {
         <!-- RAM -->
         <span id="hw-ram" class="inline-flex items-center gap-1.5 text-muted">
           <IconRam class="h-3.5 w-3.5 shrink-0" />
-          <span>—</span>
+          <select id="hw-ram-select" class="hw-editable-select" disabled>
+            <option value="">—</option>
+          </select>
         </span>
         <!-- Bandwidth -->
         <span id="hw-bw" class="hidden inline-flex items-center gap-1.5">
           <span class="text-edge/40">|</span>
           <IconBandwidth class="h-3.5 w-3.5 shrink-0 text-muted" />
-          <span id="hw-bw-val"></span>
+          <select id="hw-bw-select" class="hw-editable-select"></select>
         </span>
         <!-- GPU Cores -->
         <span id="hw-gpu-cores" class="hidden inline-flex items-center gap-1.5">
           <span class="text-edge/40">|</span>
           <IconCpu class="h-3.5 w-3.5 shrink-0 text-muted" stroke-width="1.5" />
-          <span id="hw-gpu-cores-val"></span>
+          <select id="hw-gpu-cores-select" class="hw-editable-select"></select>
         </span>
         <!-- WebGPU -->
         <span id="hw-webgpu-badge" class="hidden inline-flex items-center gap-1 rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] text-accent">
@@ -461,9 +463,16 @@ function timeAgo(dateStr: string | null): string {
     scoreToGrade,
     memoryPercentage,
     getDisplayName,
+    getHardwareOverrides,
+    saveHardwareOverrides,
+    applyOverrides,
+    buildSelectOptions,
+    RAM_OPTIONS,
+    BW_OPTIONS,
+    GPU_CORES_OPTIONS,
     GRADES as _GRADES,
   } from "../lib/hardware";
-  import type { HardwareInfo, ModelStatus, Grade, GradeInfo } from "../lib/hardware";
+  import type { HardwareInfo, HardwareOverrides, ModelStatus, Grade, GradeInfo } from "../lib/hardware";
 
   // Override GRADES to use CSS variables for theming
   const GRADES: Record<Grade, GradeInfo> = {
@@ -485,33 +494,87 @@ function timeAgo(dateStr: string | null): string {
 
   // ── Main Logic ─────────────────────────────────────────────
 
+  let detectedHW: HardwareInfo;
   let currentHW: HardwareInfo;
+
+  function populateSelect(
+    select: HTMLSelectElement,
+    presets: number[],
+    detected: number | null,
+    override: number | undefined,
+    formatter: (v: number) => string,
+  ) {
+    const options = buildSelectOptions(presets, detected);
+    select.innerHTML = "";
+    for (const v of options) {
+      const opt = document.createElement("option");
+      opt.value = String(v);
+      opt.textContent = formatter(v) + (v === detected ? " ✱" : "");
+      select.appendChild(opt);
+    }
+    select.value = String(override ?? detected ?? "");
+    select.disabled = false;
+  }
 
   function updateHardwarePanel(hw: HardwareInfo) {
     const $ = (id: string) => document.getElementById(id);
+    const overrides = getHardwareOverrides();
 
     const gpuText = $("hw-gpu")!.querySelector("span")!;
     const displayName = getDisplayName(hw);
     gpuText.textContent = hw.estimatedVRAM ? `${displayName} (${hw.estimatedVRAM} GB)` : displayName;
     $("hw-gpu")!.classList.replace("text-muted", "text-secondary");
 
-    const ramText = $("hw-ram")!.querySelector("span")!;
-    ramText.textContent = hw.ramGB ? `${hw.ramGB} GB` : "Unknown";
+    const ramSelect = $("hw-ram-select") as HTMLSelectElement;
+    if (ramSelect && (detectedHW.ramGB || overrides.ramGB)) {
+      populateSelect(ramSelect, RAM_OPTIONS, detectedHW.ramGB, overrides.ramGB, (v) => `${v} GB`);
+    }
     $("hw-ram")!.classList.replace("text-muted", "text-secondary");
 
-    if (hw.memoryBandwidth) {
-      const bwSpan = $("hw-bw")!;
-      bwSpan.classList.remove("hidden");
-      $("hw-bw-val")!.textContent = `~${hw.memoryBandwidth} GB/s`;
+    if (detectedHW.memoryBandwidth || overrides.memoryBandwidth) {
+      $("hw-bw")!.classList.remove("hidden");
+      const bwSelect = $("hw-bw-select") as HTMLSelectElement;
+      if (bwSelect) {
+        populateSelect(bwSelect, BW_OPTIONS, detectedHW.memoryBandwidth, overrides.memoryBandwidth, (v) => `~${v} GB/s`);
+      }
     }
 
-    if (hw.gpuCores) {
+    if (detectedHW.gpuCores || overrides.gpuCores) {
       $("hw-gpu-cores")!.classList.remove("hidden");
-      $("hw-gpu-cores-val")!.textContent = `${hw.gpuCores.toLocaleString()} GPU cores`;
+      const coresSelect = $("hw-gpu-cores-select") as HTMLSelectElement;
+      if (coresSelect) {
+        populateSelect(coresSelect, GPU_CORES_OPTIONS, detectedHW.gpuCores, overrides.gpuCores, (v) => `${v.toLocaleString()} cores`);
+      }
     }
 
     $("hw-notice")!.classList.remove("invisible");
     if (hw.webgpu) $("hw-webgpu-badge")!.classList.remove("hidden");
+  }
+
+  function setupHardwareEditing() {
+    const ramSelect = document.getElementById("hw-ram-select") as HTMLSelectElement;
+    const bwSelect = document.getElementById("hw-bw-select") as HTMLSelectElement;
+    const coresSelect = document.getElementById("hw-gpu-cores-select") as HTMLSelectElement;
+
+    function handleChange() {
+      const overrides: HardwareOverrides = {};
+      if (ramSelect?.value && Number(ramSelect.value) !== detectedHW.ramGB) {
+        overrides.ramGB = Number(ramSelect.value);
+      }
+      if (bwSelect?.value && Number(bwSelect.value) !== detectedHW.memoryBandwidth) {
+        overrides.memoryBandwidth = Number(bwSelect.value);
+      }
+      if (coresSelect?.value && Number(coresSelect.value) !== detectedHW.gpuCores) {
+        overrides.gpuCores = Number(coresSelect.value);
+      }
+      saveHardwareOverrides(overrides);
+      currentHW = applyOverrides(detectedHW, overrides);
+      updateAllCards(currentHW);
+    }
+
+    ramSelect?.addEventListener("change", handleChange);
+    bwSelect?.addEventListener("change", handleChange);
+    coresSelect?.addEventListener("change", handleChange);
   }
 
   function updateModelCard(card: HTMLElement, hw: HardwareInfo, quantIndex: number = 0) {
@@ -548,7 +611,7 @@ function timeAgo(dateStr: string | null): string {
     }
     // Numerical score below grade
     const scoreNumEl = card.querySelector<HTMLElement>("[data-score-num]");
-    if (scoreNumEl && score > 0) {
+    if (scoreNumEl) {
       scoreNumEl.textContent = `${score}/100`;
       scoreNumEl.style.color = gradeInfo.color;
     }
@@ -794,7 +857,8 @@ function timeAgo(dateStr: string | null): string {
   // ── Init ───────────────────────────────────────────────────
 
   async function init() {
-    currentHW = await detectHardware();
+    detectedHW = await detectHardware();
+    currentHW = applyOverrides(detectedHW);
     updateHardwarePanel(currentHW);
     updateAllCards(currentHW);
   }
@@ -971,6 +1035,7 @@ function timeAgo(dateStr: string | null): string {
     setupSort();
     setupViewToggle();
     setupKeyboardNav();
+    setupHardwareEditing();
     init();
   });
 </script>

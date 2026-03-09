@@ -15,8 +15,20 @@ import IconCopy from "../icons/copy.svg";
     </header>
 
     <!-- Hardware info -->
-    <div class="mb-6 text-center font-mono text-xs text-secondary">
-      <span id="hw-summary" class="text-muted">Detecting hardware...</span>
+    <div class="mb-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 font-mono text-xs text-secondary">
+      <span id="hw-gpu-name" class="text-muted">Detecting hardware...</span>
+      <span id="hw-ram-group" class="hidden inline-flex items-center">
+        <span class="text-edge/40 mr-2">·</span>
+        <select id="hw-ram-select" class="hw-editable-select"></select>
+      </span>
+      <span id="hw-bw-group" class="hidden inline-flex items-center">
+        <span class="text-edge/40 mr-2">·</span>
+        <select id="hw-bw-select" class="hw-editable-select"></select>
+      </span>
+      <span id="hw-cores-group" class="hidden inline-flex items-center">
+        <span class="text-edge/40 mr-2">·</span>
+        <select id="hw-gpu-cores-select" class="hw-editable-select"></select>
+      </span>
     </div>
 
     <!-- Config panel -->
@@ -152,8 +164,8 @@ import IconCopy from "../icons/copy.svg";
 </Layout>
 
 <script>
-  import { detectHardware, evaluateModel, estimateTokensPerSecond, computeScore, scoreToGrade, memoryPercentage, cleanGPUName, getDisplayName, GRADES } from "../lib/hardware";
-  import type { HardwareInfo } from "../lib/hardware";
+  import { detectHardware, evaluateModel, estimateTokensPerSecond, computeScore, scoreToGrade, memoryPercentage, cleanGPUName, getDisplayName, getHardwareOverrides, saveHardwareOverrides, applyOverrides, buildSelectOptions, RAM_OPTIONS, BW_OPTIONS, GPU_CORES_OPTIONS, GRADES } from "../lib/hardware";
+  import type { HardwareInfo, HardwareOverrides } from "../lib/hardware";
 
   interface TierModel {
     id: string;
@@ -313,40 +325,117 @@ import IconCopy from "../icons/copy.svg";
 
   // ── Init ────────────────────────────────────────────────
 
-  async function init() {
-    const modelsData: TierModel[] = JSON.parse(document.getElementById("models-data")!.textContent || "[]");
-    const hw = await detectHardware();
+  let detectedHW: HardwareInfo;
+  let currentHW: HardwareInfo;
+  let modelsData: TierModel[] = [];
 
-    // Update hardware summary (ordered by importance for AI)
-    const hwSummary = document.getElementById("hw-summary")!;
-    const parts: string[] = [];
-    parts.push(getDisplayName(hw));
+  function populateSelect(
+    select: HTMLSelectElement,
+    presets: number[],
+    detected: number | null,
+    override: number | undefined,
+    formatter: (v: number) => string,
+  ) {
+    const options = buildSelectOptions(presets, detected);
+    select.innerHTML = "";
+    for (const v of options) {
+      const opt = document.createElement("option");
+      opt.value = String(v);
+      opt.textContent = formatter(v) + (v === detected ? " ✱" : "");
+      select.appendChild(opt);
+    }
+    select.value = String(override ?? detected ?? "");
+  }
+
+  function updateHardwareBar(hw: HardwareInfo) {
+    const overrides = getHardwareOverrides();
+
+    const gpuName = document.getElementById("hw-gpu-name")!;
+    gpuName.textContent = getDisplayName(hw);
+    gpuName.className = "text-secondary";
+
+    if (detectedHW.ramGB || overrides.ramGB) {
+      document.getElementById("hw-ram-group")!.classList.remove("hidden");
+      populateSelect(
+        document.getElementById("hw-ram-select") as HTMLSelectElement,
+        RAM_OPTIONS, detectedHW.ramGB, overrides.ramGB, (v) => `${v} GB RAM`
+      );
+    }
+
+    if (detectedHW.memoryBandwidth || overrides.memoryBandwidth) {
+      document.getElementById("hw-bw-group")!.classList.remove("hidden");
+      populateSelect(
+        document.getElementById("hw-bw-select") as HTMLSelectElement,
+        BW_OPTIONS, detectedHW.memoryBandwidth, overrides.memoryBandwidth, (v) => `~${v} GB/s`
+      );
+    }
+
+    if (detectedHW.gpuCores || overrides.gpuCores) {
+      document.getElementById("hw-cores-group")!.classList.remove("hidden");
+      populateSelect(
+        document.getElementById("hw-gpu-cores-select") as HTMLSelectElement,
+        GPU_CORES_OPTIONS, detectedHW.gpuCores, overrides.gpuCores, (v) => `${v.toLocaleString()} cores`
+      );
+    }
+
+    // Update tier list export label (plain text)
+    const parts: string[] = [getDisplayName(hw)];
     if (hw.ramGB) parts.push(`${hw.ramGB} GB RAM`);
     if (hw.memoryBandwidth) parts.push(`~${hw.memoryBandwidth} GB/s`);
-    if (hw.gpuCores) parts.push(`${hw.gpuCores.toLocaleString()} GPU cores`);
-    hwSummary.textContent = parts.join(" · ") || "Hardware unknown";
-    hwSummary.className = "text-secondary";
+    if (hw.gpuCores) parts.push(`${hw.gpuCores.toLocaleString()} cores`);
+    document.getElementById("tier-hw-label")!.textContent = parts.join(" | ");
+  }
 
-    const tierLabel = document.getElementById("tier-hw-label")!;
-    tierLabel.textContent = parts.join(" | ");
-
-    // Evaluate all models
+  function evaluateAndRender() {
     evaluatedModels = modelsData.map(m => {
-      const status = evaluateModel(m.vramQ4, hw);
-      const toks = estimateTokensPerSecond(m.vramQ4, hw);
-      const memPct = memoryPercentage(m.vramQ4, hw);
+      const status = evaluateModel(m.vramQ4, currentHW);
+      const toks = estimateTokensPerSecond(m.vramQ4, currentHW);
+      const memPct = memoryPercentage(m.vramQ4, currentHW);
       const score = computeScore(status, toks, m.paramsBillions, memPct);
       const grade = scoreToGrade(score, status);
       return { model: m, grade, score, toks };
     });
-
     renderTierList();
+  }
 
-    // Enable share buttons
+  function setupHardwareEditing() {
+    const ramSelect = document.getElementById("hw-ram-select") as HTMLSelectElement;
+    const bwSelect = document.getElementById("hw-bw-select") as HTMLSelectElement;
+    const coresSelect = document.getElementById("hw-gpu-cores-select") as HTMLSelectElement;
+
+    function handleChange() {
+      const overrides: HardwareOverrides = {};
+      if (ramSelect?.value && Number(ramSelect.value) !== detectedHW.ramGB) {
+        overrides.ramGB = Number(ramSelect.value);
+      }
+      if (bwSelect?.value && Number(bwSelect.value) !== detectedHW.memoryBandwidth) {
+        overrides.memoryBandwidth = Number(bwSelect.value);
+      }
+      if (coresSelect?.value && Number(coresSelect.value) !== detectedHW.gpuCores) {
+        overrides.gpuCores = Number(coresSelect.value);
+      }
+      saveHardwareOverrides(overrides);
+      currentHW = applyOverrides(detectedHW, overrides);
+      updateHardwareBar(currentHW);
+      evaluateAndRender();
+    }
+
+    ramSelect?.addEventListener("change", handleChange);
+    bwSelect?.addEventListener("change", handleChange);
+    coresSelect?.addEventListener("change", handleChange);
+  }
+
+  async function init() {
+    modelsData = JSON.parse(document.getElementById("models-data")!.textContent || "[]");
+    detectedHW = await detectHardware();
+    currentHW = applyOverrides(detectedHW);
+
+    updateHardwareBar(currentHW);
+    evaluateAndRender();
+
     document.getElementById("share-btn")!.removeAttribute("disabled");
     document.getElementById("copy-btn")!.removeAttribute("disabled");
 
-    // Wire up config controls
     document.querySelectorAll(".tier-check, #opt-sort").forEach(el => {
       el.addEventListener("change", renderTierList);
     });
@@ -376,6 +465,7 @@ import IconCopy from "../icons/copy.svg";
     if (!document.getElementById('tier-list')) return;
 
     evaluatedModels = [];
+    setupHardwareEditing();
 
     document.getElementById("share-btn")!.addEventListener("click", async () => {
       const btn = document.getElementById("share-btn")!;

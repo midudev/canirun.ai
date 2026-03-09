@@ -522,8 +522,16 @@ const USE_CASE_ICONS: Record<string, any> = {
     memoryPercentage,
     cleanGPUName,
     getDisplayName,
+    getHardwareOverrides,
+    saveHardwareOverrides,
+    applyOverrides,
+    buildSelectOptions,
+    RAM_OPTIONS,
+    BW_OPTIONS,
+    GPU_CORES_OPTIONS,
     GRADES,
   } from "../../lib/hardware"
+  import type { HardwareInfo, HardwareOverrides } from "../../lib/hardware"
 
   document.addEventListener('astro:page-load', () => {
     const copyBtn = document.getElementById("copy-ollama")
@@ -543,39 +551,63 @@ const USE_CASE_ICONS: Record<string, any> = {
     const container = document.getElementById("hw-compat")!
     if (!container) return
 
-    async function init() {
-      const hw = await detectHardware()
+    let detectedHW: HardwareInfo
+    let currentHW: HardwareInfo
 
-      const gpuName = getDisplayName(hw) || "Unknown GPU"
-      const ramLabel = hw.ramGB ? `${hw.ramGB} GB` : "Unknown"
+    function buildSelectHTML(id: string, presets: number[], detected: number | null, override: number | undefined, formatter: (v: number) => string): string {
+      const options = buildSelectOptions(presets, detected)
+      const selectedValue = override ?? detected
+      let html = `<select id="${id}" class="hw-editable-select text-primary">`
+      for (const v of options) {
+        const selected = v === selectedValue ? " selected" : ""
+        const label = formatter(v) + (v === detected ? " ✱" : "")
+        html += `<option value="${v}"${selected}>${label}</option>`
+      }
+      html += "</select>"
+      return html
+    }
 
+    function updateQuantRows(hw: HardwareInfo) {
       const rows = document.querySelectorAll<HTMLElement>("[data-quant-row]")
-      let defaultVram = 0
-      rows.forEach((row, i) => {
+      rows.forEach((row) => {
         const vram = parseFloat(row.dataset.vram || "0")
-        if (i === 2) defaultVram = vram
-
         const status = evaluateModel(vram, hw)
         const toks = estimateTokensPerSecond(vram, hw)
         const memPct = memoryPercentage(vram, hw)
         const score = computeScore(status, toks, 0, memPct)
         const grade = scoreToGrade(score, status)
         const info = GRADES[grade]
-
         const statusEl = row.querySelector("[data-quant-status]") as HTMLElement
         if (statusEl) {
           statusEl.innerHTML = `<span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color:${info.color}"></span>${info.label}${toks ? ` · ~${toks} t/s` : ""}`
         }
       })
+    }
 
+    function renderSidebar(hw: HardwareInfo) {
+      const overrides = getHardwareOverrides()
+      const gpuName = getDisplayName(hw) || "Unknown GPU"
+
+      const rows = document.querySelectorAll<HTMLElement>("[data-quant-row]")
+      let defaultVram = 0
+      rows.forEach((row, i) => { if (i === 2) defaultVram = parseFloat(row.dataset.vram || "0") })
       if (defaultVram === 0 && rows.length > 0) {
         defaultVram = parseFloat((rows[0] as HTMLElement).dataset.vram || "0")
       }
+
       const status = evaluateModel(defaultVram, hw)
       const toks = estimateTokensPerSecond(defaultVram, hw)
       const score = computeScore(status, toks, 0)
       const grade = scoreToGrade(score, status)
       const info = GRADES[grade]
+
+      const ramSelect = (detectedHW.ramGB || overrides.ramGB)
+        ? buildSelectHTML("hw-ram-select", RAM_OPTIONS, detectedHW.ramGB, overrides.ramGB, (v) => `${v} GB`)
+        : `<span class="text-primary">Unknown</span>`
+
+      const bwRow = (detectedHW.memoryBandwidth || overrides.memoryBandwidth)
+        ? `<div class="flex items-center justify-between"><span class="text-muted">Bandwidth</span>${buildSelectHTML("hw-bw-select", BW_OPTIONS, detectedHW.memoryBandwidth, overrides.memoryBandwidth, (v) => `~${v} GB/s`)}</div>`
+        : ""
 
       container.innerHTML = `
         <div class="flex items-center justify-between">
@@ -584,9 +616,9 @@ const USE_CASE_ICONS: Record<string, any> = {
         </div>
         <div class="flex items-center justify-between">
           <span class="text-muted">RAM</span>
-          <span class="text-primary">${ramLabel}</span>
+          ${ramSelect}
         </div>
-        ${hw.memoryBandwidth ? `<div class="flex items-center justify-between"><span class="text-muted">Bandwidth</span><span class="text-primary">~${hw.memoryBandwidth} GB/s</span></div>` : ""}
+        ${bwRow}
         <div class="mt-2 flex items-center justify-between border-t border-edge pt-2">
           <span class="text-muted">Q4_K_M</span>
           <span class="inline-flex items-center gap-1.5" style="color:${info.color}">
@@ -597,6 +629,34 @@ const USE_CASE_ICONS: Record<string, any> = {
           </span>
         </div>
       `
+
+      // Attach change listeners to newly created selects
+      const ramEl = document.getElementById("hw-ram-select") as HTMLSelectElement
+      const bwEl = document.getElementById("hw-bw-select") as HTMLSelectElement
+
+      function handleChange() {
+        const newOverrides: HardwareOverrides = {}
+        if (ramEl?.value && Number(ramEl.value) !== detectedHW.ramGB) {
+          newOverrides.ramGB = Number(ramEl.value)
+        }
+        if (bwEl?.value && Number(bwEl.value) !== detectedHW.memoryBandwidth) {
+          newOverrides.memoryBandwidth = Number(bwEl.value)
+        }
+        saveHardwareOverrides(newOverrides)
+        currentHW = applyOverrides(detectedHW, newOverrides)
+        updateQuantRows(currentHW)
+        renderSidebar(currentHW)
+      }
+
+      ramEl?.addEventListener("change", handleChange)
+      bwEl?.addEventListener("change", handleChange)
+    }
+
+    async function init() {
+      detectedHW = await detectHardware()
+      currentHW = applyOverrides(detectedHW)
+      updateQuantRows(currentHW)
+      renderSidebar(currentHW)
     }
 
     init()
