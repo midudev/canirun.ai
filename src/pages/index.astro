@@ -73,9 +73,9 @@ function timeAgo(dateStr: string | null): string {
     <!-- Hardware Panel — fixed height to prevent CLS -->
     <section id="hw-panel" class="mb-10 min-h-[52px]">
       <div id="hw-bar" class="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 font-mono text-xs text-secondary">
-        <!-- CPU -->
-        <span id="hw-cpu" class="inline-flex items-center gap-1.5 text-muted">
-          <IconCpu class="h-3.5 w-3.5 shrink-0" stroke-width="1.5" />
+        <!-- GPU (most important for AI) -->
+        <span id="hw-gpu" class="inline-flex items-center gap-1.5 text-muted">
+          <IconGpu class="h-3.5 w-3.5 shrink-0" />
           <span>detecting...</span>
         </span>
         <span class="text-edge/40">|</span>
@@ -84,17 +84,17 @@ function timeAgo(dateStr: string | null): string {
           <IconRam class="h-3.5 w-3.5 shrink-0" />
           <span>—</span>
         </span>
-        <span class="text-edge/40">|</span>
-        <!-- GPU -->
-        <span id="hw-gpu" class="inline-flex items-center gap-1.5 text-muted">
-          <IconGpu class="h-3.5 w-3.5 shrink-0" />
-          <span>—</span>
-        </span>
         <!-- Bandwidth -->
         <span id="hw-bw" class="hidden inline-flex items-center gap-1.5">
           <span class="text-edge/40">|</span>
           <IconBandwidth class="h-3.5 w-3.5 shrink-0 text-muted" />
           <span id="hw-bw-val"></span>
+        </span>
+        <!-- GPU Cores -->
+        <span id="hw-gpu-cores" class="hidden inline-flex items-center gap-1.5">
+          <span class="text-edge/40">|</span>
+          <IconCpu class="h-3.5 w-3.5 shrink-0 text-muted" stroke-width="1.5" />
+          <span id="hw-gpu-cores-val"></span>
         </span>
         <!-- WebGPU -->
         <span id="hw-webgpu-badge" class="hidden inline-flex items-center gap-1 rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] text-accent">
@@ -490,24 +490,24 @@ function timeAgo(dateStr: string | null): string {
   function updateHardwarePanel(hw: HardwareInfo) {
     const $ = (id: string) => document.getElementById(id);
 
-    // Target the inner <span> (last child) to preserve SVG icons
-    const cpuText = $("hw-cpu")!.querySelector("span")!;
-    cpuText.textContent = hw.cpuCores ? `${hw.cpuCores} cores` : "Unknown";
-    $("hw-cpu")!.classList.replace("text-muted", "text-secondary");
-
-    const ramText = $("hw-ram")!.querySelector("span")!;
-    ramText.textContent = hw.ramGB ? `${hw.ramGB} GB` : "Unknown";
-    $("hw-ram")!.classList.replace("text-muted", "text-secondary");
-
     const gpuText = $("hw-gpu")!.querySelector("span")!;
     const displayName = getDisplayName(hw);
     gpuText.textContent = hw.estimatedVRAM ? `${displayName} (${hw.estimatedVRAM} GB)` : displayName;
     $("hw-gpu")!.classList.replace("text-muted", "text-secondary");
 
+    const ramText = $("hw-ram")!.querySelector("span")!;
+    ramText.textContent = hw.ramGB ? `${hw.ramGB} GB` : "Unknown";
+    $("hw-ram")!.classList.replace("text-muted", "text-secondary");
+
     if (hw.memoryBandwidth) {
       const bwSpan = $("hw-bw")!;
       bwSpan.classList.remove("hidden");
       $("hw-bw-val")!.textContent = `~${hw.memoryBandwidth} GB/s`;
+    }
+
+    if (hw.gpuCores) {
+      $("hw-gpu-cores")!.classList.remove("hidden");
+      $("hw-gpu-cores-val")!.textContent = `${hw.gpuCores.toLocaleString()} GPU cores`;
     }
 
     $("hw-notice")!.classList.remove("invisible");

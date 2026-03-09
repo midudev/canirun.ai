@@ -317,13 +317,13 @@ import IconCopy from "../icons/copy.svg";
     const modelsData: TierModel[] = JSON.parse(document.getElementById("models-data")!.textContent || "[]");
     const hw = await detectHardware();
 
-    // Update hardware summary
+    // Update hardware summary (ordered by importance for AI)
     const hwSummary = document.getElementById("hw-summary")!;
     const parts: string[] = [];
-    if (hw.cpuCores) parts.push(`${hw.cpuCores} cores`);
-    if (hw.ramGB) parts.push(`${hw.ramGB} GB RAM`);
     parts.push(getDisplayName(hw));
+    if (hw.ramGB) parts.push(`${hw.ramGB} GB RAM`);
     if (hw.memoryBandwidth) parts.push(`~${hw.memoryBandwidth} GB/s`);
+    if (hw.gpuCores) parts.push(`${hw.gpuCores.toLocaleString()} GPU cores`);
     hwSummary.textContent = parts.join(" · ") || "Hardware unknown";
     hwSummary.className = "text-secondary";
 
@@ -372,46 +372,17 @@ import IconCopy from "../icons/copy.svg";
     }
   }
 
-  document.getElementById("share-btn")!.addEventListener("click", async () => {
-    const btn = document.getElementById("share-btn")!;
-    const originalHTML = setButtonLoading(btn);
+  document.addEventListener('astro:page-load', () => {
+    if (!document.getElementById('tier-list')) return;
 
-    try {
-      const element = document.getElementById("tier-list")!;
-      await snapdom.download(element, {
-        scale: 2,
-        backgroundColor: "#000000",
-        embedFonts: true,
-        filename: "canirun-tier-list",
-        type: "png",
-      });
-    } catch (e) {
-      console.error("Failed to generate image:", e);
-    } finally {
-      restoreButton(btn, originalHTML);
-    }
-  });
+    evaluatedModels = [];
 
-  document.getElementById("copy-btn")!.addEventListener("click", async () => {
-    const btn = document.getElementById("copy-btn")!;
-    const originalHTML = setButtonLoading(btn);
-
-    try {
-      const element = document.getElementById("tier-list")!;
-      const blob = await snapdom.toBlob(element, {
-        scale: 2,
-        backgroundColor: "#000000",
-        embedFonts: true,
-        type: "png",
-      });
+    document.getElementById("share-btn")!.addEventListener("click", async () => {
+      const btn = document.getElementById("share-btn")!;
+      const originalHTML = setButtonLoading(btn);
 
       try {
-        await navigator.clipboard.write([
-          new ClipboardItem({ "image/png": blob }),
-        ]);
-        btn.innerHTML = `<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>Copied!`;
-        restoreButton(btn, originalHTML, 2000);
-      } catch {
+        const element = document.getElementById("tier-list")!;
         await snapdom.download(element, {
           scale: 2,
           backgroundColor: "#000000",
@@ -419,16 +390,51 @@ import IconCopy from "../icons/copy.svg";
           filename: "canirun-tier-list",
           type: "png",
         });
-        btn.innerHTML = `<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>Downloaded!`;
-        restoreButton(btn, originalHTML, 2000);
+      } catch (e) {
+        console.error("Failed to generate image:", e);
+      } finally {
+        restoreButton(btn, originalHTML);
       }
-    } catch (e) {
-      console.error("Failed to generate image:", e);
-      restoreButton(btn, originalHTML);
-    }
-  });
+    });
 
-  init();
+    document.getElementById("copy-btn")!.addEventListener("click", async () => {
+      const btn = document.getElementById("copy-btn")!;
+      const originalHTML = setButtonLoading(btn);
+
+      try {
+        const element = document.getElementById("tier-list")!;
+        const blob = await snapdom.toBlob(element, {
+          scale: 2,
+          backgroundColor: "#000000",
+          embedFonts: true,
+          type: "png",
+        });
+
+        try {
+          await navigator.clipboard.write([
+            new ClipboardItem({ "image/png": blob }),
+          ]);
+          btn.innerHTML = `<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>Copied!`;
+          restoreButton(btn, originalHTML, 2000);
+        } catch {
+          await snapdom.download(element, {
+            scale: 2,
+            backgroundColor: "#000000",
+            embedFonts: true,
+            filename: "canirun-tier-list",
+            type: "png",
+          });
+          btn.innerHTML = `<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>Downloaded!`;
+          restoreButton(btn, originalHTML, 2000);
+        }
+      } catch (e) {
+        console.error("Failed to generate image:", e);
+        restoreButton(btn, originalHTML);
+      }
+    });
+
+    init();
+  });
 </script>
 
 <style>
