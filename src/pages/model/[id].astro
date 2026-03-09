@@ -532,10 +532,13 @@ const USE_CASE_ICONS: Record<string, any> = {
     getHardwareOverrides,
     saveHardwareOverrides,
     applyOverrides,
+    getDeviceOverrides,
     buildSelectOptions,
     RAM_OPTIONS,
     BW_OPTIONS,
-    GPU_CORES_OPTIONS,
+    GPU_DB,
+    APPLE_DB,
+    MOBILE_GPU_DB,
     GRADES,
   } from "../../lib/hardware"
   import type { HardwareInfo, HardwareOverrides } from "../../lib/hardware"
@@ -562,8 +565,23 @@ const USE_CASE_ICONS: Record<string, any> = {
     let detectedHW: HardwareInfo
     let currentHW: HardwareInfo
 
+    const _measureEl = document.createElement("span")
+    _measureEl.style.cssText = "visibility:hidden;position:absolute;white-space:nowrap;pointer-events:none"
+    document.body.appendChild(_measureEl)
+
+    function fitSelectWidth(select: HTMLSelectElement) {
+      const text = select.options[select.selectedIndex]?.textContent ?? ""
+      _measureEl.style.font = getComputedStyle(select).font
+      _measureEl.textContent = text
+      select.style.width = `${_measureEl.offsetWidth + 28}px`
+    }
+
     function buildSelectHTML(id: string, presets: number[], detected: number | null, override: number | undefined, formatter: (v: number) => string): string {
       const options = buildSelectOptions(presets, detected)
+      if (override !== undefined && override > 0 && !options.includes(override)) {
+        options.push(override)
+        options.sort((a, b) => a - b)
+      }
       const selectedValue = override ?? detected
       let html = `<select id="${id}" class="hw-editable-select text-primary">`
       for (const v of options) {
@@ -588,9 +606,71 @@ const USE_CASE_ICONS: Record<string, any> = {
       })
     }
 
+    function getGPUCategory(name: string): string {
+      if (name.startsWith("RTX 50")) return "NVIDIA RTX 50"
+      if (name.startsWith("RTX 40")) return "NVIDIA RTX 40"
+      if (name.startsWith("RTX 30")) return "NVIDIA RTX 30"
+      if (name.startsWith("RTX 20")) return "NVIDIA RTX 20"
+      if (name.startsWith("RTX A") || name.startsWith("Quadro")) return "NVIDIA Pro"
+      if (/^(A100|H100|L40S|L4|T4)$/.test(name)) return "NVIDIA Datacenter"
+      if (name.startsWith("GTX 16")) return "NVIDIA GTX 16"
+      if (name.startsWith("GTX 10")) return "NVIDIA GTX 10"
+      if (name.startsWith("GTX 9")) return "NVIDIA GTX 9"
+      if (name.startsWith("RX 9")) return "AMD RX 9000"
+      if (name.startsWith("RX 7")) return "AMD RX 7000"
+      if (name.startsWith("RX 6")) return "AMD RX 6000"
+      if (name.startsWith("RX 5")) return "AMD RX 5000"
+      if (name.startsWith("RX") || name.startsWith("Vega")) return "AMD Older"
+      if (name.startsWith("Arc")) return "Intel Arc"
+      if (name.startsWith("Iris") || name.startsWith("UHD")) return "Intel Integrated"
+      return "Other"
+    }
+
+    const DEVICE_CATEGORY_ORDER = [
+      "Apple Silicon", "NVIDIA RTX 50", "NVIDIA RTX 40", "NVIDIA RTX 30", "NVIDIA RTX 20",
+      "NVIDIA GTX 16", "NVIDIA GTX 10", "NVIDIA GTX 9", "NVIDIA Pro", "NVIDIA Datacenter",
+      "AMD RX 9000", "AMD RX 7000", "AMD RX 6000", "AMD RX 5000", "AMD Older",
+      "Intel Arc", "Intel Integrated", "Mobile",
+    ]
+
+    function buildDeviceSelectHTML(detectedName: string, storedDevice: string | undefined): string {
+      let html = `<select id="hw-device-select" class="hw-editable-select text-primary max-w-[180px]">`
+      html += `<option value="auto">${detectedName} ✱</option>`
+      html += `<option value="custom"${storedDevice === "custom" ? " selected" : ""}>Custom</option>`
+
+      const grouped: Record<string, { value: string; label: string }[]> = {}
+      for (const [chip, data] of Object.entries(APPLE_DB)) {
+        const cat = "Apple Silicon"
+        if (!grouped[cat]) grouped[cat] = []
+        const label = chip.split(" ").map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")
+        grouped[cat].push({ value: `apple:${chip}`, label: `${label} (${data.ram} GB)` })
+      }
+      for (const [name, data] of Object.entries(GPU_DB)) {
+        const cat = getGPUCategory(name)
+        if (!grouped[cat]) grouped[cat] = []
+        grouped[cat].push({ value: `gpu:${name}`, label: `${name} (${data.vram} GB)` })
+      }
+      for (const [name] of Object.entries(MOBILE_GPU_DB)) {
+        const cat = "Mobile"
+        if (!grouped[cat]) grouped[cat] = []
+        grouped[cat].push({ value: `mobile:${name}`, label: name })
+      }
+      for (const cat of DEVICE_CATEGORY_ORDER) {
+        const items = grouped[cat]
+        if (!items?.length) continue
+        html += `<optgroup label="${cat}">`
+        for (const item of items) {
+          const selected = item.value === storedDevice ? " selected" : ""
+          html += `<option value="${item.value}"${selected}>${item.label}</option>`
+        }
+        html += `</optgroup>`
+      }
+      html += `</select>`
+      return html
+    }
+
     function renderSidebar(hw: HardwareInfo) {
       const overrides = getHardwareOverrides()
-      const gpuName = getDisplayName(hw) || "Unknown GPU"
 
       const rows = document.querySelectorAll<HTMLElement>("[data-quant-row]")
       let defaultVram = 0
@@ -602,18 +682,22 @@ const USE_CASE_ICONS: Record<string, any> = {
       const { grade, toksPerSec: toks } = evaluateModelComplete(defaultVram, hw, paramsBillions)
       const info = GRADES[grade]
 
-      const ramSelect = (detectedHW.ramGB || overrides.ramGB)
-        ? buildSelectHTML("hw-ram-select", RAM_OPTIONS, detectedHW.ramGB, overrides.ramGB, (v) => `${v} GB`)
+      const deviceSelect = buildDeviceSelectHTML(getDisplayName(detectedHW), overrides.device)
+
+      const effectiveRam = hw.ramGB ?? hw.totalUsableRAM
+      const ramSelect = effectiveRam
+        ? buildSelectHTML("hw-ram-select", RAM_OPTIONS, detectedHW.ramGB, overrides.ramGB ?? effectiveRam, (v) => `${v} GB`)
         : `<span class="text-primary">Unknown</span>`
 
-      const bwRow = (detectedHW.memoryBandwidth || overrides.memoryBandwidth)
-        ? `<div class="flex items-center justify-between"><span class="text-muted">Bandwidth</span>${buildSelectHTML("hw-bw-select", BW_OPTIONS, detectedHW.memoryBandwidth, overrides.memoryBandwidth, (v) => `~${v} GB/s`)}</div>`
+      const effectiveBw = hw.memoryBandwidth
+      const bwRow = effectiveBw
+        ? `<div class="flex items-center justify-between"><span class="text-muted">Bandwidth</span>${buildSelectHTML("hw-bw-select", BW_OPTIONS, detectedHW.memoryBandwidth, overrides.memoryBandwidth ?? effectiveBw, (v) => `~${v} GB/s`)}</div>`
         : ""
 
       container.innerHTML = `
         <div class="flex items-center justify-between">
-          <span class="text-muted">GPU</span>
-          <span class="text-primary truncate ml-2 text-right max-w-[180px]">${gpuName}</span>
+          <span class="text-muted">Device</span>
+          ${deviceSelect}
         </div>
         <div class="flex items-center justify-between">
           <span class="text-muted">RAM</span>
@@ -631,17 +715,41 @@ const USE_CASE_ICONS: Record<string, any> = {
         </div>
       `
 
-      // Attach change listeners to newly created selects
+      const deviceEl = document.getElementById("hw-device-select") as HTMLSelectElement
       const ramEl = document.getElementById("hw-ram-select") as HTMLSelectElement
       const bwEl = document.getElementById("hw-bw-select") as HTMLSelectElement
 
-      function handleChange() {
-        const newOverrides: HardwareOverrides = {}
-        if (ramEl?.value && Number(ramEl.value) !== detectedHW.ramGB) {
-          newOverrides.ramGB = Number(ramEl.value)
+      if (deviceEl) fitSelectWidth(deviceEl)
+      if (ramEl) fitSelectWidth(ramEl)
+      if (bwEl) fitSelectWidth(bwEl)
+
+      deviceEl?.addEventListener("change", () => {
+        const key = deviceEl.value
+        if (key === "auto") {
+          saveHardwareOverrides({})
+          currentHW = { ...detectedHW }
+        } else if (key === "custom") {
+          const prev = getHardwareOverrides()
+          prev.device = "custom"
+          saveHardwareOverrides(prev)
+          fitSelectWidth(deviceEl)
+          return
+        } else {
+          const devOverrides = getDeviceOverrides(key)
+          if (!devOverrides) return
+          saveHardwareOverrides(devOverrides)
+          currentHW = applyOverrides(detectedHW, devOverrides)
         }
-        if (bwEl?.value && Number(bwEl.value) !== detectedHW.memoryBandwidth) {
-          newOverrides.memoryBandwidth = Number(bwEl.value)
+        updateQuantRows(currentHW)
+        renderSidebar(currentHW)
+      })
+
+      function handleFieldChange() {
+        const newOverrides = getHardwareOverrides()
+        if (ramEl?.value) newOverrides.ramGB = Number(ramEl.value)
+        if (bwEl?.value) newOverrides.memoryBandwidth = Number(bwEl.value)
+        if (!newOverrides.device || newOverrides.device === "auto") {
+          newOverrides.device = "custom"
         }
         saveHardwareOverrides(newOverrides)
         currentHW = applyOverrides(detectedHW, newOverrides)
@@ -649,8 +757,8 @@ const USE_CASE_ICONS: Record<string, any> = {
         renderSidebar(currentHW)
       }
 
-      ramEl?.addEventListener("change", handleChange)
-      bwEl?.addEventListener("change", handleChange)
+      ramEl?.addEventListener("change", handleFieldChange)
+      bwEl?.addEventListener("change", handleFieldChange)
     }
 
     async function init() {
