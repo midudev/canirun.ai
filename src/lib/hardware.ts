@@ -700,6 +700,23 @@ export function scoreToGrade(score: number, status: ModelStatus): Grade {
   return "F";
 }
 
+export interface ModelEvaluation {
+  status: ModelStatus;
+  toksPerSec: number | null;
+  memPct: number | null;
+  score: number;
+  grade: Grade;
+}
+
+export function evaluateModelComplete(vramGB: number, hw: HardwareInfo, paramsBillions: number): ModelEvaluation {
+  const status = evaluateModel(vramGB, hw);
+  const toksPerSec = estimateTokensPerSecond(vramGB, hw);
+  const memPct = memoryPercentage(vramGB, hw);
+  const score = computeScore(status, toksPerSec, paramsBillions, memPct);
+  const grade = scoreToGrade(score, status);
+  return { status, toksPerSec, memPct, score, grade };
+}
+
 export function getDisplayName(hw: HardwareInfo): string {
   if (hw.deviceName) return hw.deviceName;
   if (hw.gpuRenderer) return cleanGPUName(hw.gpuRenderer);

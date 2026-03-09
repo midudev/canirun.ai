@@ -164,7 +164,7 @@ import IconCopy from "../icons/copy.svg";
 </Layout>
 
 <script>
-  import { detectHardware, evaluateModel, estimateTokensPerSecond, computeScore, scoreToGrade, memoryPercentage, cleanGPUName, getDisplayName, getHardwareOverrides, saveHardwareOverrides, applyOverrides, buildSelectOptions, RAM_OPTIONS, BW_OPTIONS, GPU_CORES_OPTIONS, GRADES } from "../lib/hardware";
+  import { detectHardware, evaluateModelComplete, cleanGPUName, getDisplayName, getHardwareOverrides, saveHardwareOverrides, applyOverrides, buildSelectOptions, RAM_OPTIONS, BW_OPTIONS, GPU_CORES_OPTIONS, GRADES } from "../lib/hardware";
   import type { HardwareInfo, HardwareOverrides } from "../lib/hardware";
 
   interface TierModel {
@@ -388,11 +388,7 @@ import IconCopy from "../icons/copy.svg";
 
   function evaluateAndRender() {
     evaluatedModels = modelsData.map(m => {
-      const status = evaluateModel(m.vramQ4, currentHW);
-      const toks = estimateTokensPerSecond(m.vramQ4, currentHW);
-      const memPct = memoryPercentage(m.vramQ4, currentHW);
-      const score = computeScore(status, toks, m.paramsBillions, memPct);
-      const grade = scoreToGrade(score, status);
+      const { grade, score, toksPerSec: toks } = evaluateModelComplete(m.vramQ4, currentHW, m.paramsBillions);
       return { model: m, grade, score, toks };
     });
     renderTierList();

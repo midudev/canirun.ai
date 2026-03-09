@@ -466,11 +466,7 @@ function timeAgo(dateStr: string | null): string {
 <script>
   import {
     detectHardware,
-    evaluateModel,
-    estimateTokensPerSecond,
-    computeScore,
-    scoreToGrade,
-    memoryPercentage,
+    evaluateModelComplete,
     getDisplayName,
     getHardwareOverrides,
     saveHardwareOverrides,
@@ -593,13 +589,8 @@ function timeAgo(dateStr: string | null): string {
     if (!quant) return;
 
     const vram = quant.vramGB;
-    const status = evaluateModel(vram, hw);
-    const toks = estimateTokensPerSecond(vram, hw);
     const params = parseFloat(card.dataset.params || "0");
-    const memPct = memoryPercentage(vram, hw);
-    const score = computeScore(status, toks, params, memPct);
-
-    const grade = scoreToGrade(score, status);
+    const { status, toksPerSec: toks, memPct, score, grade } = evaluateModelComplete(vram, hw, params);
     const gradeInfo = GRADES[grade];
 
     // Status dot — use grade color

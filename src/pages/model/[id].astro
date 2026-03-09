@@ -25,6 +25,7 @@ import IconCode from "../../icons/code.svg"
 import IconEdgeDevice from "../../icons/edge-device.svg"
 import IconMultilingual from "../../icons/multilingual.svg"
 import IconSearch from "../../icons/search.svg"
+import IconLmStudio from "../../icons/logo-lmstudio.svg"
 
 export function getStaticPaths() {
   return models.map((model) => ({
@@ -192,6 +193,19 @@ const USE_CASE_ICONS: Record<string, any> = {
                 >
                   <IconOllama class="h-4 w-4" />
                   Ollama
+                </a>
+              )
+            }
+            {
+              model.lmStudioId && (
+                <a
+                  href={`https://lmstudio.ai/models/${model.lmStudioId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="inline-flex items-center gap-2 rounded-full bg-[#6C47FF]/10 px-3.5 py-1.5 font-mono text-[11px] text-[#6C47FF] transition-colors hover:bg-[#6C47FF]/20"
+                >
+                  <IconLmStudio class="h-4 w-4" />
+                  LM Studio
                 </a>
               )
             }
@@ -515,11 +529,7 @@ const USE_CASE_ICONS: Record<string, any> = {
 <script>
   import {
     detectHardware,
-    evaluateModel,
-    estimateTokensPerSecond,
-    computeScore,
-    scoreToGrade,
-    memoryPercentage,
+    evaluateModelComplete,
     cleanGPUName,
     getDisplayName,
     getHardwareOverrides,
@@ -572,15 +582,11 @@ const USE_CASE_ICONS: Record<string, any> = {
       const rows = document.querySelectorAll<HTMLElement>("[data-quant-row]")
       rows.forEach((row) => {
         const vram = parseFloat(row.dataset.vram || "0")
-        const status = evaluateModel(vram, hw)
-        const toks = estimateTokensPerSecond(vram, hw)
-        const memPct = memoryPercentage(vram, hw)
-        const score = computeScore(status, toks, paramsBillions, memPct)
-        const grade = scoreToGrade(score, status)
+        const { toksPerSec, grade } = evaluateModelComplete(vram, hw, paramsBillions)
         const info = GRADES[grade]
         const statusEl = row.querySelector("[data-quant-status]") as HTMLElement
         if (statusEl) {
-          statusEl.innerHTML = `<span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color:${info.color}"></span>${info.label}${toks ? ` · ~${toks} t/s` : ""}`
+          statusEl.innerHTML = `<span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color:${info.color}"></span>${info.label}${toksPerSec ? ` · ~${toksPerSec} t/s` : ""}`
         }
       })
     }
@@ -596,11 +602,7 @@ const USE_CASE_ICONS: Record<string, any> = {
         defaultVram = parseFloat((rows[0] as HTMLElement).dataset.vram || "0")
       }
 
-      const status = evaluateModel(defaultVram, hw)
-      const toks = estimateTokensPerSecond(defaultVram, hw)
-      const defaultMemPct = memoryPercentage(defaultVram, hw)
-      const score = computeScore(status, toks, paramsBillions, defaultMemPct)
-      const grade = scoreToGrade(score, status)
+      const { grade, toksPerSec: toks } = evaluateModelComplete(defaultVram, hw, paramsBillions)
       const info = GRADES[grade]
 
       const ramSelect = (detectedHW.ramGB || overrides.ramGB)
