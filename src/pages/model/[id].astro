@@ -363,13 +363,13 @@ const USE_CASE_ICONS: Record<string, any> = {
         </div>
 
         <!-- Install -->
-        {
-          model.ollamaId ? (
-            <div class="pb-8 mb-8 border-b border-edge/20">
-              <h3 class="mb-3 inline-flex items-center gap-1.5 font-pixel text-xs text-accent">
-                <IconTerminal class="h-3.5 w-3.5" />
-                Install
-              </h3>
+        <div class="pb-8 mb-8 border-b border-edge/20">
+          <h3 class="mb-3 inline-flex items-center gap-1.5 font-pixel text-xs text-accent">
+            <IconTerminal class="h-3.5 w-3.5" />
+            Install
+          </h3>
+          {model.ollamaId && (
+            <>
               <p class="mb-1 font-mono text-[10px] text-muted">Ollama</p>
               <div class="flex items-center gap-2 rounded-md border border-edge bg-black px-3 py-2">
                 <code class="flex-1 font-mono text-[11px] text-white truncate">
@@ -384,43 +384,40 @@ const USE_CASE_ICONS: Record<string, any> = {
                   <IconCopy class="h-3.5 w-3.5" />
                 </button>
               </div>
-              <p class="mt-4 font-mono text-[10px] text-muted">
-                LM Studio / llama.cpp
-              </p>
+            </>
+          )}
+          {model.lmStudioId && (
+            <>
+              <p class={`font-mono text-[10px] text-muted ${model.ollamaId ? "mt-4" : ""} mb-1`}>LM Studio</p>
               <a
-                href={`https://huggingface.co/models?search=${encodeURIComponent(model.name + " GGUF")}`}
+                href={`https://lmstudio.ai/models/${model.lmStudioId}`}
                 target="_blank"
                 rel="noopener"
-                class="mt-1 inline-flex items-center gap-1.5 font-mono text-[11px] text-yellow-400 underline decoration-yellow-400/30 underline-offset-2 hover:text-yellow-300"
+                class="inline-flex items-center gap-1.5 font-mono text-[11px] text-[#6C47FF] underline decoration-[#6C47FF]/30 underline-offset-2 hover:text-[#8B6CFF]"
               >
-                <IconDownload class="h-3 w-3 shrink-0" />
-                Download GGUF from HuggingFace
+                <IconLmStudio class="h-3 w-3 shrink-0" />
+                Open in LM Studio
               </a>
-            </div>
-          ) : (
-            <div class="pb-8 mb-8 border-b border-edge/20">
-              <h3 class="mb-3 inline-flex items-center gap-1.5 font-pixel text-xs text-accent">
-                <IconTerminal class="h-3.5 w-3.5" />
-                Install
-              </h3>
-              <p class="mb-2 font-mono text-[10px] text-muted">
-                LM Studio / llama.cpp
-              </p>
-              <a
-                href={`https://huggingface.co/models?search=${encodeURIComponent(model.name + " GGUF")}`}
-                target="_blank"
-                rel="noopener"
-                class="inline-flex items-center gap-1.5 font-mono text-[11px] text-yellow-400 underline decoration-yellow-400/30 underline-offset-2 hover:text-yellow-300"
-              >
-                <IconDownload class="h-3 w-3 shrink-0" />
-                Download GGUF from HuggingFace
-              </a>
-              <p class="mt-3 text-[10px] text-muted">
-                No Ollama ID available for this model.
-              </p>
-            </div>
-          )
-        }
+            </>
+          )}
+          <p class={`font-mono text-[10px] text-muted ${(model.ollamaId || model.lmStudioId) ? "mt-4" : ""} mb-1`}>
+            llama.cpp / GGUF
+          </p>
+          <a
+            href={`https://huggingface.co/models?search=${encodeURIComponent(model.name + " GGUF")}`}
+            target="_blank"
+            rel="noopener"
+            class="inline-flex items-center gap-1.5 font-mono text-[11px] text-yellow-400 underline decoration-yellow-400/30 underline-offset-2 hover:text-yellow-300"
+          >
+            <IconDownload class="h-3 w-3 shrink-0" />
+            Download GGUF from HuggingFace
+          </a>
+          {!model.ollamaId && !model.lmStudioId && (
+            <p class="mt-3 text-[10px] text-muted">
+              No Ollama or LM Studio ID available for this model.
+            </p>
+          )}
+        </div>
 
         <!-- Key specs -->
         <div class="pb-8 mb-8 border-b border-edge/20">
