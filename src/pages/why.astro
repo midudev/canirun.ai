@@ -1,0 +1,459 @@
+---
+import Layout from "../layouts/Layout.astro";
+import NavHeader from "../components/NavHeader.astro";
+import IconSearch from "../icons/search.svg";
+import IconArrowFlow from "../icons/arrow-flow.svg";
+import IconGpu from "../icons/gpu.svg";
+import IconBandwidth from "../icons/bandwidth.svg";
+
+// Code snippets as raw strings to avoid Astro parsing curly braces
+const codeWebGL = `<span class="text-muted">// Get GPU renderer string</span>
+<span class="text-accent">const</span> canvas = document.createElement(<span class="text-can-run">"canvas"</span>);
+<span class="text-accent">const</span> gl = canvas.getContext(<span class="text-can-run">"webgl2"</span>);
+<span class="text-accent">const</span> ext = gl.getExtension(<span class="text-can-run">"WEBGL_debug_renderer_info"</span>);
+<span class="text-accent">const</span> gpu = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL);
+<span class="text-muted">// → "ANGLE (NVIDIA, NVIDIA GeForce RTX 4090, ...)"</span>
+<span class="text-muted">// → "Apple M4 Pro GPU"</span>`;
+
+const codeWebGPU = `<span class="text-accent">const</span> adapter = <span class="text-accent">await</span> navigator.gpu.requestAdapter();
+<span class="text-accent">const</span> info = adapter.info;
+<span class="text-muted">// info.device → "nvidia geforce rtx 4090"</span>
+<span class="text-muted">// info.architecture → "ampere"</span>`;
+
+const codeNavigator = `<span class="text-accent">const</span> cores = navigator.hardwareConcurrency; <span class="text-muted">// → 16</span>
+<span class="text-accent">const</span> ram = navigator.deviceMemory;         <span class="text-muted">// → 8 (GB, approximate)</span>`;
+
+const codeGPUDB = `<span class="text-muted">// Example entries from the GPU database</span>
+<span class="text-accent">const</span> GPU_DB = {
+  <span class="text-can-run">"RTX 4090"</span>:    { vram: <span class="text-primary">24</span>,  bw: <span class="text-primary">1008</span> }, <span class="text-muted">// GB/s</span>
+  <span class="text-can-run">"RTX 4060"</span>:    { vram: <span class="text-primary">8</span>,   bw: <span class="text-primary">272</span>  },
+  <span class="text-can-run">"RX 7900 XTX"</span>: { vram: <span class="text-primary">24</span>,  bw: <span class="text-primary">960</span>  },
+};
+
+<span class="text-accent">const</span> APPLE_DB = {
+  <span class="text-can-run">"m4 max"</span>:   { ram: <span class="text-primary">36</span>,  bw: <span class="text-primary">546</span> },
+  <span class="text-can-run">"m4 pro"</span>:   { ram: <span class="text-primary">24</span>,  bw: <span class="text-primary">273</span> },
+  <span class="text-can-run">"m4"</span>:       { ram: <span class="text-primary">16</span>,  bw: <span class="text-primary">120</span> },
+};`;
+
+const codeQuants = `<span class="text-muted">// How we calculate VRAM for each quantization</span>
+<span class="text-accent">function</span> makeQuants(paramsBillions) {
+  <span class="text-accent">const</span> base = paramsBillions;
+  <span class="text-accent">return</span> [
+    { name: <span class="text-can-run">"Q2_K"</span>,   vram: round(base * <span class="text-primary">0.35</span>) },
+    { name: <span class="text-can-run">"Q4_K_M"</span>, vram: round(base * <span class="text-primary">0.55</span>) },
+    { name: <span class="text-can-run">"Q6_K"</span>,   vram: round(base * <span class="text-primary">0.75</span>) },
+    { name: <span class="text-can-run">"Q8_0"</span>,   vram: round(base * <span class="text-primary">0.95</span>) },
+    { name: <span class="text-can-run">"F16"</span>,    vram: round(base * <span class="text-primary">1.85</span>) },
+  ];
+}`;
+
+const codeSpeed = `<span class="text-accent">const</span> efficiency = isAppleSilicon ? <span class="text-primary">0.65</span> : <span class="text-primary">0.70</span>;
+<span class="text-accent">const</span> toksPerSec = (bandwidthGBs / modelVRAM) * efficiency;
+
+<span class="text-muted">// Speed → Score mapping</span>
+<span class="text-can-run">80+ tok/s → 100 pts</span>     <span class="text-muted">// Instant</span>
+<span class="text-can-run">40+ tok/s →  85 pts</span>     <span class="text-muted">// Fast</span>
+<span class="text-maybe">20+ tok/s →  65 pts</span>     <span class="text-muted">// Good</span>
+<span class="text-maybe">10+ tok/s →  45 pts</span>     <span class="text-muted">// Usable</span>
+<span class="text-cannot-run"> 5+ tok/s →  25 pts</span>     <span class="text-muted">// Slow</span>
+<span class="text-cannot-run"> &lt;5  tok/s →  10 pts</span>     <span class="text-muted">// Painful</span>`;
+
+const codeMemory = `<span class="text-accent">const</span> memPct = (modelVRAM / totalMemory) * <span class="text-primary">100</span>;
+
+<span class="text-muted">// Memory usage → Score mapping</span>
+<span class="text-can-run"> ≤30% → 100 pts</span>     <span class="text-muted">// Plenty of room</span>
+<span class="text-can-run"> ≤50% →  80 pts</span>     <span class="text-muted">// Comfortable</span>
+<span class="text-maybe"> ≤70% →  55 pts</span>     <span class="text-muted">// Moderate</span>
+<span class="text-maybe"> ≤85% →  30 pts</span>     <span class="text-muted">// Tight</span>
+<span class="text-cannot-run"> &gt;85% →  10 pts</span>     <span class="text-muted">// Very tight</span>`;
+
+const codeQuality = `<span class="text-accent">const</span> qualityBonus = Math.min(<span class="text-primary">15</span>, Math.log2(paramsBillions + <span class="text-primary">1</span>) * <span class="text-primary">2.5</span>);
+<span class="text-muted">// 7B → ~7.5 pts, 70B → ~15 pts (capped)</span>`;
+
+const codeHF = `<span class="text-muted">// Fetch model stats from HuggingFace API</span>
+<span class="text-accent">const</span> res = <span class="text-accent">await</span> fetch(
+  <span class="text-can-run">\`https://huggingface.co/api/models/\${repoId}\`</span>
+);
+<span class="text-accent">const</span> data = <span class="text-accent">await</span> res.json();
+<span class="text-muted">// data.downloads → 2_450_000</span>
+<span class="text-muted">// data.likes     → 12_500</span>`;
+---
+
+<Layout title="Why — CanIRun.ai" description="How CanIRun.ai detects your hardware and scores AI models. APIs, algorithms, and methodology explained.">
+  <NavHeader />
+  <main class="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+    <header class="mb-10 text-center">
+      <h1 class="font-pixel text-2xl tracking-tight text-accent sm:text-3xl">Why</h1>
+      <p class="mt-2 text-sm text-muted">
+        How we detect your hardware, score models, and where the numbers come from.
+      </p>
+    </header>
+
+    <div class="space-y-12">
+      <!-- How it works overview -->
+      <section>
+        <h2 class="mb-3 font-pixel text-sm text-primary">How it works</h2>
+        <p class="text-sm leading-relaxed text-secondary">
+          CanIRun.ai runs entirely in your browser. When you visit the site, we use browser APIs to detect your GPU, CPU, and memory — then we calculate which AI models can run on your hardware and how fast. No data is sent to any server. Everything is computed client-side.
+        </p>
+        <div class="mt-4 rounded-lg border border-edge bg-surface-card p-5">
+          <div class="flex items-center justify-between gap-2 sm:gap-4">
+            <!-- Detect -->
+            <div class="flex flex-col items-center gap-2">
+              <div class="flex h-11 w-11 items-center justify-center rounded-lg border border-accent/30 bg-accent/10">
+                <IconSearch class="h-5 w-5 text-accent" stroke-width="1.5" />
+              </div>
+              <span class="font-mono text-[10px] text-muted">Detect</span>
+            </div>
+            <!-- Arrow -->
+            <IconArrowFlow class="h-3 w-8 shrink-0 text-edge/60" />
+            <!-- Match -->
+            <div class="flex flex-col items-center gap-2">
+              <div class="flex h-11 w-11 items-center justify-center rounded-lg border border-accent/30 bg-accent/10">
+                <IconGpu class="h-5 w-5 text-accent" />
+              </div>
+              <span class="font-mono text-[10px] text-muted">Match GPU</span>
+            </div>
+            <!-- Arrow -->
+            <IconArrowFlow class="h-3 w-8 shrink-0 text-edge/60" />
+            <!-- Score -->
+            <div class="flex flex-col items-center gap-2">
+              <div class="flex h-11 w-11 items-center justify-center rounded-lg border border-accent/30 bg-accent/10">
+                <IconBandwidth class="h-5 w-5 text-accent" />
+              </div>
+              <span class="font-mono text-[10px] text-muted">Score</span>
+            </div>
+            <!-- Arrow -->
+            <IconArrowFlow class="h-3 w-8 shrink-0 text-edge/60" />
+            <!-- Grade -->
+            <div class="flex flex-col items-center gap-2">
+              <div class="flex h-11 w-11 items-center justify-center rounded-lg border border-can-run/30 bg-can-run/10 font-pixel text-lg text-can-run">
+                S
+              </div>
+              <span class="font-mono text-[10px] text-muted">Grade</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Hardware Detection -->
+      <section>
+        <h2 class="mb-3 font-pixel text-sm text-primary">Hardware detection</h2>
+        <p class="mb-3 text-sm leading-relaxed text-secondary">
+          We use three browser APIs to fingerprint your hardware. No extensions or installs needed.
+        </p>
+
+        <div class="space-y-4">
+          <!-- WebGL -->
+          <div class="rounded-lg border border-edge bg-surface-card p-4">
+            <h3 class="mb-2 font-mono text-xs text-accent">WebGL — GPU identification</h3>
+            <p class="mb-3 text-xs leading-relaxed text-secondary">
+              We create a hidden WebGL canvas and query the <code class="rounded bg-surface px-1 py-0.5 text-primary">WEBGL_debug_renderer_info</code> extension to get the GPU name and vendor. This tells us exactly which GPU you have.
+            </p>
+            <div class="overflow-x-auto rounded-md bg-surface p-3">
+              <pre class="font-mono text-[11px] leading-relaxed text-secondary" set:html={codeWebGL} />
+            </div>
+          </div>
+
+          <!-- WebGPU -->
+          <div class="rounded-lg border border-edge bg-surface-card p-4">
+            <h3 class="mb-2 font-mono text-xs text-accent">WebGPU — Architecture info</h3>
+            <p class="mb-3 text-xs leading-relaxed text-secondary">
+              If your browser supports WebGPU, we request an adapter to get additional device and architecture details.
+            </p>
+            <div class="overflow-x-auto rounded-md bg-surface p-3">
+              <pre class="font-mono text-[11px] leading-relaxed text-secondary" set:html={codeWebGPU} />
+            </div>
+          </div>
+
+          <!-- Navigator APIs -->
+          <div class="rounded-lg border border-edge bg-surface-card p-4">
+            <h3 class="mb-2 font-mono text-xs text-accent">Navigator — CPU & RAM</h3>
+            <p class="mb-3 text-xs leading-relaxed text-secondary">
+              We use <code class="rounded bg-surface px-1 py-0.5 text-primary">navigator.hardwareConcurrency</code> for CPU core count and <code class="rounded bg-surface px-1 py-0.5 text-primary">navigator.deviceMemory</code> for approximate RAM. We also run a short CPU benchmark (~30ms) to estimate single-core performance.
+            </p>
+            <div class="overflow-x-auto rounded-md bg-surface p-3">
+              <pre class="font-mono text-[11px] leading-relaxed text-secondary" set:html={codeNavigator} />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- GPU Database -->
+      <section>
+        <h2 class="mb-3 font-pixel text-sm text-primary">GPU database</h2>
+        <p class="text-sm leading-relaxed text-secondary">
+          Once we identify your GPU, we look it up in a built-in database of ~40 GPUs (NVIDIA, AMD, Intel) and ~12 Apple Silicon chips. Each entry contains the VRAM capacity and memory bandwidth — the two numbers that matter most for running AI models locally.
+        </p>
+        <div class="mt-3 overflow-x-auto rounded-md bg-surface p-3">
+          <pre class="font-mono text-[11px] leading-relaxed text-secondary" set:html={codeGPUDB} />
+        </div>
+      </section>
+
+      <!-- VRAM Calculation -->
+      <section>
+        <h2 class="mb-3 font-pixel text-sm text-primary">VRAM requirements</h2>
+        <p class="mb-3 text-sm leading-relaxed text-secondary">
+          Each model in our database has pre-calculated VRAM requirements for every quantization level. The formula is straightforward:
+        </p>
+        <div class="rounded-lg border border-accent/20 bg-accent/5 p-4">
+          <p class="text-center font-mono text-xs text-primary">
+            VRAM (GB) = <span class="text-accent">Parameters</span> &times; <span class="text-accent">Bits per weight</span> &div; 8 &div; 1024&sup3; + <span class="text-accent">Overhead</span>
+          </p>
+        </div>
+        <p class="mt-3 text-sm leading-relaxed text-secondary">
+          For example, a 70B model at Q4_K_M (4-bit) needs roughly <span class="font-mono text-primary">70 &times; 4 &div; 8 = 35 GB</span> plus ~1–2 GB overhead for KV cache and runtime buffers.
+        </p>
+        <div class="mt-3 overflow-x-auto rounded-md bg-surface p-3">
+          <pre class="font-mono text-[11px] leading-relaxed text-secondary" set:html={codeQuants} />
+        </div>
+      </section>
+
+      <!-- Scoring -->
+      <section>
+        <h2 class="mb-3 font-pixel text-sm text-primary">Scoring algorithm</h2>
+        <p class="mb-3 text-sm leading-relaxed text-secondary">
+          The score (0–100) combines three factors to answer: "How well will this model run on your hardware?"
+        </p>
+
+        <!-- Score breakdown visual -->
+        <div class="mb-4 rounded-lg border border-edge bg-surface-card p-4">
+          <div class="space-y-3">
+            <div>
+              <div class="mb-1 flex items-center justify-between font-mono text-[11px]">
+                <span class="text-primary">Speed (tok/s)</span>
+                <span class="text-accent">55%</span>
+              </div>
+              <div class="h-2 overflow-hidden rounded-full bg-surface">
+                <div class="h-full rounded-full bg-accent" style="width: 55%"></div>
+              </div>
+            </div>
+            <div>
+              <div class="mb-1 flex items-center justify-between font-mono text-[11px]">
+                <span class="text-primary">Memory headroom</span>
+                <span class="text-accent">35%</span>
+              </div>
+              <div class="h-2 overflow-hidden rounded-full bg-surface">
+                <div class="h-full rounded-full bg-accent/70" style="width: 35%"></div>
+              </div>
+            </div>
+            <div>
+              <div class="mb-1 flex items-center justify-between font-mono text-[11px]">
+                <span class="text-primary">Quality bonus</span>
+                <span class="text-accent">~10%</span>
+              </div>
+              <div class="h-2 overflow-hidden rounded-full bg-surface">
+                <div class="h-full rounded-full bg-accent/50" style="width: 10%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="space-y-4">
+          <!-- Speed -->
+          <div class="rounded-lg border border-edge bg-surface-card p-4">
+            <h3 class="mb-2 font-mono text-xs text-accent">Speed score (55% weight)</h3>
+            <p class="mb-2 text-xs leading-relaxed text-secondary">
+              Estimated tokens per second based on your GPU's memory bandwidth and the model's VRAM footprint:
+            </p>
+            <div class="overflow-x-auto rounded-md bg-surface p-3">
+              <pre class="font-mono text-[11px] leading-relaxed text-secondary" set:html={codeSpeed} />
+            </div>
+          </div>
+
+          <!-- Memory headroom -->
+          <div class="rounded-lg border border-edge bg-surface-card p-4">
+            <h3 class="mb-2 font-mono text-xs text-accent">Memory headroom (35% weight)</h3>
+            <p class="mb-2 text-xs leading-relaxed text-secondary">
+              How much of your available memory the model consumes. Lower usage = more room for context, batching, and other processes:
+            </p>
+            <div class="overflow-x-auto rounded-md bg-surface p-3">
+              <pre class="font-mono text-[11px] leading-relaxed text-secondary" set:html={codeMemory} />
+            </div>
+          </div>
+
+          <!-- Quality bonus -->
+          <div class="rounded-lg border border-edge bg-surface-card p-4">
+            <h3 class="mb-2 font-mono text-xs text-accent">Quality bonus (~10%)</h3>
+            <p class="text-xs leading-relaxed text-secondary">
+              A small bonus for larger models since they tend to produce better output. Capped at 15 points to prevent it from dominating the score:
+            </p>
+            <div class="mt-2 overflow-x-auto rounded-md bg-surface p-3">
+              <pre class="font-mono text-[11px] leading-relaxed text-secondary" set:html={codeQuality} />
+            </div>
+          </div>
+
+          <!-- Tight fit -->
+          <div class="rounded-lg border border-edge bg-surface-card p-4">
+            <h3 class="mb-2 font-mono text-xs text-accent">Tight fit penalty</h3>
+            <p class="text-xs leading-relaxed text-secondary">
+              If a model barely fits in memory (status = "tight"), the entire score is multiplied by <span class="font-mono text-primary">0.65</span>. This penalizes models that technically fit but will struggle with swapping and context management.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Grade Scale -->
+      <section>
+        <h2 class="mb-3 font-pixel text-sm text-primary">Grade scale</h2>
+        <p class="mb-3 text-sm leading-relaxed text-secondary">
+          The final score maps to a letter grade:
+        </p>
+        <div class="overflow-x-auto rounded-lg border border-edge">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-edge bg-surface-card text-left text-[10px] uppercase tracking-wider text-muted">
+                <th class="px-4 py-2.5">Grade</th>
+                <th class="px-4 py-2.5">Score</th>
+                <th class="px-4 py-2.5">Meaning</th>
+              </tr>
+            </thead>
+            <tbody class="text-xs">
+              <tr class="border-b border-edge/50 bg-surface-card/50">
+                <td class="px-4 py-2 font-pixel text-sm" style="color: #22c55e">S</td>
+                <td class="px-4 py-2 font-mono text-secondary">85–100</td>
+                <td class="px-4 py-2 text-secondary">Runs great — fast inference, plenty of headroom</td>
+              </tr>
+              <tr class="border-b border-edge/50">
+                <td class="px-4 py-2 font-pixel text-sm" style="color: #4ade80">A</td>
+                <td class="px-4 py-2 font-mono text-secondary">70–84</td>
+                <td class="px-4 py-2 text-secondary">Runs well — good speed, comfortable fit</td>
+              </tr>
+              <tr class="border-b border-edge/50 bg-surface-card/50">
+                <td class="px-4 py-2 font-pixel text-sm" style="color: #a3e635">B</td>
+                <td class="px-4 py-2 font-mono text-secondary">55–69</td>
+                <td class="px-4 py-2 text-secondary">Decent — usable but not ideal</td>
+              </tr>
+              <tr class="border-b border-edge/50">
+                <td class="px-4 py-2 font-pixel text-sm" style="color: #f59e0b">C</td>
+                <td class="px-4 py-2 font-mono text-secondary">40–54</td>
+                <td class="px-4 py-2 text-secondary">Tight fit — slow, limited context window</td>
+              </tr>
+              <tr class="border-b border-edge/50 bg-surface-card/50">
+                <td class="px-4 py-2 font-pixel text-sm" style="color: #f97316">D</td>
+                <td class="px-4 py-2 font-mono text-secondary">20–39</td>
+                <td class="px-4 py-2 text-secondary">Barely runs — expect very slow output</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-2 font-pixel text-sm" style="color: #ef4444">F</td>
+                <td class="px-4 py-2 font-mono text-secondary">0–19</td>
+                <td class="px-4 py-2 text-secondary">Too heavy — won't fit in your memory</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Can/Tight/Cannot logic -->
+      <section>
+        <h2 class="mb-3 font-pixel text-sm text-primary">Fit classification</h2>
+        <p class="mb-3 text-sm leading-relaxed text-secondary">
+          Before scoring, we classify each model into one of three statuses based on memory:
+        </p>
+        <div class="space-y-2">
+          <div class="flex items-start gap-3 rounded-lg border border-can-run/20 bg-can-run/5 p-3">
+            <span class="mt-0.5 font-pixel text-xs text-can-run">CAN RUN</span>
+            <div class="text-xs text-secondary">
+              <p><strong class="text-primary">Apple Silicon:</strong> Model uses &le; 52.5% of unified memory (75% usable &times; 70%)</p>
+              <p class="mt-1"><strong class="text-primary">Discrete GPU:</strong> Model uses &le; 85% of VRAM</p>
+            </div>
+          </div>
+          <div class="flex items-start gap-3 rounded-lg border border-maybe/20 bg-maybe/5 p-3">
+            <span class="mt-0.5 font-pixel text-xs text-maybe">TIGHT</span>
+            <div class="text-xs text-secondary">
+              <p><strong class="text-primary">Apple Silicon:</strong> Model uses 52.5%–75% of unified memory</p>
+              <p class="mt-1"><strong class="text-primary">Discrete GPU:</strong> Model uses 85%–110% of VRAM</p>
+            </div>
+          </div>
+          <div class="flex items-start gap-3 rounded-lg border border-cannot-run/20 bg-cannot-run/5 p-3">
+            <span class="mt-0.5 font-pixel text-xs text-cannot-run">CAN'T RUN</span>
+            <p class="text-xs text-secondary">Model exceeds available memory — won't load or will swap to disk, making it unusable.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tokens per second estimation -->
+      <section>
+        <h2 class="mb-3 font-pixel text-sm text-primary">Tokens/s estimation</h2>
+        <p class="mb-3 text-sm leading-relaxed text-secondary">
+          We estimate inference speed using a simple bandwidth-bound model. LLM inference is almost entirely limited by how fast you can read weights from memory — computation is rarely the bottleneck.
+        </p>
+        <div class="rounded-lg border border-accent/20 bg-accent/5 p-4">
+          <p class="text-center font-mono text-xs text-primary">
+            tok/s &asymp; <span class="text-accent">Memory bandwidth (GB/s)</span> &div; <span class="text-accent">Model VRAM (GB)</span> &times; <span class="text-accent">Efficiency</span>
+          </p>
+        </div>
+        <p class="mt-3 text-sm leading-relaxed text-secondary">
+          Efficiency is <span class="font-mono text-primary">0.70</span> for discrete GPUs and <span class="font-mono text-primary">0.65</span> for Apple Silicon (unified memory has slightly more overhead). This gives a conservative estimate — real-world performance can vary &plusmn;20% depending on batch size, context length, and quantization format.
+        </p>
+      </section>
+
+      <!-- Data Sources -->
+      <section>
+        <h2 class="mb-3 font-pixel text-sm text-primary">Data sources</h2>
+        <p class="mb-3 text-sm leading-relaxed text-secondary">
+          Model information is gathered from multiple sources and curated manually:
+        </p>
+        <div class="space-y-2 font-mono text-xs">
+          <div class="flex items-start gap-2 text-secondary">
+            <span class="text-accent">&rsaquo;</span>
+            <div>
+              <a href="https://huggingface.co" target="_blank" rel="noopener" class="text-accent underline decoration-accent/30 underline-offset-2 hover:decoration-accent">HuggingFace API</a>
+              — Download counts, likes, and model metadata. Fetched at build time via the API.
+            </div>
+          </div>
+          <div class="flex items-start gap-2 text-secondary">
+            <span class="text-accent">&rsaquo;</span>
+            <div>
+              <a href="https://ollama.com/library" target="_blank" rel="noopener" class="text-accent underline decoration-accent/30 underline-offset-2 hover:decoration-accent">Ollama Library</a>
+              — Pull counts and available tags/variants for models distributed through Ollama.
+            </div>
+          </div>
+          <div class="flex items-start gap-2 text-secondary">
+            <span class="text-accent">&rsaquo;</span>
+            <span>Model cards, papers, and official announcements for parameter counts, architecture details, and context lengths.</span>
+          </div>
+          <div class="flex items-start gap-2 text-secondary">
+            <span class="text-accent">&rsaquo;</span>
+            <span>GPU specs from official vendor datasheets (NVIDIA, AMD, Intel, Apple) for VRAM and bandwidth numbers.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- HuggingFace stats fetch -->
+      <section>
+        <h2 class="mb-3 font-pixel text-sm text-primary">HuggingFace stats</h2>
+        <p class="mb-3 text-sm leading-relaxed text-secondary">
+          We fetch download and like counts from HuggingFace at build time using their public API:
+        </p>
+        <div class="overflow-x-auto rounded-md bg-surface p-3">
+          <pre class="font-mono text-[11px] leading-relaxed text-secondary" set:html={codeHF} />
+        </div>
+      </section>
+
+      <!-- Apple Silicon note -->
+      <section>
+        <h2 class="mb-3 font-pixel text-sm text-primary">Apple Silicon: unified memory</h2>
+        <p class="text-sm leading-relaxed text-secondary">
+          Apple Silicon Macs share memory between CPU and GPU (unified memory architecture). This means the model can use up to ~75% of total RAM — much more than discrete GPUs which are limited to their VRAM. A MacBook Pro with 36 GB can run models that need ~27 GB, while a PC with an 8 GB GPU cannot. We account for this in our calculations by treating Apple Silicon as a single pool with a 75% usable cap.
+        </p>
+      </section>
+
+      <!-- Privacy -->
+      <section>
+        <h2 class="mb-3 font-pixel text-sm text-primary">Privacy & transparency</h2>
+        <p class="text-sm leading-relaxed text-secondary">
+          All hardware detection and scoring happens in your browser. No data is sent to any server. The GPU name, RAM, and benchmark results never leave your device. The site is built with <a href="https://astro.build" target="_blank" rel="noopener" class="text-accent underline decoration-accent/30 underline-offset-2 hover:decoration-accent">Astro</a> and ships zero JavaScript to pages that don't need it.
+        </p>
+      </section>
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-16 text-center text-xs text-muted/60">
+      <p>
+        Built by <a href="https://midu.dev" target="_blank" rel="noopener" class="text-muted underline decoration-edge underline-offset-2 hover:text-primary">midudev</a> for the local AI community.
+      </p>
+    </footer>
+  </main>
+</Layout>

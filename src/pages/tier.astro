@@ -1,0 +1,467 @@
+---
+import Layout from "../layouts/Layout.astro";
+import NavHeader from "../components/NavHeader.astro";
+import { models } from "../data/models";
+import IconDownload from "../icons/download.svg";
+import IconCopy from "../icons/copy.svg";
+---
+
+<Layout title="Tier List — CanIRun.ai" description="See which AI models your machine can run, ranked in a classic tier list. Share your results.">
+  <NavHeader />
+  <main class="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+    <header class="mb-6 text-center">
+      <h1 class="font-pixel text-3xl tracking-tight text-accent sm:text-4xl">Tier List</h1>
+      <p class="mt-2 text-sm text-muted">Your hardware vs every model. Classic tier list format.</p>
+    </header>
+
+    <!-- Hardware info -->
+    <div class="mb-6 text-center font-mono text-xs text-secondary">
+      <span id="hw-summary" class="text-muted">Detecting hardware...</span>
+    </div>
+
+    <!-- Config panel -->
+    <div class="mb-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 font-mono text-[11px] text-secondary">
+      <label class="inline-flex cursor-pointer items-center gap-1.5 select-none">
+        <input type="checkbox" id="opt-toks" checked class="tier-check accent-accent" />
+        Tokens/s
+      </label>
+      <label class="inline-flex cursor-pointer items-center gap-1.5 select-none">
+        <input type="checkbox" id="opt-provider" class="tier-check accent-accent" />
+        Provider
+      </label>
+      <label class="inline-flex cursor-pointer items-center gap-1.5 select-none">
+        <input type="checkbox" id="opt-vram" class="tier-check accent-accent" />
+        VRAM
+      </label>
+      <label class="inline-flex cursor-pointer items-center gap-1.5 select-none">
+        <input type="checkbox" id="opt-popular" checked class="tier-check accent-accent" />
+        Only popular
+      </label>
+      <label class="inline-flex cursor-pointer items-center gap-1.5 select-none">
+        <input type="checkbox" id="opt-hide-f" class="tier-check accent-accent" />
+        Hide F tier
+      </label>
+      <span class="text-edge/40">|</span>
+      <label class="inline-flex cursor-pointer items-center gap-1.5 select-none">
+        Sort:
+        <select id="opt-sort" class="rounded border border-edge bg-surface-card px-1.5 py-0.5 text-[11px] text-secondary outline-none">
+          <option value="score">Score</option>
+          <option value="name">Name</option>
+          <option value="params">Params</option>
+          <option value="toks">Speed</option>
+        </select>
+      </label>
+    </div>
+
+    <!-- Share button -->
+    <div class="mb-8 flex justify-center gap-3">
+      <button id="share-btn" class="inline-flex items-center gap-2 rounded-md border border-edge bg-surface-card px-4 py-2 font-mono text-[11px] text-secondary transition-colors hover:border-accent/30 hover:text-accent disabled:opacity-40 disabled:cursor-not-allowed" disabled>
+        <IconDownload class="h-3.5 w-3.5" />
+        Download as image
+      </button>
+      <button id="copy-btn" class="inline-flex items-center gap-2 rounded-md border border-edge bg-surface-card px-4 py-2 font-mono text-[11px] text-secondary transition-colors hover:border-accent/30 hover:text-accent disabled:opacity-40 disabled:cursor-not-allowed" disabled>
+        <IconCopy class="h-3.5 w-3.5" />
+        Copy to clipboard
+      </button>
+    </div>
+
+    <!-- Tier list container -->
+    <div id="tier-list" class="tier-list-container overflow-hidden rounded-xl border border-edge">
+      <!-- Watermark header for image export -->
+      <div class="flex items-center justify-between bg-surface-card px-4 py-3 border-b border-edge">
+        <span class="font-pixel text-sm text-accent">CanIRun.ai</span>
+        <span id="tier-hw-label" class="font-mono text-[10px] text-muted"></span>
+      </div>
+
+      {/* Model data embedded for JS */}
+      <script id="models-data" type="application/json" set:html={JSON.stringify(models.map(m => ({
+        id: m.id,
+        name: m.name,
+        provider: m.provider,
+        params: m.params,
+        paramsBillions: m.paramsBillions,
+        architecture: m.architecture,
+        vramQ4: m.quants.find(q => q.name === "Q4_K_M")?.vramGB || m.quants[0].vramGB,
+        featured: m.featured || false,
+      })))} />
+
+      <!-- S Tier -->
+      <div class="tier-row flex border-b border-edge/50">
+        <div class="tier-label flex w-16 shrink-0 items-center justify-center font-pixel text-2xl sm:w-20 sm:text-3xl" style="background-color: rgba(34,197,94,0.15); color: #22c55e;">S</div>
+        <div id="tier-s" class="tier-items flex min-h-[64px] flex-1 flex-wrap items-center gap-1.5 p-2"></div>
+      </div>
+
+      <!-- A Tier -->
+      <div class="tier-row flex border-b border-edge/50">
+        <div class="tier-label flex w-16 shrink-0 items-center justify-center font-pixel text-2xl sm:w-20 sm:text-3xl" style="background-color: rgba(74,222,128,0.15); color: #4ade80;">A</div>
+        <div id="tier-a" class="tier-items flex min-h-[64px] flex-1 flex-wrap items-center gap-1.5 p-2"></div>
+      </div>
+
+      <!-- B Tier -->
+      <div class="tier-row flex border-b border-edge/50">
+        <div class="tier-label flex w-16 shrink-0 items-center justify-center font-pixel text-2xl sm:w-20 sm:text-3xl" style="background-color: rgba(163,230,53,0.15); color: #a3e635;">B</div>
+        <div id="tier-b" class="tier-items flex min-h-[64px] flex-1 flex-wrap items-center gap-1.5 p-2"></div>
+      </div>
+
+      <!-- C Tier -->
+      <div class="tier-row flex border-b border-edge/50">
+        <div class="tier-label flex w-16 shrink-0 items-center justify-center font-pixel text-2xl sm:w-20 sm:text-3xl" style="background-color: rgba(245,158,11,0.15); color: #f59e0b;">C</div>
+        <div id="tier-c" class="tier-items flex min-h-[64px] flex-1 flex-wrap items-center gap-1.5 p-2"></div>
+      </div>
+
+      <!-- D Tier -->
+      <div class="tier-row flex border-b border-edge/50">
+        <div class="tier-label flex w-16 shrink-0 items-center justify-center font-pixel text-2xl sm:w-20 sm:text-3xl" style="background-color: rgba(249,115,22,0.15); color: #f97316;">D</div>
+        <div id="tier-d" class="tier-items flex min-h-[64px] flex-1 flex-wrap items-center gap-1.5 p-2"></div>
+      </div>
+
+      <!-- F Tier -->
+      <div class="tier-row flex">
+        <div class="tier-label flex w-16 shrink-0 items-center justify-center font-pixel text-2xl sm:w-20 sm:text-3xl" style="background-color: rgba(239,68,68,0.15); color: #ef4444;">F</div>
+        <div id="tier-f" class="tier-items flex min-h-[64px] flex-1 flex-wrap items-center gap-1.5 p-2"></div>
+      </div>
+
+      <!-- Footer watermark -->
+      <div class="flex items-center justify-between bg-surface-card px-4 py-2 border-t border-edge">
+        <span class="font-mono text-[11px] text-secondary">create your own at <span class="text-accent">canirun.ai/tier</span></span>
+        <span class="font-mono text-[10px] text-muted">Q4_K_M quantization</span>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-1 font-mono text-[10px] text-muted">
+      <span><span class="font-pixel" style="color:#22c55e">S</span> Runs great</span>
+      <span><span class="font-pixel" style="color:#4ade80">A</span> Runs well</span>
+      <span><span class="font-pixel" style="color:#a3e635">B</span> Decent</span>
+      <span><span class="font-pixel" style="color:#f59e0b">C</span> Tight fit</span>
+      <span><span class="font-pixel" style="color:#f97316">D</span> Barely runs</span>
+      <span><span class="font-pixel" style="color:#ef4444">F</span> Too heavy</span>
+    </div>
+
+    <p class="mt-3 text-center text-[10px] text-muted">
+      Based on Q4_K_M quantization. Your actual results may vary.
+    </p>
+
+    <!-- Footer -->
+    <footer class="mt-16 text-center text-xs text-muted/60">
+      <p>
+        Built by <a href="https://midu.dev" target="_blank" rel="noopener" class="text-muted underline decoration-edge underline-offset-2 hover:text-primary">midudev</a> for the local AI community.
+      </p>
+    </footer>
+  </main>
+</Layout>
+
+<script>
+  import { detectHardware, evaluateModel, estimateTokensPerSecond, computeScore, scoreToGrade, memoryPercentage, cleanGPUName, GRADES } from "../lib/hardware";
+  import type { HardwareInfo } from "../lib/hardware";
+
+  interface TierModel {
+    id: string;
+    name: string;
+    provider: string;
+    params: string;
+    paramsBillions: number;
+    architecture: string;
+    vramQ4: number;
+    featured: boolean;
+  }
+
+  interface EvalResult {
+    model: TierModel;
+    grade: string;
+    score: number;
+    toks: number | null;
+  }
+
+  const TIER_COLORS: Record<string, string> = {
+    S: "#22c55e",
+    A: "#4ade80",
+    B: "#a3e635",
+    C: "#f59e0b",
+    D: "#f97316",
+    F: "#ef4444",
+  };
+
+  // ── Config ──────────────────────────────────────────────
+
+  function getConfig() {
+    return {
+      showToks: (document.getElementById("opt-toks") as HTMLInputElement).checked,
+      showProvider: (document.getElementById("opt-provider") as HTMLInputElement).checked,
+      showVram: (document.getElementById("opt-vram") as HTMLInputElement).checked,
+      onlyPopular: (document.getElementById("opt-popular") as HTMLInputElement).checked,
+      hideF: (document.getElementById("opt-hide-f") as HTMLInputElement).checked,
+      sort: (document.getElementById("opt-sort") as HTMLSelectElement).value,
+    };
+  }
+
+  // ── Chip creation ───────────────────────────────────────
+
+  function createModelChip(model: TierModel, grade: string, score: number, toks: number | null, config: ReturnType<typeof getConfig>): HTMLElement {
+    const chip = document.createElement("a");
+    chip.href = `/model/${model.id}`;
+    chip.className = "tier-chip group relative flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 font-mono text-[11px] transition-colors hover:bg-surface-hover";
+    const color = TIER_COLORS[grade] || "#56565f";
+    // Use hex+alpha instead of color-mix for html2canvas compatibility
+    chip.style.borderColor = `${color}4D`; // 30% opacity
+    chip.style.backgroundColor = `${color}0D`; // 5% opacity
+
+    const dot = document.createElement("span");
+    dot.className = "h-1.5 w-1.5 rounded-full shrink-0";
+    dot.style.backgroundColor = color;
+
+    const name = document.createElement("span");
+    name.className = "text-primary truncate max-w-[120px] sm:max-w-[160px]";
+    name.textContent = model.name;
+
+    chip.appendChild(dot);
+    chip.appendChild(name);
+
+    if (config.showProvider) {
+      const prov = document.createElement("span");
+      prov.className = "text-muted/50 text-[9px] shrink-0";
+      prov.textContent = model.provider;
+      chip.appendChild(prov);
+    }
+
+    const meta = document.createElement("span");
+    meta.className = "text-muted text-[9px] shrink-0";
+    meta.textContent = model.params;
+    chip.appendChild(meta);
+
+    if (config.showVram) {
+      const vramSpan = document.createElement("span");
+      vramSpan.className = "text-muted/50 text-[9px] shrink-0";
+      vramSpan.textContent = `${model.vramQ4}GB`;
+      chip.appendChild(vramSpan);
+    }
+
+    if (config.showToks && toks !== null && grade !== "F") {
+      const tokSpan = document.createElement("span");
+      tokSpan.className = "text-[9px] shrink-0";
+      tokSpan.style.color = color;
+      tokSpan.textContent = `${toks}t/s`;
+      chip.appendChild(tokSpan);
+    }
+
+    return chip;
+  }
+
+  // ── Render tier list ────────────────────────────────────
+
+  let evaluatedModels: EvalResult[] = [];
+
+  function renderTierList() {
+    const config = getConfig();
+
+    const containers: Record<string, HTMLElement> = {
+      S: document.getElementById("tier-s")!,
+      A: document.getElementById("tier-a")!,
+      B: document.getElementById("tier-b")!,
+      C: document.getElementById("tier-c")!,
+      D: document.getElementById("tier-d")!,
+      F: document.getElementById("tier-f")!,
+    };
+
+    // Clear all
+    for (const container of Object.values(containers)) {
+      container.innerHTML = "";
+    }
+
+    // Sort
+    const sorted = [...evaluatedModels];
+    switch (config.sort) {
+      case "name":
+        sorted.sort((a, b) => a.model.name.localeCompare(b.model.name));
+        break;
+      case "params":
+        sorted.sort((a, b) => a.model.paramsBillions - b.model.paramsBillions);
+        break;
+      case "toks":
+        sorted.sort((a, b) => (b.toks ?? 0) - (a.toks ?? 0));
+        break;
+      default: // score
+        sorted.sort((a, b) => b.score - a.score || a.model.paramsBillions - b.model.paramsBillions);
+    }
+
+    // Hide/show F tier row
+    const fRow = document.getElementById("tier-f")!.closest(".tier-row") as HTMLElement;
+    if (fRow) fRow.style.display = config.hideF ? "none" : "";
+
+    // Place chips
+    for (const { model, grade, score, toks } of sorted) {
+      const g = grade === "?" ? "F" : grade;
+      if (config.hideF && g === "F") continue;
+      if (config.onlyPopular && !model.featured) continue;
+      const container = containers[g];
+      if (container) {
+        container.appendChild(createModelChip(model, g, score, toks, config));
+      }
+    }
+
+    // Add empty state
+    for (const [key, container] of Object.entries(containers)) {
+      if (config.hideF && key === "F") continue;
+      if (container.children.length === 0) {
+        const empty = document.createElement("span");
+        empty.className = "text-[10px] text-muted/30 font-mono italic px-2";
+        empty.textContent = "—";
+        container.appendChild(empty);
+      }
+    }
+  }
+
+  // ── Init ────────────────────────────────────────────────
+
+  async function init() {
+    const modelsData: TierModel[] = JSON.parse(document.getElementById("models-data")!.textContent || "[]");
+    const hw = await detectHardware();
+
+    // Update hardware summary
+    const hwSummary = document.getElementById("hw-summary")!;
+    const parts: string[] = [];
+    if (hw.cpuCores) parts.push(`${hw.cpuCores} cores`);
+    if (hw.ramGB) parts.push(`${hw.ramGB} GB RAM`);
+    if (hw.gpuRenderer) parts.push(cleanGPUName(hw.gpuRenderer));
+    if (hw.memoryBandwidth) parts.push(`~${hw.memoryBandwidth} GB/s`);
+    hwSummary.textContent = parts.join(" · ") || "Hardware unknown";
+    hwSummary.className = "text-secondary";
+
+    const tierLabel = document.getElementById("tier-hw-label")!;
+    tierLabel.textContent = parts.join(" | ");
+
+    // Evaluate all models
+    evaluatedModels = modelsData.map(m => {
+      const status = evaluateModel(m.vramQ4, hw);
+      const toks = estimateTokensPerSecond(m.vramQ4, hw);
+      const memPct = memoryPercentage(m.vramQ4, hw);
+      const score = computeScore(status, toks, m.paramsBillions, memPct);
+      const grade = scoreToGrade(score, status);
+      return { model: m, grade, score, toks };
+    });
+
+    renderTierList();
+
+    // Enable share buttons
+    document.getElementById("share-btn")!.removeAttribute("disabled");
+    document.getElementById("copy-btn")!.removeAttribute("disabled");
+
+    // Wire up config controls
+    document.querySelectorAll(".tier-check, #opt-sort").forEach(el => {
+      el.addEventListener("change", renderTierList);
+    });
+  }
+
+  // ── Image export ─────────────────────────────────────────
+
+  async function loadHtml2Canvas(): Promise<any> {
+    if ((window as any).html2canvas) return (window as any).html2canvas;
+    return new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+      script.onload = () => resolve((window as any).html2canvas);
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+
+  async function captureImage(): Promise<HTMLCanvasElement> {
+    const html2canvas = await loadHtml2Canvas();
+    const element = document.getElementById("tier-list")!;
+    return html2canvas(element, {
+      backgroundColor: "#000000",
+      scale: 2,
+      useCORS: true,
+      logging: false,
+    });
+  }
+
+  document.getElementById("share-btn")!.addEventListener("click", async () => {
+    const btn = document.getElementById("share-btn")!;
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = `<svg class="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4m-7.07-3.93l2.83-2.83m8.49-8.49l2.83-2.83M2 12h4m12 0h4m-3.93 7.07l-2.83-2.83M7.76 7.76L4.93 4.93"></path></svg>Generating...`;
+    btn.setAttribute("disabled", "true");
+
+    try {
+      const canvas = await captureImage();
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.download = "canirun-tier-list.png";
+          link.href = url;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }
+        btn.innerHTML = originalHTML;
+        btn.removeAttribute("disabled");
+      }, "image/png");
+    } catch (e) {
+      console.error("Failed to generate image:", e);
+      btn.innerHTML = originalHTML;
+      btn.removeAttribute("disabled");
+    }
+  });
+
+  document.getElementById("copy-btn")!.addEventListener("click", async () => {
+    const btn = document.getElementById("copy-btn")!;
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = `<svg class="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4m-7.07-3.93l2.83-2.83m8.49-8.49l2.83-2.83M2 12h4m12 0h4m-3.93 7.07l-2.83-2.83M7.76 7.76L4.93 4.93"></path></svg>Generating...`;
+    btn.setAttribute("disabled", "true");
+
+    try {
+      const canvas = await captureImage();
+      canvas.toBlob(async (blob) => {
+        if (blob) {
+          try {
+            await navigator.clipboard.write([
+              new ClipboardItem({ "image/png": blob }),
+            ]);
+            btn.innerHTML = `<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>Copied!`;
+            setTimeout(() => { btn.innerHTML = originalHTML; }, 2000);
+          } catch {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.download = "canirun-tier-list.png";
+            link.href = url;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            btn.innerHTML = `<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>Downloaded!`;
+            setTimeout(() => { btn.innerHTML = originalHTML; }, 2000);
+          }
+        }
+        btn.removeAttribute("disabled");
+      }, "image/png");
+    } catch (e) {
+      console.error("Failed to generate image:", e);
+      btn.innerHTML = originalHTML;
+      btn.removeAttribute("disabled");
+    }
+  });
+
+  init();
+</script>
+
+<style>
+  .tier-row {
+    background-color: var(--color-surface);
+  }
+
+  .tier-row:nth-child(odd) {
+    background-color: var(--color-surface-card);
+  }
+
+  .tier-chip {
+    backdrop-filter: none;
+  }
+
+  @media (max-width: 640px) {
+    .tier-label {
+      writing-mode: horizontal-tb;
+    }
+  }
+</style>

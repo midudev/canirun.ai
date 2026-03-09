@@ -1,0 +1,323 @@
+---
+import Layout from "../layouts/Layout.astro";
+import NavHeader from "../components/NavHeader.astro";
+---
+
+<Layout title="Docs — CanIRun.ai" description="Learn about quantization, VRAM, parameters, and other AI model terminology used on CanIRun.ai.">
+  <NavHeader />
+  <main class="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+    <header class="mb-10 text-center">
+      <h1 class="font-pixel text-2xl tracking-tight text-accent sm:text-3xl">Docs</h1>
+      <p class="mt-2 text-sm text-muted">
+        Key terms and concepts used on CanIRun.ai, explained simply.
+      </p>
+    </header>
+
+    <div class="space-y-10">
+      <!-- Parameters -->
+      <section>
+        <h2 class="mb-2 font-pixel text-sm text-primary">Parameters</h2>
+        <p class="text-sm leading-relaxed text-secondary">
+          When you see "7B" or "70B", that's the number of parameters (weights) in the model — in billions. More parameters generally means the model is smarter and more capable, but also needs more memory and is slower to run. A 7B model is great for basic tasks, 13B–34B is a solid sweet spot, and 70B+ delivers near-frontier quality but needs serious hardware.
+        </p>
+        <!-- Parameters size comparison SVG -->
+        <div class="mt-4 rounded-lg border border-edge bg-surface-card p-4">
+          <p class="mb-3 font-mono text-[10px] uppercase tracking-wider text-muted">Size vs capability tradeoff</p>
+          <svg viewBox="0 0 420 115" class="w-full" xmlns="http://www.w3.org/2000/svg">
+            <!-- Bars -->
+            <rect x="15" y="83" width="45" height="22" rx="3" fill="#22c55e" opacity="0.8"/>
+            <text x="37" y="78" text-anchor="middle" fill="#a1a1aa" font-family="monospace" font-size="7">1-3B</text>
+            <text x="37" y="98" text-anchor="middle" fill="#08080a" font-family="monospace" font-size="6" font-weight="bold">Fast</text>
+
+            <rect x="70" y="67" width="45" height="38" rx="3" fill="#4ade80" opacity="0.8"/>
+            <text x="92" y="62" text-anchor="middle" fill="#a1a1aa" font-family="monospace" font-size="7">7-8B</text>
+            <text x="92" y="90" text-anchor="middle" fill="#08080a" font-family="monospace" font-size="6" font-weight="bold">Good</text>
+
+            <rect x="125" y="51" width="45" height="54" rx="3" fill="#a3e635" opacity="0.8"/>
+            <text x="147" y="46" text-anchor="middle" fill="#a1a1aa" font-family="monospace" font-size="7">13-14B</text>
+            <text x="147" y="83" text-anchor="middle" fill="#08080a" font-family="monospace" font-size="6" font-weight="bold">Better</text>
+
+            <rect x="180" y="37" width="45" height="68" rx="3" fill="#f59e0b" opacity="0.8"/>
+            <text x="202" y="32" text-anchor="middle" fill="#a1a1aa" font-family="monospace" font-size="7">27-34B</text>
+            <text x="202" y="76" text-anchor="middle" fill="#08080a" font-family="monospace" font-size="6" font-weight="bold">Great</text>
+
+            <rect x="235" y="23" width="45" height="82" rx="3" fill="#f97316" opacity="0.8"/>
+            <text x="257" y="18" text-anchor="middle" fill="#a1a1aa" font-family="monospace" font-size="7">70B</text>
+            <text x="257" y="69" text-anchor="middle" fill="#08080a" font-family="monospace" font-size="6" font-weight="bold">Excellent</text>
+
+            <rect x="290" y="11" width="45" height="94" rx="3" fill="#ef4444" opacity="0.8"/>
+            <text x="312" y="8" text-anchor="middle" fill="#a1a1aa" font-family="monospace" font-size="7">405B+</text>
+            <text x="312" y="63" text-anchor="middle" fill="#08080a" font-family="monospace" font-size="6" font-weight="bold">Frontier</text>
+
+            <!-- Axis labels -->
+            <text x="360" y="25" fill="#56565f" font-family="monospace" font-size="7">&uarr; Smarter</text>
+            <text x="360" y="99" fill="#56565f" font-family="monospace" font-size="7">&darr; Faster</text>
+            <line x1="355" y1="19" x2="355" y2="105" stroke="#56565f" stroke-width="0.5" stroke-dasharray="2"/>
+          </svg>
+        </div>
+      </section>
+
+      <!-- Quantization -->
+      <section id="quantization">
+        <h2 class="mb-2 font-pixel text-sm text-primary">Quantization</h2>
+        <p class="text-sm leading-relaxed text-secondary">
+          Quantization reduces the precision of a model's weights to make it smaller and faster, at the cost of some quality. The names tell you the bit-width:
+        </p>
+        <!-- Quantization visual: horizontal bars -->
+        <div class="mt-4 mb-4 rounded-lg border border-edge bg-surface-card p-4">
+          <p class="mb-3 font-mono text-[10px] uppercase tracking-wider text-muted">Quality vs size (for a 7B model)</p>
+          <svg viewBox="0 0 400 130" class="w-full" xmlns="http://www.w3.org/2000/svg">
+            <!-- Header -->
+            <text x="55" y="10" text-anchor="end" fill="#56565f" font-family="monospace" font-size="7">Format</text>
+            <text x="65" y="10" fill="#56565f" font-family="monospace" font-size="7">Quality</text>
+            <text x="330" y="10" fill="#56565f" font-family="monospace" font-size="7">Size</text>
+
+            <!-- F16 — 100% quality, 13 GB -->
+            <text x="55" y="28" text-anchor="end" fill="#a1a1aa" font-family="monospace" font-size="8">F16</text>
+            <rect x="65" y="20" width="250" height="12" rx="2" fill="#f97316" opacity="0.2"/>
+            <rect x="65" y="20" width="250" height="12" rx="2" fill="#f97316" opacity="0.6"/>
+            <text x="330" y="29" fill="#f97316" font-family="monospace" font-size="7">~13 GB</text>
+            <text x="185" y="29" text-anchor="middle" fill="#fafafa" font-family="monospace" font-size="6">100%</text>
+
+            <!-- Q8_0 — 99% quality, 6.7 GB -->
+            <text x="55" y="48" text-anchor="end" fill="#a1a1aa" font-family="monospace" font-size="8">Q8_0</text>
+            <rect x="65" y="40" width="250" height="12" rx="2" fill="#f59e0b" opacity="0.2"/>
+            <rect x="65" y="40" width="247" height="12" rx="2" fill="#f59e0b" opacity="0.6"/>
+            <text x="330" y="49" fill="#f59e0b" font-family="monospace" font-size="7">~6.7 GB</text>
+            <text x="183" y="49" text-anchor="middle" fill="#fafafa" font-family="monospace" font-size="6">~99%</text>
+
+            <!-- Q6_K — 95% quality, 5.3 GB -->
+            <text x="55" y="68" text-anchor="end" fill="#a1a1aa" font-family="monospace" font-size="8">Q6_K</text>
+            <rect x="65" y="60" width="250" height="12" rx="2" fill="#a3e635" opacity="0.2"/>
+            <rect x="65" y="60" width="237" height="12" rx="2" fill="#a3e635" opacity="0.6"/>
+            <text x="330" y="69" fill="#a3e635" font-family="monospace" font-size="7">~5.3 GB</text>
+            <text x="178" y="69" text-anchor="middle" fill="#fafafa" font-family="monospace" font-size="6">~95%</text>
+
+            <!-- Q4_K_M — 88% quality, 3.9 GB ★ -->
+            <text x="55" y="88" text-anchor="end" fill="#22c55e" font-family="monospace" font-size="8">Q4_K_M</text>
+            <rect x="65" y="80" width="250" height="12" rx="2" fill="#22c55e" opacity="0.2"/>
+            <rect x="65" y="80" width="220" height="12" rx="2" fill="#22c55e" opacity="0.6"/>
+            <text x="330" y="89" fill="#22c55e" font-family="monospace" font-size="7">~3.9 GB</text>
+            <text x="170" y="89" text-anchor="middle" fill="#fafafa" font-family="monospace" font-size="6">~88%</text>
+            <text x="370" y="89" fill="#22c55e" font-family="monospace" font-size="7">&starf;</text>
+
+            <!-- Q2_K — 60% quality, 2.5 GB -->
+            <text x="55" y="108" text-anchor="end" fill="#a1a1aa" font-family="monospace" font-size="8">Q2_K</text>
+            <rect x="65" y="100" width="250" height="12" rx="2" fill="#ef4444" opacity="0.2"/>
+            <rect x="65" y="100" width="150" height="12" rx="2" fill="#ef4444" opacity="0.6"/>
+            <text x="330" y="109" fill="#ef4444" font-family="monospace" font-size="7">~2.5 GB</text>
+            <text x="135" y="109" text-anchor="middle" fill="#fafafa" font-family="monospace" font-size="6">~60%</text>
+
+            <!-- Legend -->
+            <text x="65" y="125" fill="#56565f" font-family="monospace" font-size="6">Bar = quality retention vs original &bull; <tspan fill="#22c55e">&starf; = best balance</tspan></text>
+          </svg>
+        </div>
+        <div class="mt-3 overflow-x-auto rounded-lg border border-edge">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-edge bg-surface-card text-left text-[10px] uppercase tracking-wider text-muted">
+                <th class="px-4 py-2.5">Format</th>
+                <th class="px-4 py-2.5">Bits</th>
+                <th class="px-4 py-2.5">Quality</th>
+                <th class="px-4 py-2.5">Notes</th>
+              </tr>
+            </thead>
+            <tbody class="text-xs">
+              <tr class="border-b border-edge/50 bg-surface-card/50">
+                <td class="px-4 py-2 font-mono text-primary">Q2_K</td>
+                <td class="px-4 py-2 text-secondary">2</td>
+                <td class="px-4 py-2 text-secondary">Low</td>
+                <td class="px-4 py-2 text-muted">Smallest size, noticeable quality loss</td>
+              </tr>
+              <tr class="border-b border-edge/50">
+                <td class="px-4 py-2 font-mono text-primary">Q4_K_M</td>
+                <td class="px-4 py-2 text-secondary">4</td>
+                <td class="px-4 py-2 text-secondary">Good</td>
+                <td class="px-4 py-2 text-muted">Best balance of size and quality — most popular</td>
+              </tr>
+              <tr class="border-b border-edge/50 bg-surface-card/50">
+                <td class="px-4 py-2 font-mono text-primary">Q6_K</td>
+                <td class="px-4 py-2 text-secondary">6</td>
+                <td class="px-4 py-2 text-secondary">Very good</td>
+                <td class="px-4 py-2 text-muted">Near-lossless, moderate size increase</td>
+              </tr>
+              <tr class="border-b border-edge/50">
+                <td class="px-4 py-2 font-mono text-primary">Q8_0</td>
+                <td class="px-4 py-2 text-secondary">8</td>
+                <td class="px-4 py-2 text-secondary">Excellent</td>
+                <td class="px-4 py-2 text-muted">Minimal quality loss, larger file</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-2 font-mono text-primary">F16</td>
+                <td class="px-4 py-2 text-secondary">16</td>
+                <td class="px-4 py-2 text-secondary">Original</td>
+                <td class="px-4 py-2 text-muted">Full precision, largest size</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- VRAM -->
+      <section>
+        <h2 class="mb-2 font-pixel text-sm text-primary">VRAM</h2>
+        <p class="text-sm leading-relaxed text-secondary">
+          VRAM is the memory on your GPU. To run a model, the entire quantized file needs to fit in VRAM (or in unified memory on Apple Silicon). If a model needs 8 GB of VRAM and your GPU has 6 GB, it won't run well — it'll either fail or fall back to much slower CPU inference.
+        </p>
+      </section>
+
+      <!-- MoE -->
+      <section>
+        <h2 class="mb-2 font-pixel text-sm text-primary">MoE (Mixture of Experts)</h2>
+        <p class="text-sm leading-relaxed text-secondary">
+          A Mixture of Experts model splits its parameters into groups called "experts." On each token, only a few experts are active — for example, Mixtral 8x7B has 46.7B total parameters but only activates ~12.9B per token. This means you get the quality of a larger model with the speed of a smaller one. The tradeoff: the full model still needs to fit in memory, even though only part of it runs at inference time.
+        </p>
+        <!-- MoE routing diagram -->
+        <div class="mt-4 rounded-lg border border-edge bg-surface-card p-4">
+          <p class="mb-3 font-mono text-[10px] uppercase tracking-wider text-muted">MoE expert routing (Mixtral example)</p>
+          <svg viewBox="0 0 480 140" class="w-full" xmlns="http://www.w3.org/2000/svg">
+            <!-- Input token -->
+            <rect x="10" y="55" width="70" height="30" rx="4" fill="none" stroke="#00e5ff" stroke-width="1" opacity="0.6"/>
+            <text x="45" y="74" text-anchor="middle" fill="#00e5ff" font-family="monospace" font-size="9">Token</text>
+
+            <!-- Router -->
+            <line x1="80" y1="70" x2="130" y2="70" stroke="#56565f" stroke-width="1"/>
+            <polygon points="127,67 133,70 127,73" fill="#56565f"/>
+            <rect x="133" y="50" width="60" height="40" rx="4" fill="none" stroke="#f59e0b" stroke-width="1" opacity="0.6"/>
+            <text x="163" y="68" text-anchor="middle" fill="#f59e0b" font-family="monospace" font-size="8">Router</text>
+            <text x="163" y="80" text-anchor="middle" fill="#f59e0b" font-family="monospace" font-size="7">top-2</text>
+
+            <!-- Experts -->
+            <line x1="193" y1="60" x2="240" y2="15" stroke="#22c55e" stroke-width="1"/>
+            <line x1="193" y1="65" x2="240" y2="45" stroke="#22c55e" stroke-width="1"/>
+            <line x1="193" y1="75" x2="240" y2="75" stroke="#56565f" stroke-width="0.5" stroke-dasharray="3"/>
+            <line x1="193" y1="80" x2="240" y2="105" stroke="#56565f" stroke-width="0.5" stroke-dasharray="3"/>
+
+            <!-- Expert boxes -->
+            <rect x="240" y="3" width="65" height="24" rx="3" fill="#22c55e" opacity="0.15" stroke="#22c55e" stroke-width="1"/>
+            <text x="272" y="18" text-anchor="middle" fill="#22c55e" font-family="monospace" font-size="8">Expert 1 ✓</text>
+
+            <rect x="240" y="33" width="65" height="24" rx="3" fill="#22c55e" opacity="0.15" stroke="#22c55e" stroke-width="1"/>
+            <text x="272" y="48" text-anchor="middle" fill="#22c55e" font-family="monospace" font-size="8">Expert 2 ✓</text>
+
+            <rect x="240" y="63" width="65" height="24" rx="3" fill="#56565f" opacity="0.1" stroke="#56565f" stroke-width="0.5" stroke-dasharray="3"/>
+            <text x="272" y="78" text-anchor="middle" fill="#56565f" font-family="monospace" font-size="8">Expert 3</text>
+
+            <rect x="240" y="93" width="65" height="24" rx="3" fill="#56565f" opacity="0.1" stroke="#56565f" stroke-width="0.5" stroke-dasharray="3"/>
+            <text x="272" y="108" text-anchor="middle" fill="#56565f" font-family="monospace" font-size="8">Expert 4</text>
+
+            <text x="245" y="130" fill="#56565f" font-family="monospace" font-size="7">... ×8 experts total</text>
+
+            <!-- Combine output -->
+            <line x1="305" y1="15" x2="350" y2="50" stroke="#22c55e" stroke-width="1"/>
+            <line x1="305" y1="45" x2="350" y2="50" stroke="#22c55e" stroke-width="1"/>
+            <rect x="350" y="35" width="60" height="30" rx="4" fill="none" stroke="#00e5ff" stroke-width="1" opacity="0.6"/>
+            <text x="380" y="54" text-anchor="middle" fill="#00e5ff" font-family="monospace" font-size="8">Output</text>
+
+            <!-- Labels -->
+            <text x="430" y="38" fill="#22c55e" font-family="monospace" font-size="7">Active: ~12.9B</text>
+            <text x="430" y="50" fill="#56565f" font-family="monospace" font-size="7">Total: 46.7B</text>
+            <text x="430" y="62" fill="#ef4444" font-family="monospace" font-size="7">VRAM: all 46.7B</text>
+          </svg>
+        </div>
+      </section>
+
+      <!-- Dense vs MoE -->
+      <section>
+        <h2 class="mb-2 font-pixel text-sm text-primary">Dense vs MoE Architecture</h2>
+        <p class="text-sm leading-relaxed text-secondary">
+          A <strong class="text-primary">dense</strong> model activates all its parameters for every token — what you see is what you get. A <strong class="text-primary">MoE</strong> model has more total parameters but only uses a subset per token. Dense models are simpler and more predictable in terms of memory/speed. MoE models can punch above their weight in quality but need more VRAM than their active parameter count suggests.
+        </p>
+      </section>
+
+      <!-- Context Length -->
+      <section>
+        <h2 class="mb-2 font-pixel text-sm text-primary">Context Length</h2>
+        <p class="text-sm leading-relaxed text-secondary">
+          Context length is how many tokens the model can process at once — input and output combined. A "128K context" model can handle roughly 100,000 words in a single conversation. Longer context is great for analyzing documents or long conversations, but uses more memory. Most local usage works fine with 4K–8K context.
+        </p>
+      </section>
+
+      <!-- Tokens/s -->
+      <section>
+        <h2 class="mb-2 font-pixel text-sm text-primary">Tokens per Second (tok/s)</h2>
+        <p class="text-sm leading-relaxed text-secondary">
+          This is the inference speed — how fast the model generates text. A rough guide:
+        </p>
+        <ul class="mt-2 space-y-1 text-sm text-secondary">
+          <li><span class="font-mono text-can-run">60+ tok/s</span> — Instant feel, great for interactive use</li>
+          <li><span class="font-mono text-can-run">30–60 tok/s</span> — Fast and comfortable</li>
+          <li><span class="font-mono text-maybe">15–30 tok/s</span> — Usable, slight wait</li>
+          <li><span class="font-mono text-maybe">5–15 tok/s</span> — Workable for batch tasks</li>
+          <li><span class="font-mono text-cannot-run">&lt;5 tok/s</span> — Painful for interactive use</li>
+        </ul>
+      </section>
+
+      <!-- GGUF -->
+      <section>
+        <h2 class="mb-2 font-pixel text-sm text-primary">GGUF Format</h2>
+        <p class="text-sm leading-relaxed text-secondary">
+          GGUF is the file format used by <a href="https://github.com/ggerganov/llama.cpp" target="_blank" rel="noopener" class="text-accent underline decoration-accent/30 underline-offset-2 hover:decoration-accent">llama.cpp</a> and tools like Ollama, LM Studio, and GPT4All. It stores quantized model weights in a single file that's ready to run on CPU or GPU. When you download a model from HuggingFace for local use, you're usually looking for the GGUF version.
+        </p>
+      </section>
+
+      <!-- Memory Bandwidth -->
+      <section>
+        <h2 class="mb-2 font-pixel text-sm text-primary">Memory Bandwidth</h2>
+        <p class="text-sm leading-relaxed text-secondary">
+          Memory bandwidth (measured in GB/s) determines how fast data can be read from VRAM. During inference, the bottleneck is reading model weights from memory — so higher bandwidth means more tokens per second. This is why Apple Silicon Macs (with high unified memory bandwidth) can run larger models surprisingly well, and why an RTX 4090 generates text faster than an RTX 4060 even at the same VRAM usage.
+        </p>
+        <!-- Bandwidth comparison chart -->
+        <div class="mt-4 rounded-lg border border-edge bg-surface-card p-4">
+          <p class="mb-3 font-mono text-[10px] uppercase tracking-wider text-muted">Memory bandwidth comparison (GB/s)</p>
+          <svg viewBox="0 0 480 155" class="w-full" xmlns="http://www.w3.org/2000/svg">
+            <!-- RTX 4060 -->
+            <text x="90" y="16" text-anchor="end" fill="#a1a1aa" font-family="monospace" font-size="8">RTX 4060</text>
+            <rect x="95" y="6" width="37" height="14" rx="2" fill="#f97316" opacity="0.7"/>
+            <text x="137" y="16" fill="#f97316" font-family="monospace" font-size="8">272</text>
+
+            <!-- M4 Pro -->
+            <text x="90" y="36" text-anchor="end" fill="#a1a1aa" font-family="monospace" font-size="8">M4 Pro</text>
+            <rect x="95" y="26" width="37" height="14" rx="2" fill="#f59e0b" opacity="0.7"/>
+            <text x="137" y="36" fill="#f59e0b" font-family="monospace" font-size="8">273</text>
+
+            <!-- RTX 4070 -->
+            <text x="90" y="56" text-anchor="end" fill="#a1a1aa" font-family="monospace" font-size="8">RTX 4070</text>
+            <rect x="95" y="46" width="69" height="14" rx="2" fill="#a3e635" opacity="0.7"/>
+            <text x="169" y="56" fill="#a3e635" font-family="monospace" font-size="8">504</text>
+
+            <!-- M4 Max -->
+            <text x="90" y="76" text-anchor="end" fill="#a1a1aa" font-family="monospace" font-size="8">M4 Max</text>
+            <rect x="95" y="66" width="75" height="14" rx="2" fill="#4ade80" opacity="0.7"/>
+            <text x="175" y="76" fill="#4ade80" font-family="monospace" font-size="8">546</text>
+
+            <!-- RX 7900 XTX -->
+            <text x="90" y="96" text-anchor="end" fill="#a1a1aa" font-family="monospace" font-size="8">7900 XTX</text>
+            <rect x="95" y="86" width="131" height="14" rx="2" fill="#22c55e" opacity="0.7"/>
+            <text x="231" y="96" fill="#22c55e" font-family="monospace" font-size="8">960</text>
+
+            <!-- RTX 4090 -->
+            <text x="90" y="116" text-anchor="end" fill="#a1a1aa" font-family="monospace" font-size="8">RTX 4090</text>
+            <rect x="95" y="106" width="138" height="14" rx="2" fill="#22c55e" opacity="0.7"/>
+            <text x="238" y="116" fill="#22c55e" font-family="monospace" font-size="8">1008</text>
+
+            <!-- RTX 5090 -->
+            <text x="90" y="136" text-anchor="end" fill="#a1a1aa" font-family="monospace" font-size="8">RTX 5090</text>
+            <rect x="95" y="126" width="245" height="14" rx="2" fill="#00e5ff" opacity="0.7"/>
+            <text x="345" y="136" fill="#00e5ff" font-family="monospace" font-size="8">1792</text>
+
+            <!-- Scale hint -->
+            <text x="95" y="152" fill="#56565f" font-family="monospace" font-size="7">Higher bandwidth = faster tok/s at same model size</text>
+          </svg>
+        </div>
+      </section>
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-16 text-center text-xs text-muted/60">
+      <p>
+        Built by <a href="https://midu.dev" target="_blank" rel="noopener" class="text-muted underline decoration-edge underline-offset-2 hover:text-primary">midudev</a> for the local AI community.
+      </p>
+    </footer>
+  </main>
+</Layout>
