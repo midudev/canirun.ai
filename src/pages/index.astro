@@ -440,6 +440,15 @@ function timeAgo(dateStr: string | null): string {
       ))}
     </div>
 
+    <!-- No results empty state -->
+    <div id="no-results" class="hidden py-20 text-center">
+      <p class="font-pixel text-lg text-muted/60">No models found</p>
+      <p class="mt-2 text-sm text-muted/40">Try adjusting your search or filters</p>
+      <button id="reset-filters" class="mt-5 inline-flex items-center gap-1.5 rounded-lg border border-edge/60 bg-surface-raised px-4 py-2 font-mono text-xs text-secondary transition-colors hover:border-accent/30 hover:bg-surface-hover hover:text-primary cursor-pointer">
+        Reset filters
+      </button>
+    </div>
+
     <!-- Data source -->
     <p class="mt-20 text-center text-[11px] text-muted/50">
       Data sourced from <a href="https://github.com/ggerganov/llama.cpp" target="_blank" rel="noopener" class="text-muted/70 underline decoration-edge underline-offset-2 hover:text-primary">llama.cpp</a>, <a href="https://ollama.com" target="_blank" rel="noopener" class="text-muted/70 underline decoration-edge underline-offset-2 hover:text-primary">Ollama</a> and <a href="https://lmstudio.ai" target="_blank" rel="noopener" class="text-muted/70 underline decoration-edge underline-offset-2 hover:text-primary">LM Studio</a>.
@@ -522,7 +531,7 @@ function timeAgo(dateStr: string | null): string {
 
     const gpuText = $("hw-gpu")!.querySelector("span")!;
     const displayName = getDisplayName(hw);
-    gpuText.textContent = hw.estimatedVRAM ? `${displayName} (${hw.estimatedVRAM} GB)` : displayName;
+    gpuText.textContent = displayName;
     $("hw-gpu")!.classList.replace("text-muted", "text-secondary");
 
     const ramSelect = $("hw-ram-select") as HTMLSelectElement;
@@ -811,17 +820,43 @@ function timeAgo(dateStr: string | null): string {
       }
     });
 
-    // Hide divider and rest grid heading when no results in those sections
+    const totalVisible = featuredVisible + restVisible;
     const divider = document.getElementById("rest-divider");
     const featuredGrid = document.getElementById("models-grid");
+    const restGrid = document.getElementById("models-grid-rest");
+    const noResults = document.getElementById("no-results");
+
     if (divider) divider.style.display = (featuredVisible === 0 || restVisible === 0) ? "none" : "";
     if (featuredGrid) featuredGrid.style.display = featuredVisible === 0 ? "none" : "";
+    if (restGrid) restGrid.style.display = restVisible === 0 ? "none" : "";
+    if (noResults) noResults.style.display = totalVisible === 0 ? "" : "none";
+    noResults?.classList.toggle("hidden", totalVisible > 0);
+  }
+
+  function resetAllFilters() {
+    const searchInput = document.getElementById("search-input") as HTMLInputElement;
+    const statusSelect = document.getElementById("filter-status") as HTMLSelectElement;
+    const useSelect = document.getElementById("filter-use") as HTMLSelectElement;
+    const providerSelect = document.getElementById("filter-provider") as HTMLSelectElement;
+
+    searchQuery = "";
+    activeStatusFilter = "all";
+    activeUseFilter = "all";
+    activeProviderFilter = "all";
+
+    if (searchInput) searchInput.value = "";
+    if (statusSelect) statusSelect.value = "all";
+    if (useSelect) useSelect.value = "all";
+    if (providerSelect) providerSelect.value = "all";
+
+    applyFilters();
   }
 
   function setupFilters() {
     const statusSelect = document.getElementById("filter-status") as HTMLSelectElement;
     const useSelect = document.getElementById("filter-use") as HTMLSelectElement;
     const providerSelect = document.getElementById("filter-provider") as HTMLSelectElement;
+    const resetBtn = document.getElementById("reset-filters");
 
     statusSelect?.addEventListener("change", () => {
       activeStatusFilter = statusSelect.value;
@@ -837,6 +872,8 @@ function timeAgo(dateStr: string | null): string {
       activeProviderFilter = providerSelect.value;
       applyFilters();
     });
+
+    resetBtn?.addEventListener("click", resetAllFilters);
   }
 
   // ── Quant Switching ────────────────────────────────────────
