@@ -1,22 +1,7 @@
 ---
 import Logo from "@/icons/logo.svg";
 const currentPath = Astro.url.pathname;
-
 const buildDate = new Date();
-const now = new Date();
-const diffMs = now.getTime() - buildDate.getTime();
-const diffMins = Math.floor(diffMs / 60_000);
-const diffHours = Math.floor(diffMs / 3_600_000);
-const diffDays = Math.floor(diffMs / 86_400_000);
-
-function getRelativeTime(mins: number, hours: number, days: number) {
-  if (days > 0) return `${days}d ago`;
-  if (hours > 0) return `${hours}h ago`;
-  if (mins > 0) return `${mins}m ago`;
-  return "just now";
-}
-
-const updatedAgo = getRelativeTime(diffMins, diffHours, diffDays);
 ---
 
 <nav class="border-b border-edge/40">
@@ -26,9 +11,9 @@ const updatedAgo = getRelativeTime(diffMins, diffHours, diffDays);
         <Logo class="size-3" />
         CanIRun.ai
       </a>
-      <span class="font-mono text-[10px] text-primary/40" title={buildDate.toISOString()}>
-        updated {updatedAgo}
-      </span>
+      <time id="build-time" class="font-mono text-[10px] text-primary/40" datetime={buildDate.toISOString()}>
+        updated ...
+      </time>
     </div>
     <div class="flex items-center gap-4 font-mono text-[11px]">
       <a
@@ -79,3 +64,28 @@ const updatedAgo = getRelativeTime(diffMins, diffHours, diffDays);
     </div>
   </div>
 </nav>
+
+<script>
+  function updateBuildTime() {
+    const el = document.getElementById("build-time") as HTMLTimeElement | null;
+    if (!el) return;
+
+    const buildISO = el.getAttribute("datetime");
+    if (!buildISO) return;
+
+    const diffMs = Date.now() - new Date(buildISO).getTime();
+    const mins = Math.floor(diffMs / 60_000);
+    const hours = Math.floor(diffMs / 3_600_000);
+    const days = Math.floor(diffMs / 86_400_000);
+
+    let relative: string;
+    if (days > 0) relative = `${days}d ago`;
+    else if (hours > 0) relative = `${hours}h ago`;
+    else if (mins > 0) relative = `${mins}m ago`;
+    else relative = "just now";
+
+    el.textContent = `updated ${relative}`;
+  }
+
+  document.addEventListener("astro:page-load", updateBuildTime);
+</script>
