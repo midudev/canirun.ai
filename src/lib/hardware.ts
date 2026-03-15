@@ -34,6 +34,10 @@ export const GPU_DB: Record<string, { vram: number; bw: number; cores: number }>
   "RTX 5080": { vram: 16, bw: 960, cores: 10752 },
   "RTX 5070 Ti": { vram: 16, bw: 896, cores: 8960 },
   "RTX 5070": { vram: 12, bw: 672, cores: 6144 },
+  "RTX 5060 Ti 16GB": { vram: 16, bw: 448, cores: 4608 },
+  "RTX 5060 Ti": { vram: 8, bw: 448, cores: 4608 },
+  "RTX 5060": { vram: 8, bw: 448, cores: 3840 },
+  "RTX 5050": { vram: 8, bw: 320, cores: 2560 },
   "RTX 4090": { vram: 24, bw: 1008, cores: 16384 },
   "RTX 4080 SUPER": { vram: 16, bw: 736, cores: 10240 },
   "RTX 4080": { vram: 16, bw: 717, cores: 9728 },
@@ -54,6 +58,30 @@ export const GPU_DB: Record<string, { vram: number; bw: number; cores: number }>
   "RTX 3060 Ti": { vram: 8, bw: 448, cores: 4864 },
   "RTX 3060": { vram: 12, bw: 360, cores: 3584 },
   "RTX 3050": { vram: 8, bw: 224, cores: 2560 },
+
+  // NVIDIA Laptop GPUs — RTX 50 series
+  "RTX 5090 Laptop": { vram: 24, bw: 896, cores: 10496 },
+  "RTX 5080 Laptop": { vram: 16, bw: 896, cores: 7680 },
+  "RTX 5070 Ti Laptop": { vram: 16, bw: 672, cores: 5888 },
+  "RTX 5070 Laptop": { vram: 12, bw: 672, cores: 4608 },
+  "RTX 5060 Laptop": { vram: 8, bw: 384, cores: 3328 },
+  "RTX 5050 Laptop": { vram: 8, bw: 384, cores: 2560 },
+
+  // NVIDIA Laptop GPUs — RTX 40 series
+  "RTX 4090 Laptop": { vram: 16, bw: 576, cores: 9728 },
+  "RTX 4080 Laptop": { vram: 12, bw: 432, cores: 7424 },
+  "RTX 4070 Laptop": { vram: 8, bw: 256, cores: 4608 },
+  "RTX 4060 Laptop": { vram: 8, bw: 256, cores: 3072 },
+  "RTX 4050 Laptop": { vram: 6, bw: 192, cores: 2560 },
+
+  // NVIDIA Laptop GPUs — RTX 30 series
+  "RTX 3080 Ti Laptop": { vram: 16, bw: 512, cores: 7424 },
+  "RTX 3080 Laptop": { vram: 16, bw: 448, cores: 6144 },
+  "RTX 3070 Ti Laptop": { vram: 8, bw: 448, cores: 5120 },
+  "RTX 3070 Laptop": { vram: 8, bw: 448, cores: 5120 },
+  "RTX 3060 Laptop": { vram: 6, bw: 336, cores: 3840 },
+  "RTX 3050 Ti Laptop": { vram: 4, bw: 192, cores: 2560 },
+  "RTX 3050 Laptop": { vram: 4, bw: 192, cores: 2048 },
   "RTX A6000": { vram: 48, bw: 768, cores: 10752 },
   "RTX A5000": { vram: 24, bw: 768, cores: 8192 },
   "RTX A4000": { vram: 16, bw: 448, cores: 6144 },
@@ -80,11 +108,17 @@ export const GPU_DB: Record<string, { vram: number; bw: number; cores: number }>
   "RX 7900 XT": { vram: 20, bw: 800, cores: 5376 },
   "RX 7800 XT": { vram: 16, bw: 624, cores: 3840 },
   "RX 7700 XT": { vram: 12, bw: 432, cores: 3456 },
+  "RX 7600 XT": { vram: 16, bw: 288, cores: 2048 },
   "RX 7600": { vram: 8, bw: 288, cores: 2048 },
   "RX 6900 XT": { vram: 16, bw: 512, cores: 5120 },
   "RX 6800 XT": { vram: 16, bw: 512, cores: 4608 },
   "RX 6800": { vram: 16, bw: 512, cores: 3840 },
+  "RX 6750 XT": { vram: 12, bw: 432, cores: 2560 },
   "RX 6700 XT": { vram: 12, bw: 384, cores: 2560 },
+  "RX 6650 XT": { vram: 8, bw: 280, cores: 2048 },
+  "RX 6600 XT": { vram: 8, bw: 256, cores: 2048 },
+  "RX 6600": { vram: 8, bw: 224, cores: 1792 },
+  "RX 6500 XT": { vram: 4, bw: 144, cores: 1024 },
   "Arc A770": { vram: 16, bw: 560, cores: 4096 },
   "Arc A750": { vram: 8, bw: 512, cores: 3584 },
   "Arc A580": { vram: 8, bw: 512, cores: 3072 },
@@ -143,6 +177,34 @@ export const GPU_DB: Record<string, { vram: number; bw: number; cores: number }>
   // AMD RX 9xxx (RDNA 4)
   "RX 9070 XT": { vram: 16, bw: 650, cores: 4096 },
   "RX 9070": { vram: 16, bw: 540, cores: 3584 },
+
+  // AMD Discrete Laptop GPUs (RX 7000M/S)
+  "RX 7900M": { vram: 16, bw: 720, cores: 4608 },
+  "RX 7700S": { vram: 8, bw: 288, cores: 2048 },
+  "RX 7600M XT": { vram: 8, bw: 288, cores: 2048 },
+  "RX 7600M": { vram: 8, bw: 288, cores: 1792 },
+  "RX 7600S": { vram: 8, bw: 288, cores: 1792 },
+
+  // AMD Discrete Laptop GPUs (RX 6000M)
+  "RX 6800M": { vram: 12, bw: 384, cores: 2560 },
+  "RX 6700M": { vram: 10, bw: 320, cores: 2304 },
+  "RX 6600M": { vram: 8, bw: 256, cores: 1792 },
+  "RX 6500M": { vram: 4, bw: 144, cores: 1024 },
+
+  // AMD Integrated GPUs (Ryzen APUs)
+  "Radeon 890M": { vram: 0, bw: 89, cores: 1024 },
+  "Radeon 880M": { vram: 0, bw: 89, cores: 768 },
+  "Radeon 780M": { vram: 0, bw: 89, cores: 768 },
+  "Radeon 760M": { vram: 0, bw: 89, cores: 512 },
+  "Radeon 680M": { vram: 0, bw: 77, cores: 768 },
+  "Radeon 660M": { vram: 0, bw: 77, cores: 384 },
+  "Vega 8": { vram: 0, bw: 51, cores: 512 },
+  "Vega 7": { vram: 0, bw: 51, cores: 448 },
+
+  // Intel Arc Laptop GPUs
+  "Arc A770M": { vram: 16, bw: 512, cores: 4096 },
+  "Arc A550M": { vram: 8, bw: 224, cores: 2048 },
+  "Arc A370M": { vram: 4, bw: 112, cores: 1024 },
 
   // Intel integrated
   "Iris Xe": { vram: 0, bw: 68, cores: 96 },
@@ -282,11 +344,16 @@ function getGPUInfo(): { renderer: string | null; vendor: string | null } {
 }
 
 function matchGPU(renderer: string): { vram: number; bw: number; cores: number } | null {
-  const upper = renderer.toUpperCase();
+  const upper = renderer.toUpperCase().replace(/\(TM\)/g, "").replace(/\s+/g, " ").trim();
+  let best: { vram: number; bw: number; cores: number } | null = null;
+  let bestLen = 0;
   for (const [name, data] of Object.entries(GPU_DB)) {
-    if (upper.includes(name.toUpperCase())) return data;
+    if (upper.includes(name.toUpperCase()) && name.length > bestLen) {
+      best = data;
+      bestLen = name.length;
+    }
   }
-  return null;
+  return best;
 }
 
 function parseVRAMFromName(renderer: string): number | null {
@@ -1072,3 +1139,33 @@ export function buildSelectOptions(presets: number[], detected: number | null): 
   if (detected !== null && detected > 0) set.add(detected);
   return Array.from(set).sort((a, b) => a - b);
 }
+
+// ── GPU Categories (for device selector UI) ───────────────
+
+export function getGPUCategory(name: string): string {
+  if (name.startsWith("RTX 50")) return "NVIDIA RTX 50";
+  if (name.startsWith("RTX 40")) return "NVIDIA RTX 40";
+  if (name.startsWith("RTX 30")) return "NVIDIA RTX 30";
+  if (name.startsWith("RTX 20")) return "NVIDIA RTX 20";
+  if (name.startsWith("RTX A") || name.startsWith("Quadro")) return "NVIDIA Pro";
+  if (/^(A100|H100|L40S|L4|T4)$/.test(name)) return "NVIDIA Datacenter";
+  if (name.startsWith("GTX 16")) return "NVIDIA GTX 16";
+  if (name.startsWith("GTX 10")) return "NVIDIA GTX 10";
+  if (name.startsWith("GTX 9")) return "NVIDIA GTX 9";
+  if (name.startsWith("RX 9")) return "AMD RX 9000";
+  if (name.startsWith("RX 7")) return "AMD RX 7000";
+  if (name.startsWith("RX 6")) return "AMD RX 6000";
+  if (name.startsWith("RX 5")) return "AMD RX 5000";
+  if (name.startsWith("Radeon") || /^Vega \d$/.test(name)) return "AMD Integrated";
+  if (name.startsWith("RX") || name.startsWith("Vega")) return "AMD Older";
+  if (name.startsWith("Arc")) return "Intel Arc";
+  if (name.startsWith("Iris") || name.startsWith("UHD")) return "Intel Integrated";
+  return "Other";
+}
+
+export const DEVICE_CATEGORY_ORDER = [
+  "Apple Silicon", "NVIDIA RTX 50", "NVIDIA RTX 40", "NVIDIA RTX 30", "NVIDIA RTX 20",
+  "NVIDIA GTX 16", "NVIDIA GTX 10", "NVIDIA GTX 9", "NVIDIA Pro", "NVIDIA Datacenter",
+  "AMD RX 9000", "AMD RX 7000", "AMD RX 6000", "AMD RX 5000", "AMD Older", "AMD Integrated",
+  "Intel Arc", "Intel Integrated", "Mobile",
+];
