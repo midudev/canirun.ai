@@ -129,7 +129,7 @@ const USE_CASE_ICONS: Record<string, any> = {
             {
               model.architecture === "moe" && (
                 <span
-                  class="rounded border border-info/20 bg-info/10 p-1 text-info"
+                  class="rounded border border-info/20 bg-info/10 p-1 text-info h-7 w-7 inline-flex items-center justify-center"
                   title="Mixture of Experts"
                 >
                   <IconMoe class="h-3.5 w-3.5" />
@@ -139,7 +139,7 @@ const USE_CASE_ICONS: Record<string, any> = {
             {
               model.tools && (
                 <span
-                  class="rounded border border-purple-400/30 bg-purple-400/10 p-1 text-purple-400"
+                  class="rounded border border-purple-400/30 bg-purple-400/10 p-1 text-purple-400 h-7 w-7 inline-flex items-center justify-center"
                   title="Tool Use"
                 >
                   <IconTool class="h-3.5 w-3.5" />
@@ -149,7 +149,7 @@ const USE_CASE_ICONS: Record<string, any> = {
             {
               model.thinking && (
                 <span
-                  class="rounded border border-sky-400/30 bg-sky-400/10 p-1 text-sky-400"
+                  class="rounded border border-sky-400/30 bg-sky-400/10 p-1 text-sky-400 h-7 w-7 inline-flex items-center justify-center"
                   title="Thinking / Reasoning"
                 >
                   <IconThinking class="h-3.5 w-3.5" />
@@ -159,7 +159,7 @@ const USE_CASE_ICONS: Record<string, any> = {
             {
               model.useCase.includes("vision") && (
                 <span
-                  class="rounded border border-rose-400/30 bg-rose-400/10 p-1 text-rose-400"
+                  class="rounded border border-rose-400/30 bg-rose-400/10 p-1 text-rose-400 h-7 w-7 inline-flex items-center justify-center"
                   title="Vision"
                 >
                   <IconVision class="h-3.5 w-3.5" />
@@ -169,7 +169,7 @@ const USE_CASE_ICONS: Record<string, any> = {
             {
               model.featured && (
                 <span
-                  class="rounded border border-yellow-400/30 bg-yellow-400/10 p-1 text-yellow-400"
+                  class="rounded border border-yellow-400/30 bg-yellow-400/10 p-1 text-yellow-400 h-7 w-7 inline-flex items-center justify-center"
                   title="Popular"
                 >
                   <IconStar class="h-3.5 w-3.5" />
@@ -179,7 +179,7 @@ const USE_CASE_ICONS: Record<string, any> = {
             {
               model.license && (
                 <span
-                  class={`inline-flex items-center gap-1 rounded border px-2 py-0.5 font-mono text-xs ${licenseColors}`}
+                    class={`inline-flex h-7 items-center gap-1 rounded border px-2 font-mono text-xs ${licenseColors}`}
                   title={licenseHint}
                 >
                   <IconLicense class="h-3 w-3" />
