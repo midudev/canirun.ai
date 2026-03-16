@@ -9,7 +9,7 @@ import Footer from "@/components/Footer.astro";
   <main class="mx-auto max-w-3xl px-4 py-12 sm:px-6">
     <header class="mb-10 text-center">
       <h1 class="font-pixel text-2xl tracking-tight text-accent sm:text-3xl">Docs</h1>
-      <p class="mt-2 text-sm text-muted">
+      <p class="mt-2 text-base text-muted">
         Key terms and concepts used on CanIRun.ai, explained simply.
       </p>
     </header>
@@ -17,13 +17,13 @@ import Footer from "@/components/Footer.astro";
     <div class="space-y-10">
       <!-- Parameters -->
       <section>
-        <h2 class="mb-2 font-pixel text-sm text-primary">Parameters</h2>
-        <p class="text-sm leading-relaxed text-secondary">
+        <h2 class="mb-2 font-pixel text-base text-primary">Parameters</h2>
+        <p class="text-base leading-relaxed text-secondary">
           When you see "7B" or "70B", that's the number of parameters (weights) in the model — in billions. More parameters generally means the model is smarter and more capable, but also needs more memory and is slower to run. A 7B model is great for basic tasks, 13B–34B is a solid sweet spot, and 70B+ delivers near-frontier quality but needs serious hardware.
         </p>
         <!-- Parameters size comparison SVG -->
         <div class="mt-4 rounded-lg border border-edge bg-surface-card p-4">
-          <p class="mb-3 font-mono text-[10px] uppercase tracking-wider text-muted">Size vs capability tradeoff</p>
+          <p class="mb-3 font-mono text-xs uppercase tracking-wider text-muted">Size vs capability tradeoff</p>
           <svg viewBox="0 0 420 115" class="w-full" xmlns="http://www.w3.org/2000/svg">
             <!-- Bars -->
             <rect x="15" y="83" width="45" height="22" rx="3" fill="#22c55e" opacity="0.8"/>
@@ -60,13 +60,13 @@ import Footer from "@/components/Footer.astro";
 
       <!-- Quantization -->
       <section id="quantization">
-        <h2 class="mb-2 font-pixel text-sm text-primary">Quantization</h2>
-        <p class="text-sm leading-relaxed text-secondary">
+        <h2 class="mb-2 font-pixel text-base text-primary">Quantization</h2>
+        <p class="text-base leading-relaxed text-secondary">
           Quantization reduces the precision of a model's weights to make it smaller and faster, at the cost of some quality. The names tell you the bit-width:
         </p>
         <!-- Quantization visual: horizontal bars -->
         <div class="mt-4 mb-4 rounded-lg border border-edge bg-surface-card p-4">
-          <p class="mb-3 font-mono text-[10px] uppercase tracking-wider text-muted">Quality vs size (for a 7B model)</p>
+          <p class="mb-3 font-mono text-xs uppercase tracking-wider text-muted">Quality vs size (for a 7B model)</p>
           <svg viewBox="0 0 400 130" class="w-full" xmlns="http://www.w3.org/2000/svg">
             <!-- Header -->
             <text x="55" y="10" text-anchor="end" fill="#56565f" font-family="monospace" font-size="7">Format</text>
@@ -114,16 +114,16 @@ import Footer from "@/components/Footer.astro";
           </svg>
         </div>
         <div class="mt-3 overflow-x-auto rounded-lg border border-edge">
-          <table class="w-full text-sm">
+          <table class="w-full text-base">
             <thead>
-              <tr class="border-b border-edge bg-surface-card text-left text-[10px] uppercase tracking-wider text-muted">
+              <tr class="border-b border-edge bg-surface-card text-left text-xs uppercase tracking-wider text-muted">
                 <th class="px-4 py-2.5">Format</th>
                 <th class="px-4 py-2.5">Bits</th>
                 <th class="px-4 py-2.5">Quality</th>
                 <th class="px-4 py-2.5">Notes</th>
               </tr>
             </thead>
-            <tbody class="text-xs">
+            <tbody class="text-sm">
               <tr class="border-b border-edge/50 bg-surface-card/50">
                 <td class="px-4 py-2 font-mono text-primary">Q2_K</td>
                 <td class="px-4 py-2 text-secondary">2</td>
@@ -161,21 +161,21 @@ import Footer from "@/components/Footer.astro";
 
       <!-- VRAM -->
       <section>
-        <h2 class="mb-2 font-pixel text-sm text-primary">VRAM</h2>
-        <p class="text-sm leading-relaxed text-secondary">
+        <h2 class="mb-2 font-pixel text-base text-primary">VRAM</h2>
+        <p class="text-base leading-relaxed text-secondary">
           VRAM is the memory on your GPU. To run a model, the entire quantized file needs to fit in VRAM (or in unified memory on Apple Silicon). If a model needs 8 GB of VRAM and your GPU has 6 GB, it won't run well — it'll either fail or fall back to much slower CPU inference.
         </p>
       </section>
 
       <!-- MoE -->
       <section>
-        <h2 class="mb-2 font-pixel text-sm text-primary">MoE (Mixture of Experts)</h2>
-        <p class="text-sm leading-relaxed text-secondary">
+        <h2 class="mb-2 font-pixel text-base text-primary">MoE (Mixture of Experts)</h2>
+        <p class="text-base leading-relaxed text-secondary">
           A Mixture of Experts model splits its parameters into groups called "experts." On each token, only a few experts are active — for example, Mixtral 8x7B has 46.7B total parameters but only activates ~12.9B per token. This means you get the quality of a larger model with the speed of a smaller one. The tradeoff: the full model still needs to fit in memory, even though only part of it runs at inference time.
         </p>
         <!-- MoE routing diagram -->
         <div class="mt-4 rounded-lg border border-edge bg-surface-card p-4">
-          <p class="mb-3 font-mono text-[10px] uppercase tracking-wider text-muted">MoE expert routing (Mixtral example)</p>
+          <p class="mb-3 font-mono text-xs uppercase tracking-wider text-muted">MoE expert routing (Mixtral example)</p>
           <svg viewBox="0 0 480 140" class="w-full" xmlns="http://www.w3.org/2000/svg">
             <!-- Input token -->
             <rect x="10" y="55" width="70" height="30" rx="4" fill="none" stroke="#00e5ff" stroke-width="1" opacity="0.6"/>
@@ -225,27 +225,27 @@ import Footer from "@/components/Footer.astro";
 
       <!-- Dense vs MoE -->
       <section>
-        <h2 class="mb-2 font-pixel text-sm text-primary">Dense vs MoE Architecture</h2>
-        <p class="text-sm leading-relaxed text-secondary">
+        <h2 class="mb-2 font-pixel text-base text-primary">Dense vs MoE Architecture</h2>
+        <p class="text-base leading-relaxed text-secondary">
           A <strong class="text-primary">dense</strong> model activates all its parameters for every token — what you see is what you get. A <strong class="text-primary">MoE</strong> model has more total parameters but only uses a subset per token. Dense models are simpler and more predictable in terms of memory/speed. MoE models can punch above their weight in quality but need more VRAM than their active parameter count suggests.
         </p>
       </section>
 
       <!-- Context Length -->
       <section>
-        <h2 class="mb-2 font-pixel text-sm text-primary">Context Length</h2>
-        <p class="text-sm leading-relaxed text-secondary">
+        <h2 class="mb-2 font-pixel text-base text-primary">Context Length</h2>
+        <p class="text-base leading-relaxed text-secondary">
           Context length is how many tokens the model can process at once — input and output combined. A "128K context" model can handle roughly 100,000 words in a single conversation. Longer context is great for analyzing documents or long conversations, but uses more memory. Most local usage works fine with 4K–8K context.
         </p>
       </section>
 
       <!-- Tokens/s -->
       <section>
-        <h2 class="mb-2 font-pixel text-sm text-primary">Tokens per Second (tok/s)</h2>
-        <p class="text-sm leading-relaxed text-secondary">
+        <h2 class="mb-2 font-pixel text-base text-primary">Tokens per Second (tok/s)</h2>
+        <p class="text-base leading-relaxed text-secondary">
           This is the inference speed — how fast the model generates text. A rough guide:
         </p>
-        <ul class="mt-2 space-y-1 text-sm text-secondary">
+        <ul class="mt-2 space-y-1 text-base text-secondary">
           <li><span class="font-mono text-can-run">60+ tok/s</span> — Instant feel, great for interactive use</li>
           <li><span class="font-mono text-can-run">30–60 tok/s</span> — Fast and comfortable</li>
           <li><span class="font-mono text-maybe">15–30 tok/s</span> — Usable, slight wait</li>
@@ -256,21 +256,21 @@ import Footer from "@/components/Footer.astro";
 
       <!-- GGUF -->
       <section>
-        <h2 class="mb-2 font-pixel text-sm text-primary">GGUF Format</h2>
-        <p class="text-sm leading-relaxed text-secondary">
+        <h2 class="mb-2 font-pixel text-base text-primary">GGUF Format</h2>
+        <p class="text-base leading-relaxed text-secondary">
           GGUF is the file format used by <a href="https://github.com/ggerganov/llama.cpp" target="_blank" rel="noopener" class="text-accent underline decoration-accent/30 underline-offset-2 hover:decoration-accent">llama.cpp</a> and tools like Ollama, LM Studio, and GPT4All. It stores quantized model weights in a single file that's ready to run on CPU or GPU. When you download a model from HuggingFace for local use, you're usually looking for the GGUF version.
         </p>
       </section>
 
       <!-- Memory Bandwidth -->
       <section>
-        <h2 class="mb-2 font-pixel text-sm text-primary">Memory Bandwidth</h2>
-        <p class="text-sm leading-relaxed text-secondary">
+        <h2 class="mb-2 font-pixel text-base text-primary">Memory Bandwidth</h2>
+        <p class="text-base leading-relaxed text-secondary">
           Memory bandwidth (measured in GB/s) determines how fast data can be read from VRAM. During inference, the bottleneck is reading model weights from memory — so higher bandwidth means more tokens per second. This is why Apple Silicon Macs (with high unified memory bandwidth) can run larger models surprisingly well, and why an RTX 4090 generates text faster than an RTX 4060 even at the same VRAM usage.
         </p>
         <!-- Bandwidth comparison chart -->
         <div class="mt-4 rounded-lg border border-edge bg-surface-card p-4">
-          <p class="mb-3 font-mono text-[10px] uppercase tracking-wider text-muted">Memory bandwidth comparison (GB/s)</p>
+          <p class="mb-3 font-mono text-xs uppercase tracking-wider text-muted">Memory bandwidth comparison (GB/s)</p>
           <svg viewBox="0 0 480 155" class="w-full" xmlns="http://www.w3.org/2000/svg">
             <!-- RTX 4060 -->
             <text x="90" y="16" text-anchor="end" fill="#a1a1aa" font-family="monospace" font-size="8">RTX 4060</text>

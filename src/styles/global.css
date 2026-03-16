@@ -97,6 +97,7 @@
 
 @layer base {
   html {
+    color-scheme: dark;
     background-color: var(--color-surface);
     color: var(--color-primary);
     font-family: var(--font-sans);
@@ -104,10 +105,42 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  html.light {
+    color-scheme: light;
+  }
+
   ::selection {
     background-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
     color: var(--color-primary);
   }
+}
+
+/* ── Light mode overrides ──────────────────────────────── */
+html.light {
+  --color-surface: #ffffff;
+  --color-surface-raised: #f8f8fa;
+  --color-surface-card: #f0f0f3;
+  --color-surface-hover: #e6e6ea;
+
+  --color-edge: #d1d1d6;
+  --color-edge-subtle: #e0e0e4;
+
+  --color-primary: #18181b;
+  --color-secondary: #52525b;
+  --color-muted: #a1a1aa;
+
+  --color-accent: #16a34a;
+  --color-accent-dim: #15803d;
+  --color-warning: #d97706;
+  --color-danger: #dc2626;
+  --color-info: #2563eb;
+
+  --color-can-run: #15803d;
+  --color-grade-a: #16a34a;
+  --color-grade-b: #4d7c0f;
+  --color-maybe: #b45309;
+  --color-grade-d: #c2410c;
+  --color-cannot-run: #b91c1c;
 }
 
 /* Inline editable select for hardware overrides */
@@ -148,4 +181,106 @@
 .hw-editable-select option {
   background-color: var(--color-surface-card);
   color: var(--color-secondary);
+}
+
+/* ── Custom Tooltip ──────────────────────────────────── */
+
+[data-tooltip] {
+  position: relative;
+  cursor: help;
+}
+
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-surface-card) 92%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-edge);
+  color: var(--color-secondary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: normal;
+  text-transform: none;
+  width: max-content;
+  max-width: 260px;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s 0.2s;
+  z-index: 50;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+[data-tooltip]::before {
+  content: "";
+  position: absolute;
+  bottom: calc(100% + 3px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--color-edge);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s 0.2s;
+  z-index: 51;
+}
+
+[data-tooltip]:hover::after,
+[data-tooltip]:focus::after {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+  transition:
+    opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s;
+}
+
+[data-tooltip]:hover::before,
+[data-tooltip]:focus::before {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s;
+}
+
+/* Bottom position variant */
+[data-tooltip-pos="bottom"]::after {
+  bottom: auto;
+  top: calc(100% + 8px);
+  transform: translateX(-50%) translateY(-4px);
+}
+
+[data-tooltip-pos="bottom"]::before {
+  bottom: auto;
+  top: calc(100% + 3px);
+  border-top-color: transparent;
+  border-bottom-color: var(--color-edge);
+}
+
+[data-tooltip-pos="bottom"]:hover::after,
+[data-tooltip-pos="bottom"]:focus::after {
+  transform: translateX(-50%) translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-tooltip]::after,
+  [data-tooltip]::before {
+    transition-duration: 0.01ms !important;
+  }
 }

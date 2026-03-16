@@ -12,20 +12,22 @@ import IconCopy from "@/icons/copy.svg";
   <main class="mx-auto max-w-5xl px-4 py-10 sm:px-6">
     <header class="mb-6 text-center">
       <h1 class="font-pixel text-3xl tracking-tight text-accent sm:text-4xl">Tier List</h1>
-      <p class="mt-2 text-sm text-muted">Your hardware vs every model. Classic tier list format.</p>
+      <p class="mt-2 text-base text-muted">Your hardware vs every model. Classic tier list format.</p>
     </header>
 
     <!-- Hardware info -->
-    <div class="mb-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 font-mono text-xs text-secondary">
+    <div class="mb-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 font-mono text-sm text-secondary">
       <select id="hw-device-select" class="hw-editable-select text-muted" disabled>
         <option value="">Detecting hardware...</option>
       </select>
       <span id="hw-ram-group" class="hidden inline-flex items-center">
         <span class="text-edge/40 mr-2">·</span>
+        <span data-tooltip="RAM — System memory. On Apple Silicon and iGPUs, it's shared with the GPU (unified VRAM)" data-tooltip-pos="bottom" tabindex="0" aria-label="RAM info" class="mr-1 inline-flex cursor-help text-muted">RAM</span>
         <select id="hw-ram-select" class="hw-editable-select"></select>
       </span>
       <span id="hw-bw-group" class="hidden inline-flex items-center">
         <span class="text-edge/40 mr-2">·</span>
+        <span data-tooltip="GB/s — Memory bandwidth. How fast data moves to the processor. Higher = faster inference" data-tooltip-pos="bottom" tabindex="0" aria-label="Bandwidth info" class="mr-1 inline-flex cursor-help text-muted">BW</span>
         <select id="hw-bw-select" class="hw-editable-select"></select>
       </span>
       <span id="hw-cores-group" class="hidden inline-flex items-center">
@@ -35,7 +37,7 @@ import IconCopy from "@/icons/copy.svg";
     </div>
 
     <!-- Config panel -->
-    <div class="mb-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 font-mono text-[11px] text-secondary">
+    <div class="mb-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 font-mono text-[13px] text-secondary">
       <label class="inline-flex cursor-pointer items-center gap-1.5 select-none">
         <input type="checkbox" id="opt-toks" checked class="tier-check accent-accent" />
         Tokens/s
@@ -59,7 +61,7 @@ import IconCopy from "@/icons/copy.svg";
       <span class="text-edge/40">|</span>
       <label class="inline-flex cursor-pointer items-center gap-1.5 select-none">
         Sort:
-        <select id="opt-sort" class="rounded border border-edge bg-surface-card px-1.5 py-0.5 text-[11px] text-secondary outline-none">
+        <select id="opt-sort" class="rounded border border-edge bg-surface-card px-1.5 py-0.5 text-[13px] text-secondary outline-none">
           <option value="score">Score</option>
           <option value="name">Name</option>
           <option value="params">Params</option>
@@ -70,11 +72,11 @@ import IconCopy from "@/icons/copy.svg";
 
     <!-- Share button -->
     <div class="mb-8 flex justify-center gap-3">
-      <button id="share-btn" class="inline-flex items-center gap-2 rounded-md border border-edge bg-surface-card px-4 py-2 font-mono text-[11px] text-secondary transition-colors hover:border-accent/30 hover:text-accent disabled:opacity-40 disabled:cursor-not-allowed" disabled>
+      <button id="share-btn" class="inline-flex items-center gap-2 rounded-md border border-edge bg-surface-card px-4 py-2 font-mono text-[13px] text-secondary transition-colors hover:border-accent/30 hover:text-accent disabled:opacity-40 disabled:cursor-not-allowed" disabled>
         <IconDownload class="h-3.5 w-3.5" />
         Download as image
       </button>
-      <button id="copy-btn" class="inline-flex items-center gap-2 rounded-md border border-edge bg-surface-card px-4 py-2 font-mono text-[11px] text-secondary transition-colors hover:border-accent/30 hover:text-accent disabled:opacity-40 disabled:cursor-not-allowed" disabled>
+      <button id="copy-btn" class="inline-flex items-center gap-2 rounded-md border border-edge bg-surface-card px-4 py-2 font-mono text-[13px] text-secondary transition-colors hover:border-accent/30 hover:text-accent disabled:opacity-40 disabled:cursor-not-allowed" disabled>
         <IconCopy class="h-3.5 w-3.5" />
         Copy to clipboard
       </button>
@@ -84,8 +86,8 @@ import IconCopy from "@/icons/copy.svg";
     <div id="tier-list" class="tier-list-container overflow-hidden rounded-xl border border-edge">
       <!-- Watermark header for image export -->
       <div class="flex items-center justify-between bg-surface-card px-4 py-3 border-b border-edge">
-        <span class="font-pixel text-sm text-accent">CanIRun.ai</span>
-        <span id="tier-hw-label" class="font-mono text-[10px] text-muted"></span>
+        <span class="font-pixel text-base text-accent">CanIRun.ai</span>
+        <span id="tier-hw-label" class="font-mono text-xs text-muted"></span>
       </div>
 
       {/* Model data embedded for JS */}
@@ -102,49 +104,49 @@ import IconCopy from "@/icons/copy.svg";
 
       <!-- S Tier -->
       <div class="tier-row flex border-b border-edge/50">
-        <div class="tier-label flex w-16 shrink-0 items-center justify-center font-pixel text-2xl sm:w-20 sm:text-3xl" style="background-color: rgba(34,197,94,0.15); color: #22c55e;">S</div>
+        <div class="tier-label flex w-16 shrink-0 items-center justify-center font-pixel text-2xl sm:w-20 sm:text-3xl" style="background-color: rgba(34,197,94,0.15); color: #22c55e;" data-tooltip="Plenty of VRAM, fast inference" tabindex="0" aria-label="Grade S: Runs great">S</div>
         <div id="tier-s" class="tier-items flex min-h-[64px] flex-1 flex-wrap items-center gap-1.5 p-2"></div>
       </div>
 
       <!-- A Tier -->
       <div class="tier-row flex border-b border-edge/50">
-        <div class="tier-label flex w-16 shrink-0 items-center justify-center font-pixel text-2xl sm:w-20 sm:text-3xl" style="background-color: rgba(74,222,128,0.15); color: #4ade80;">A</div>
+        <div class="tier-label flex w-16 shrink-0 items-center justify-center font-pixel text-2xl sm:w-20 sm:text-3xl" style="background-color: rgba(74,222,128,0.15); color: #4ade80;" data-tooltip="Runs smoothly with good headroom" tabindex="0" aria-label="Grade A: Runs well">A</div>
         <div id="tier-a" class="tier-items flex min-h-[64px] flex-1 flex-wrap items-center gap-1.5 p-2"></div>
       </div>
 
       <!-- B Tier -->
       <div class="tier-row flex border-b border-edge/50">
-        <div class="tier-label flex w-16 shrink-0 items-center justify-center font-pixel text-2xl sm:w-20 sm:text-3xl" style="background-color: rgba(163,230,53,0.15); color: #a3e635;">B</div>
+        <div class="tier-label flex w-16 shrink-0 items-center justify-center font-pixel text-2xl sm:w-20 sm:text-3xl" style="background-color: rgba(163,230,53,0.15); color: #a3e635;" data-tooltip="Decent performance, uses most memory" tabindex="0" aria-label="Grade B: Decent">B</div>
         <div id="tier-b" class="tier-items flex min-h-[64px] flex-1 flex-wrap items-center gap-1.5 p-2"></div>
       </div>
 
       <!-- C Tier -->
       <div class="tier-row flex border-b border-edge/50">
-        <div class="tier-label flex w-16 shrink-0 items-center justify-center font-pixel text-2xl sm:w-20 sm:text-3xl" style="background-color: rgba(245,158,11,0.15); color: #f59e0b;">C</div>
+        <div class="tier-label flex w-16 shrink-0 items-center justify-center font-pixel text-2xl sm:w-20 sm:text-3xl" style="background-color: rgba(245,158,11,0.15); color: #f59e0b;" data-tooltip="Tight fit, slower inference speeds" tabindex="0" aria-label="Grade C: Tight fit">C</div>
         <div id="tier-c" class="tier-items flex min-h-[64px] flex-1 flex-wrap items-center gap-1.5 p-2"></div>
       </div>
 
       <!-- D Tier -->
       <div class="tier-row flex border-b border-edge/50">
-        <div class="tier-label flex w-16 shrink-0 items-center justify-center font-pixel text-2xl sm:w-20 sm:text-3xl" style="background-color: rgba(249,115,22,0.15); color: #f97316;">D</div>
+        <div class="tier-label flex w-16 shrink-0 items-center justify-center font-pixel text-2xl sm:w-20 sm:text-3xl" style="background-color: rgba(249,115,22,0.15); color: #f97316;" data-tooltip="Barely fits, very slow inference" tabindex="0" aria-label="Grade D: Barely runs">D</div>
         <div id="tier-d" class="tier-items flex min-h-[64px] flex-1 flex-wrap items-center gap-1.5 p-2"></div>
       </div>
 
       <!-- F Tier -->
       <div class="tier-row flex">
-        <div class="tier-label flex w-16 shrink-0 items-center justify-center font-pixel text-2xl sm:w-20 sm:text-3xl" style="background-color: rgba(239,68,68,0.15); color: #ef4444;">F</div>
+        <div class="tier-label flex w-16 shrink-0 items-center justify-center font-pixel text-2xl sm:w-20 sm:text-3xl" style="background-color: rgba(239,68,68,0.15); color: #ef4444;" data-tooltip="Not enough memory to run this model" tabindex="0" aria-label="Grade F: Too heavy">F</div>
         <div id="tier-f" class="tier-items flex min-h-[64px] flex-1 flex-wrap items-center gap-1.5 p-2"></div>
       </div>
 
       <!-- Footer watermark -->
       <div class="flex items-center justify-between bg-surface-card px-4 py-2 border-t border-edge">
-        <span class="font-mono text-[11px] text-secondary">create your own at <span class="text-accent">canirun.ai/tier</span></span>
-        <span class="font-mono text-[10px] text-muted">Q4_K_M quantization</span>
+        <span class="font-mono text-[13px] text-secondary">create your own at <span class="text-accent">canirun.ai/tier</span></span>
+        <span class="font-mono text-xs text-muted">Q4_K_M quantization</span>
       </div>
     </div>
 
     <!-- Legend -->
-    <div class="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-1 font-mono text-[10px] text-muted">
+    <div class="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-1 font-mono text-xs text-muted">
       <span><span class="font-pixel" style="color:#22c55e">S</span> Runs great</span>
       <span><span class="font-pixel" style="color:#4ade80">A</span> Runs well</span>
       <span><span class="font-pixel" style="color:#a3e635">B</span> Decent</span>
@@ -153,7 +155,7 @@ import IconCopy from "@/icons/copy.svg";
       <span><span class="font-pixel" style="color:#ef4444">F</span> Too heavy</span>
     </div>
 
-    <p class="mt-3 text-center text-[10px] text-muted">
+    <p class="mt-3 text-center text-xs text-muted">
       Based on Q4_K_M quantization. Your actual results may vary.
     </p>
 
@@ -211,7 +213,7 @@ import IconCopy from "@/icons/copy.svg";
   function createModelChip(model: TierModel, grade: string, score: number, toks: number | null, config: ReturnType<typeof getConfig>): HTMLElement {
     const chip = document.createElement("a");
     chip.href = `/model/${model.id}`;
-    chip.className = "tier-chip group relative flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 font-mono text-[11px] transition-colors hover:bg-surface-hover";
+    chip.className = "tier-chip group relative flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 font-mono text-[13px] transition-colors hover:bg-surface-hover";
     const color = TIER_COLORS[grade] || "#56565f";
     // Use hex+alpha instead of color-mix for html2canvas compatibility
     chip.style.borderColor = `${color}4D`; // 30% opacity
@@ -230,26 +232,26 @@ import IconCopy from "@/icons/copy.svg";
 
     if (config.showProvider) {
       const prov = document.createElement("span");
-      prov.className = "text-muted/50 text-[9px] shrink-0";
+      prov.className = "text-muted/50 text-[11px] shrink-0";
       prov.textContent = model.provider;
       chip.appendChild(prov);
     }
 
     const meta = document.createElement("span");
-    meta.className = "text-muted text-[9px] shrink-0";
+    meta.className = "text-muted text-[11px] shrink-0";
     meta.textContent = model.params;
     chip.appendChild(meta);
 
     if (config.showVram) {
       const vramSpan = document.createElement("span");
-      vramSpan.className = "text-muted/50 text-[9px] shrink-0";
+      vramSpan.className = "text-muted/50 text-[11px] shrink-0";
       vramSpan.textContent = `${model.vramQ4}GB`;
       chip.appendChild(vramSpan);
     }
 
     if (config.showToks && toks !== null && grade !== "F") {
       const tokSpan = document.createElement("span");
-      tokSpan.className = "text-[9px] shrink-0";
+      tokSpan.className = "text-[11px] shrink-0";
       tokSpan.style.color = color;
       tokSpan.textContent = `${toks}t/s`;
       chip.appendChild(tokSpan);
@@ -315,7 +317,7 @@ import IconCopy from "@/icons/copy.svg";
       if (config.hideF && key === "F") continue;
       if (container.children.length === 0) {
         const empty = document.createElement("span");
-        empty.className = "text-[10px] text-muted/30 font-mono italic px-2";
+        empty.className = "text-xs text-muted/30 font-mono italic px-2";
         empty.textContent = "—";
         container.appendChild(empty);
       }
@@ -501,7 +503,7 @@ import IconCopy from "@/icons/copy.svg";
         const element = document.getElementById("tier-list")!;
         await snapdom.download(element, {
           scale: 2,
-          backgroundColor: "#000000",
+          backgroundColor: document.documentElement.classList.contains("light") ? "#ffffff" : "#000000",
           embedFonts: true,
           filename: "canirun-tier-list",
           type: "png",
@@ -521,7 +523,7 @@ import IconCopy from "@/icons/copy.svg";
         const element = document.getElementById("tier-list")!;
         const blob = await snapdom.toBlob(element, {
           scale: 2,
-          backgroundColor: "#000000",
+          backgroundColor: document.documentElement.classList.contains("light") ? "#ffffff" : "#000000",
           embedFonts: true,
           type: "png",
         });
@@ -535,7 +537,7 @@ import IconCopy from "@/icons/copy.svg";
         } catch {
           await snapdom.download(element, {
             scale: 2,
-            backgroundColor: "#000000",
+            backgroundColor: document.documentElement.classList.contains("light") ? "#ffffff" : "#000000",
             embedFonts: true,
             filename: "canirun-tier-list",
             type: "png",

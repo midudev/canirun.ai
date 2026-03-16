@@ -1,7 +1,7 @@
 ---
 import Layout from "@/layouts/Layout.astro"
 import NavHeader from "@/components/NavHeader.astro"
-import { models } from "@/data/models"
+import { models, isCommercialLicense } from "@/data/models"
 import hfStats from "@/data/hf-stats.json"
 import IconArrowLeft from "@/icons/arrow-left.svg"
 import IconMoe from "@/icons/moe.svg"
@@ -26,6 +26,7 @@ import IconEdgeDevice from "@/icons/edge-device.svg"
 import IconMultilingual from "@/icons/multilingual.svg"
 import IconSearch from "@/icons/search.svg"
 import IconLmStudio from "@/icons/logo-lmstudio.svg"
+import IconLicense from "@/icons/license.svg"
 
 export function getStaticPaths() {
   return models.map((model) => ({
@@ -94,7 +95,7 @@ const USE_CASE_ICONS: Record<string, any> = {
     <!-- Back link -->
     <a
       href="/"
-      class="mb-6 inline-flex items-center gap-1.5 font-mono text-[11px] text-muted transition-colors hover:text-primary"
+      class="mb-6 inline-flex items-center gap-1.5 font-mono text-[13px] text-muted transition-colors hover:text-primary"
     >
       <IconArrowLeft class="h-3 w-3" />
       back
@@ -163,13 +164,24 @@ const USE_CASE_ICONS: Record<string, any> = {
                 </span>
               )
             }
+            {
+              model.license && (
+                <span
+                  class={`inline-flex items-center gap-1 rounded border px-2 py-0.5 font-mono text-xs ${isCommercialLicense(model.license) ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-400" : "border-edge/40 bg-surface-card text-muted"}`}
+                  title={isCommercialLicense(model.license) ? `${model.license} — Commercial use allowed` : model.license}
+                >
+                  <IconLicense class="h-3 w-3" />
+                  {model.license}
+                </span>
+              )
+            }
           </div>
-          <p class="mt-1 font-mono text-[11px] text-muted">
+          <p class="mt-1 font-mono text-[13px] text-muted">
             {model.provider} · {model.params}{
               model.activeParams ? ` (${model.activeParams})` : ""
             } · {model.architecture === "moe" ? "Mixture of Experts" : "Dense"}
           </p>
-          <p class="mt-3 text-sm leading-relaxed text-secondary">
+          <p class="mt-3 text-base leading-relaxed text-secondary">
             {model.description}
           </p>
           <!-- Links -->
@@ -178,7 +190,7 @@ const USE_CASE_ICONS: Record<string, any> = {
               href={model.url}
               target="_blank"
               rel="noopener noreferrer"
-              class="inline-flex items-center gap-2 rounded-full bg-[#FFD21E]/10 px-3.5 py-1.5 font-mono text-[11px] text-[#FFD21E] transition-colors hover:bg-[#FFD21E]/20"
+              class="inline-flex items-center gap-2 rounded-full bg-[#FFD21E]/10 px-3.5 py-1.5 font-mono text-[13px] text-[#FFD21E] transition-colors hover:bg-[#FFD21E]/20"
             >
               <IconHuggingFace class="h-4 w-4" />
               HuggingFace
@@ -189,7 +201,7 @@ const USE_CASE_ICONS: Record<string, any> = {
                   href={`https://ollama.com/library/${model.ollamaId.split(":")[0]}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  class="inline-flex items-center gap-2 rounded-full bg-white/10 px-3.5 py-1.5 font-mono text-[11px] text-white/80 transition-colors hover:bg-white/20"
+                  class="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3.5 py-1.5 font-mono text-[13px] text-primary/80 transition-colors hover:bg-primary/20"
                 >
                   <IconOllama class="h-4 w-4" />
                   Ollama
@@ -202,7 +214,7 @@ const USE_CASE_ICONS: Record<string, any> = {
                   href={`https://lmstudio.ai/models/${model.lmStudioId}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  class="inline-flex items-center gap-2 rounded-full bg-[#6C47FF]/10 px-3.5 py-1.5 font-mono text-[11px] text-[#6C47FF] transition-colors hover:bg-[#6C47FF]/20"
+                  class="inline-flex items-center gap-2 rounded-full bg-[#6C47FF]/10 px-3.5 py-1.5 font-mono text-[13px] text-[#6C47FF] transition-colors hover:bg-[#6C47FF]/20"
                 >
                   <IconLmStudio class="h-4 w-4" />
                   LM Studio
@@ -214,7 +226,7 @@ const USE_CASE_ICONS: Record<string, any> = {
 
         <!-- Stats bar -->
         <div
-          class="mb-8 flex flex-wrap items-center gap-4 font-mono text-[11px] text-secondary"
+          class="mb-8 flex flex-wrap items-center gap-4 font-mono text-[13px] text-secondary"
         >
           <span class="inline-flex items-center gap-1.5">
             <IconDownload class="h-3.5 w-3.5 text-muted" />
@@ -240,17 +252,23 @@ const USE_CASE_ICONS: Record<string, any> = {
                 : model.contextLength
             } context
           </span>
+          {model.license && (
+            <span class="inline-flex items-center gap-1.5">
+              <IconLicense class="h-3.5 w-3.5 text-muted" />
+              <span class={isCommercialLicense(model.license) ? "text-emerald-400" : "text-secondary"}>{model.license}</span>
+            </span>
+          )}
         </div>
 
         <!-- Use cases -->
         <section class="mb-8">
-          <h2 class="mb-3 font-pixel text-xs text-muted">Use Cases</h2>
+          <h2 class="mb-3 font-pixel text-sm text-muted">Use Cases</h2>
           <div class="flex flex-wrap gap-2">
             {
               model.useCase.map((tag: string) => {
                 const Icon = USE_CASE_ICONS[tag];
                 return (
-                  <span class="inline-flex items-center gap-1.5 rounded-md border border-edge px-2.5 py-1.5 text-[11px] text-secondary">
+                  <span class="inline-flex items-center gap-1.5 rounded-md border border-edge px-2.5 py-1.5 text-[13px] text-secondary">
                     {Icon && <Icon class="h-3.5 w-3.5" />}
                     {tag}
                   </span>
@@ -264,10 +282,10 @@ const USE_CASE_ICONS: Record<string, any> = {
         {
           model.moe && (
             <section class="mb-8 rounded-lg border border-info/20 bg-info/5 p-4">
-              <h2 class="mb-2 font-pixel text-xs text-info">
+              <h2 class="mb-2 font-pixel text-sm text-info">
                 Mixture of Experts
               </h2>
-              <div class="flex flex-wrap gap-6 font-mono text-[11px] text-secondary">
+              <div class="flex flex-wrap gap-6 font-mono text-[13px] text-secondary">
                 <div>
                   <span class="text-muted">Total experts:</span>{" "}
                   <span>{model.moe.numExperts}</span>
@@ -290,7 +308,7 @@ const USE_CASE_ICONS: Record<string, any> = {
         <!-- Quantizations table -->
         <section class="mb-8">
           <div class="mb-3 flex items-center gap-2">
-            <h2 class="font-pixel text-xs text-muted">Quantization Options</h2>
+            <h2 class="font-pixel text-sm text-muted">Quantization Options</h2>
             <a
               href="/docs#quantization"
               title="What is quantization?"
@@ -300,10 +318,10 @@ const USE_CASE_ICONS: Record<string, any> = {
             </a>
           </div>
           <div class="overflow-x-auto rounded-lg border border-edge">
-            <table class="w-full text-[11px]">
+            <table class="w-full text-[13px]">
               <thead>
                 <tr
-                  class="border-b border-edge bg-surface-card text-left text-[10px] uppercase tracking-wider text-muted"
+                  class="border-b border-edge bg-surface-card text-left text-xs uppercase tracking-wider text-muted"
                 >
                   <th class="px-4 py-2.5">Quant</th>
                   <th class="px-4 py-2.5">Bits</th>
@@ -333,7 +351,7 @@ const USE_CASE_ICONS: Record<string, any> = {
                       <td class="px-4 py-2">
                         <span
                           data-quant-status
-                          class="font-mono text-[10px] font-medium uppercase tracking-wider text-muted"
+                          class="font-mono text-xs font-medium uppercase tracking-wider text-muted"
                         >
                           —
                         </span>
@@ -352,27 +370,27 @@ const USE_CASE_ICONS: Record<string, any> = {
         <!-- Compatibility -->
         <div class="pb-8 mb-8 border-b border-edge/20">
           <h3
-            class="mb-3 inline-flex items-center gap-1.5 font-pixel text-xs text-accent"
+            class="mb-3 inline-flex items-center gap-1.5 font-pixel text-sm text-accent"
           >
             <IconCpu class="h-3.5 w-3.5" />
             Your Hardware
           </h3>
-          <div id="hw-compat" class="space-y-2 font-mono text-[11px]" data-params={model.paramsBillions}>
+          <div id="hw-compat" class="space-y-2 font-mono text-[13px]" data-params={model.paramsBillions}>
             <p class="text-muted italic">Detecting...</p>
           </div>
         </div>
 
         <!-- Install -->
         <div class="pb-8 mb-8 border-b border-edge/20">
-          <h3 class="mb-3 inline-flex items-center gap-1.5 font-pixel text-xs text-accent">
+          <h3 class="mb-3 inline-flex items-center gap-1.5 font-pixel text-sm text-accent">
             <IconTerminal class="h-3.5 w-3.5" />
             Install
           </h3>
           {model.ollamaId && (
             <>
-              <p class="mb-1 font-mono text-[10px] text-muted">Ollama</p>
-              <div class="flex items-center gap-2 rounded-md border border-edge bg-black px-3 py-2">
-                <code class="flex-1 font-mono text-[11px] text-white truncate">
+              <p class="mb-1 font-mono text-xs text-muted">Ollama</p>
+              <div class="flex items-center gap-2 rounded-md border border-edge bg-surface px-3 py-2">
+                <code class="flex-1 font-mono text-[13px] text-primary truncate">
                   ollama run {model.ollamaId}
                 </code>
                 <button
@@ -388,32 +406,32 @@ const USE_CASE_ICONS: Record<string, any> = {
           )}
           {model.lmStudioId && (
             <>
-              <p class={`font-mono text-[10px] text-muted ${model.ollamaId ? "mt-4" : ""} mb-1`}>LM Studio</p>
+              <p class={`font-mono text-xs text-muted ${model.ollamaId ? "mt-4" : ""} mb-1`}>LM Studio</p>
               <a
                 href={`https://lmstudio.ai/models/${model.lmStudioId}`}
                 target="_blank"
                 rel="noopener"
-                class="inline-flex items-center gap-1.5 font-mono text-[11px] text-[#6C47FF] underline decoration-[#6C47FF]/30 underline-offset-2 hover:text-[#8B6CFF]"
+                class="inline-flex items-center gap-1.5 font-mono text-[13px] text-[#6C47FF] underline decoration-[#6C47FF]/30 underline-offset-2 hover:text-[#8B6CFF]"
               >
                 <IconLmStudio class="h-3 w-3 shrink-0" />
                 Open in LM Studio
               </a>
             </>
           )}
-          <p class={`font-mono text-[10px] text-muted ${(model.ollamaId || model.lmStudioId) ? "mt-4" : ""} mb-1`}>
+          <p class={`font-mono text-xs text-muted ${(model.ollamaId || model.lmStudioId) ? "mt-4" : ""} mb-1`}>
             llama.cpp / GGUF
           </p>
           <a
             href={`https://huggingface.co/models?search=${encodeURIComponent(model.name + " GGUF")}`}
             target="_blank"
             rel="noopener"
-            class="inline-flex items-center gap-1.5 font-mono text-[11px] text-yellow-400 underline decoration-yellow-400/30 underline-offset-2 hover:text-yellow-300"
+            class="inline-flex items-center gap-1.5 font-mono text-[13px] text-yellow-400 underline decoration-yellow-400/30 underline-offset-2 hover:text-yellow-300"
           >
             <IconDownload class="h-3 w-3 shrink-0" />
             Download GGUF from HuggingFace
           </a>
           {!model.ollamaId && !model.lmStudioId && (
-            <p class="mt-3 text-[10px] text-muted">
+            <p class="mt-3 text-xs text-muted">
               No Ollama or LM Studio ID available for this model.
             </p>
           )}
@@ -422,12 +440,12 @@ const USE_CASE_ICONS: Record<string, any> = {
         <!-- Key specs -->
         <div class="pb-8 mb-8 border-b border-edge/20">
           <h3
-            class="mb-3 inline-flex items-center gap-1.5 font-pixel text-xs text-accent"
+            class="mb-3 inline-flex items-center gap-1.5 font-pixel text-sm text-accent"
           >
             <IconEdit class="h-3.5 w-3.5" />
             Specs
           </h3>
-          <dl class="space-y-2 font-mono text-[11px]">
+          <dl class="space-y-2 font-mono text-[13px]">
             <div class="flex justify-between">
               <dt class="text-muted">Parameters</dt>
               <dd class="text-primary">{model.params}</dd>
@@ -488,6 +506,19 @@ const USE_CASE_ICONS: Record<string, any> = {
                 </div>
               )
             }
+            {
+              model.license && (
+                <div class="flex justify-between">
+                  <dt class="text-muted">License</dt>
+                  <dd class={isCommercialLicense(model.license) ? "text-emerald-400" : "text-primary"}>
+                    {model.license}
+                    {isCommercialLicense(model.license) && (
+                      <span class="ml-1 text-[10px] text-emerald-400/70">✓ Commercial</span>
+                    )}
+                  </dd>
+                </div>
+              )
+            }
           </dl>
         </div>
 
@@ -495,11 +526,11 @@ const USE_CASE_ICONS: Record<string, any> = {
         {
           (downloads > 0 || likes > 0) && (
             <div>
-              <h3 class="mb-3 inline-flex items-center gap-1.5 font-pixel text-xs text-accent">
+              <h3 class="mb-3 inline-flex items-center gap-1.5 font-pixel text-sm text-accent">
                 <IconBarChart class="h-3.5 w-3.5" />
                 HuggingFace Stats
               </h3>
-              <dl class="space-y-2 font-mono text-[11px]">
+              <dl class="space-y-2 font-mono text-[13px]">
                 <div class="flex justify-between">
                   <dt class="inline-flex items-center gap-1.5 text-muted">
                     <IconDownload class="h-3 w-3" />
@@ -639,7 +670,7 @@ const USE_CASE_ICONS: Record<string, any> = {
 
       const effectiveBw = hw.memoryBandwidth
       const bwRow = effectiveBw
-        ? `<div class="flex items-center justify-between"><span class="text-muted">Bandwidth</span>${buildSelectHTML("hw-bw-select", BW_OPTIONS, detectedHW.memoryBandwidth, overrides.memoryBandwidth ?? effectiveBw, (v) => `~${v} GB/s`)}</div>`
+        ? `<div class="flex items-center justify-between"><span class="text-muted" data-tooltip="GB/s — How fast data moves to the processor. Higher = faster inference" data-tooltip-pos="bottom" tabindex="0" style="cursor:help">Bandwidth</span>${buildSelectHTML("hw-bw-select", BW_OPTIONS, detectedHW.memoryBandwidth, overrides.memoryBandwidth ?? effectiveBw, (v) => `~${v} GB/s`)}</div>`
         : ""
 
       container.innerHTML = `
@@ -648,13 +679,13 @@ const USE_CASE_ICONS: Record<string, any> = {
           ${deviceSelect}
         </div>
         <div class="flex items-center justify-between">
-          <span class="text-muted">RAM</span>
+          <span class="text-muted" data-tooltip="System memory. On Apple Silicon/iGPU, shared with GPU as VRAM" data-tooltip-pos="bottom" tabindex="0" style="cursor:help">RAM</span>
           ${ramSelect}
         </div>
         ${bwRow}
         <div class="mt-2 flex items-center justify-between border-t border-edge pt-2">
           <span class="text-muted">Q4_K_M</span>
-          <span class="inline-flex items-center gap-1.5 font-mono text-[10px] font-medium uppercase tracking-wider" style="color:${info.color}">
+          <span class="inline-flex items-center gap-1.5 font-mono text-xs font-medium uppercase tracking-wider" style="color:${info.color}">
             ${info.label}
             ${toks ? `<span class="text-muted normal-case">· ~${toks} t/s</span>` : ""}
           </span>

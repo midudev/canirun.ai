@@ -35,6 +35,10 @@ const ogImageURL = new URL(image, Astro.site);
     <meta name="author" content="midudev" />
     <meta name="generator" content={Astro.generator} />
 
+    <script is:inline>
+      (function(){var t=localStorage.getItem("theme");if(t==="light"||(!t&&matchMedia("(prefers-color-scheme: light)").matches)){document.documentElement.classList.add("light");document.querySelector('meta[name="theme-color"]').setAttribute("content","#ffffff")}})();
+    </script>
+
     <meta property="og:type" content={type} />
     <meta property="og:url" content={canonicalURL.href} />
     <meta property="og:title" content={title} />

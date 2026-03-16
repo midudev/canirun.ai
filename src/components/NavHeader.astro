@@ -14,43 +14,55 @@ const links = [
 <nav class="border-b border-edge/40">
   <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-2.5 sm:px-6">
     <div class="flex items-center gap-2">
-      <a href="/" class="flex items-center gap-1 font-pixel text-xs text-accent transition-colors hover:text-primary">
+      <a href="/" class="flex items-center gap-1 font-pixel text-sm text-accent transition-colors hover:text-primary">
         <Logo class="size-3" />
         CanIRun.ai
       </a>
-      <time id="build-time" class="font-mono text-[10px] text-primary/40" datetime={buildDate.toISOString()}>
+      <time id="build-time" class="font-mono text-xs text-primary/40" datetime={buildDate.toISOString()}>
         updated ...
       </time>
     </div>
 
-    {/* Desktop links */}
-    <div class="hidden items-center gap-4 font-mono text-[11px] sm:flex">
-      {links.map(({ href, label }) => (
-        <a
-          href={href}
-          class:list={[
-            "transition-colors hover:text-accent",
-            currentPath === href ? "text-primary" : "text-primary/70",
-          ]}
-        >
-          [{label}]
-        </a>
-      ))}
-    </div>
+    <div class="flex items-center gap-1 sm:gap-4">
+      {/* Desktop links */}
+      <div class="hidden items-center gap-4 font-mono text-[13px] sm:flex">
+        {links.map(({ href, label }) => (
+          <a
+            href={href}
+            class:list={[
+              "transition-colors hover:text-accent",
+              currentPath === href ? "text-primary" : "text-primary/70",
+            ]}
+          >
+            [{label}]
+          </a>
+        ))}
+      </div>
 
-    {/* Mobile hamburger */}
-    <button
-      id="menu-toggle"
-      class="flex size-8 items-center justify-center text-primary/70 transition-colors hover:text-accent sm:hidden"
-      aria-label="Open menu"
-      aria-expanded="false"
-    >
-      <svg class="size-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-        <line x1="3" y1="5" x2="17" y2="5" />
-        <line x1="3" y1="10" x2="17" y2="10" />
-        <line x1="3" y1="15" x2="17" y2="15" />
-      </svg>
-    </button>
+      {/* Theme toggle */}
+      <button
+        id="theme-toggle"
+        class="flex size-8 items-center justify-center text-primary/70 transition-colors hover:text-accent cursor-pointer"
+        aria-label="Toggle theme"
+      >
+        <svg class="theme-icon-sun size-[18px]" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><polygon points="17 10 17 14 16 14 16 15 15 15 15 16 14 16 14 17 10 17 10 16 9 16 9 15 8 15 8 14 7 14 7 10 8 10 8 9 9 9 9 8 10 8 10 7 14 7 14 8 15 8 15 9 16 9 16 10 17 10"/><path d="m21,11v-1h1v-1h1v-2h-3v-1h-2v-2h-1V1h-2v1h-1v1h-1v1h-2v-1h-1v-1h-1v-1h-2v3h-1v2h-2v1H1v2h1v1h1v1h1v2h-1v1h-1v1h-1v2h3v1h2v2h1v3h2v-1h1v-1h1v-1h2v1h1v1h1v1h2v-3h1v-2h2v-1h3v-2h-1v-1h-1v-1h-1v-2h1Zm-3,4h-1v1h-1v1h-1v1h-6v-1h-1v-1h-1v-1h-1v-6h1v-1h1v-1h1v-1h6v1h1v1h1v1h1v6Z"/></svg>
+        <svg class="theme-icon-moon size-[18px]" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><polygon points="22 17 22 19 21 19 21 20 20 20 20 21 18 21 18 22 16 22 16 23 10 23 10 22 8 22 8 21 6 21 6 20 5 20 5 19 4 19 4 17 3 17 3 15 2 15 2 9 3 9 3 7 4 7 4 5 5 5 5 4 6 4 6 3 8 3 8 2 10 2 10 1 15 1 15 2 13 2 13 3 11 3 11 4 10 4 10 6 9 6 9 8 8 8 8 12 9 12 9 14 10 14 10 16 11 16 11 17 13 17 13 18 15 18 15 19 19 19 19 18 21 18 21 17 22 17"/></svg>
+      </button>
+
+      {/* Mobile hamburger */}
+      <button
+        id="menu-toggle"
+        class="flex size-8 items-center justify-center text-primary/70 transition-colors hover:text-accent sm:hidden"
+        aria-label="Open menu"
+        aria-expanded="false"
+      >
+        <svg class="size-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+          <line x1="3" y1="5" x2="17" y2="5" />
+          <line x1="3" y1="10" x2="17" y2="10" />
+          <line x1="3" y1="15" x2="17" y2="15" />
+        </svg>
+      </button>
+    </div>
   </div>
 </nav>
 
@@ -62,7 +74,7 @@ const links = [
   aria-hidden="true"
 >
   <div class="flex items-center justify-between px-4 py-2.5">
-    <a href="/" class="flex items-center gap-1 font-pixel text-xs text-accent transition-colors hover:text-primary">
+    <a href="/" class="flex items-center gap-1 font-pixel text-sm text-accent transition-colors hover:text-primary">
       <Logo class="size-3" />
       CanIRun.ai
     </a>
@@ -158,8 +170,26 @@ const links = [
     el.textContent = `updated ${relative}`;
   }
 
+  function initThemeToggle() {
+    const btn = document.getElementById("theme-toggle");
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      const isLight = document.documentElement.classList.toggle("light");
+      localStorage.setItem("theme", isLight ? "light" : "dark");
+      document.querySelector('meta[name="theme-color"]')
+        ?.setAttribute("content", isLight ? "#ffffff" : "#08080a");
+    });
+  }
+
   document.addEventListener("astro:page-load", () => {
     updateBuildTime();
     initNavHeader();
+    initThemeToggle();
   });
 </script>
+
+<style>
+  .theme-icon-moon { display: none; }
+  :global(html.light) .theme-icon-sun { display: none; }
+  :global(html.light) .theme-icon-moon { display: block; }
+</style>

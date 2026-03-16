@@ -20,7 +20,7 @@ const sortedModels = [...models].sort(
       <h1 class="font-pixel text-3xl tracking-tight text-accent sm:text-4xl">
         Compare Devices
       </h1>
-      <p class="mt-2 text-sm text-muted">
+      <p class="mt-2 text-base text-muted">
         Pick two devices and see how each AI model performs on them.
       </p>
     </header>
@@ -28,7 +28,7 @@ const sortedModels = [...models].sort(
     <!-- Device Selectors -->
     <section class="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-2">
       <div class="rounded-lg border border-edge/60 bg-surface-card p-4">
-        <label class="mb-2 flex items-center gap-2 font-mono text-[11px] text-muted uppercase tracking-wider">
+        <label class="mb-2 flex items-center gap-2 font-mono text-[13px] text-muted uppercase tracking-wider">
           <IconGpu class="h-3.5 w-3.5 shrink-0" />
           Device A
         </label>
@@ -37,7 +37,7 @@ const sortedModels = [...models].sort(
         </select>
       </div>
       <div class="rounded-lg border border-edge/60 bg-surface-card p-4">
-        <label class="mb-2 flex items-center gap-2 font-mono text-[11px] text-muted uppercase tracking-wider">
+        <label class="mb-2 flex items-center gap-2 font-mono text-[13px] text-muted uppercase tracking-wider">
           <IconGpu class="h-3.5 w-3.5 shrink-0" />
           Device B
         </label>
@@ -50,21 +50,21 @@ const sortedModels = [...models].sort(
     <!-- Device Specs Summary -->
     <section id="specs-bar" class="mb-8 hidden">
       <div class="grid grid-cols-2 gap-4">
-        <div id="specs-a" class="rounded-lg border border-edge/40 bg-surface-raised px-4 py-3 font-mono text-[11px] text-secondary"></div>
-        <div id="specs-b" class="rounded-lg border border-edge/40 bg-surface-raised px-4 py-3 font-mono text-[11px] text-secondary"></div>
+        <div id="specs-a" class="rounded-lg border border-edge/40 bg-surface-raised px-4 py-3 font-mono text-[13px] text-secondary"></div>
+        <div id="specs-b" class="rounded-lg border border-edge/40 bg-surface-raised px-4 py-3 font-mono text-[13px] text-secondary"></div>
       </div>
     </section>
 
     <!-- Empty state -->
     <div id="empty-state" class="py-20 text-center">
       <p class="font-pixel text-lg text-muted/60">Detecting your hardware...</p>
-      <p class="mt-2 text-sm text-muted/40">We'll compare your device against the M5 Max automatically</p>
+      <p class="mt-2 text-base text-muted/40">We'll compare your device against the M5 Max automatically</p>
     </div>
 
     <!-- Comparison Table -->
     <div id="compare-table" class="hidden">
       <!-- Summary -->
-      <div id="compare-summary" class="mb-6 flex items-center justify-center gap-6 font-mono text-xs">
+      <div id="compare-summary" class="mb-6 flex items-center justify-center gap-6 font-mono text-sm">
         <span class="flex items-center gap-1.5">
           <span class="h-2.5 w-2.5 rounded-full" style="background: var(--color-can-run)"></span>
           <span class="text-secondary"><span id="header-a-label">A</span> wins: <strong id="wins-a" class="text-primary">0</strong></span>
@@ -80,7 +80,7 @@ const sortedModels = [...models].sort(
       </div>
 
       <!-- Table Header -->
-      <div class="compare-row compare-header sticky top-0 z-10 border-b border-edge bg-surface font-mono text-[10px] uppercase tracking-wider text-muted">
+      <div class="compare-row compare-header sticky top-0 z-10 border-b border-edge bg-surface font-mono text-xs uppercase tracking-wider text-muted">
         <div class="col-model">Model</div>
         <div class="col-device text-center" id="col-header-a">Device A</div>
         <div class="col-device text-center" id="col-header-b">Device B</div>
@@ -91,20 +91,20 @@ const sortedModels = [...models].sort(
         {sortedModels.map((model) => (
           <a href={`/model/${model.id}`} class="compare-row group" data-compare-id={model.id}>
             <div class="col-model min-w-0">
-              <span class="truncate font-pixel text-xs text-primary group-hover:text-accent transition-colors">{model.name}</span>
-              <span class="ml-2 font-mono text-[10px] text-muted shrink-0">{model.params}</span>
+              <span class="truncate font-pixel text-sm text-primary group-hover:text-accent transition-colors">{model.name}</span>
+              <span class="ml-2 font-mono text-xs text-muted shrink-0">{model.params}</span>
             </div>
             <div class="col-device" data-side="a">
-              <span data-grade class="font-mono text-[10px] font-medium uppercase tracking-wider text-muted">—</span>
-              <span data-score-num class="font-mono text-[9px] text-muted/50"></span>
-              <span data-toks class="font-mono text-[10px] text-muted"></span>
-              <span data-mem class="font-mono text-[9px] text-muted/50"></span>
+              <span data-grade class="font-mono text-xs font-medium uppercase tracking-wider text-muted">—</span>
+              <span data-score-num class="font-mono text-[11px] text-muted/50"></span>
+              <span data-toks class="font-mono text-xs text-muted"></span>
+              <span data-mem class="font-mono text-[11px] text-muted/50"></span>
             </div>
             <div class="col-device" data-side="b">
-              <span data-grade class="font-mono text-[10px] font-medium uppercase tracking-wider text-muted">—</span>
-              <span data-score-num class="font-mono text-[9px] text-muted/50"></span>
-              <span data-toks class="font-mono text-[10px] text-muted"></span>
-              <span data-mem class="font-mono text-[9px] text-muted/50"></span>
+              <span data-grade class="font-mono text-xs font-medium uppercase tracking-wider text-muted">—</span>
+              <span data-score-num class="font-mono text-[11px] text-muted/50"></span>
+              <span data-toks class="font-mono text-xs text-muted"></span>
+              <span data-mem class="font-mono text-[11px] text-muted/50"></span>
             </div>
           </a>
         ))}
@@ -402,7 +402,7 @@ const sortedModels = [...models].sort(
     background-color: var(--color-surface-raised);
     color: var(--color-primary);
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: 14px;
     line-height: 1.4;
     padding: 8px 28px 8px 12px;
     border-radius: 8px;

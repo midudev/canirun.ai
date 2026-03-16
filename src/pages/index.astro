@@ -2,7 +2,7 @@
 import Layout from "@/layouts/Layout.astro";
 import NavHeader from "@/components/NavHeader.astro";
 import Footer from "@/components/Footer.astro";
-import { models } from "@/data/models";
+import { models, isCommercialLicense, LICENSE_LIST } from "@/data/models";
 import IconCpu from "@/icons/cpu.svg";
 import IconRam from "@/icons/ram.svg";
 import IconGpu from "@/icons/gpu.svg";
@@ -17,6 +17,7 @@ import IconTool from "@/icons/tool.svg";
 import IconThinking from "@/icons/thinking.svg";
 import IconVision from "@/icons/vision.svg";
 import IconStar from "@/icons/star.svg";
+import IconLicense from "@/icons/license.svg";
 
 const sortedModels = [...models].sort(
   (a, b) => a.paramsBillions - b.paramsBillions
@@ -66,14 +67,14 @@ function timeAgo(dateStr: string | null): string {
       <h1 class="font-pixel text-3xl tracking-tight text-accent sm:text-4xl">
         Can I Run AI locally?
       </h1>
-      <p class="mt-2 text-sm text-muted">
+      <p class="mt-2 text-base text-muted">
         Find out which AI models your machine can actually run.
       </p>
     </header>
 
     <!-- Hardware Panel — fixed height to prevent CLS -->
     <section id="hw-panel" class="mb-10 min-h-[52px]">
-      <div id="hw-bar" class="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 font-mono text-xs text-secondary">
+      <div id="hw-bar" class="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 font-mono text-sm text-secondary">
         <!-- GPU (most important for AI) -->
         <span id="hw-gpu" class="inline-flex items-center gap-1.5 text-muted">
           <IconGpu class="h-3.5 w-3.5 shrink-0" />
@@ -84,7 +85,9 @@ function timeAgo(dateStr: string | null): string {
         <span class="text-edge/40">|</span>
         <!-- RAM -->
         <span id="hw-ram" class="inline-flex items-center gap-1.5 text-muted">
-          <IconRam class="h-3.5 w-3.5 shrink-0" />
+          <span data-tooltip="RAM — System memory. On Apple Silicon and iGPUs, it's shared with the GPU (unified VRAM)" data-tooltip-pos="bottom" tabindex="0" aria-label="RAM info" class="inline-flex shrink-0">
+            <IconRam class="h-3.5 w-3.5" />
+          </span>
           <select id="hw-ram-select" class="hw-editable-select" disabled>
             <option value="">—</option>
           </select>
@@ -92,7 +95,9 @@ function timeAgo(dateStr: string | null): string {
         <!-- Bandwidth -->
         <span id="hw-bw" class="hidden inline-flex items-center gap-1.5">
           <span class="text-edge/40">|</span>
-          <IconBandwidth class="h-3.5 w-3.5 shrink-0 text-muted" />
+          <span data-tooltip="GB/s — Memory bandwidth. How fast data moves to the processor. Higher = faster inference" data-tooltip-pos="bottom" tabindex="0" aria-label="Bandwidth info" class="inline-flex shrink-0">
+            <IconBandwidth class="h-3.5 w-3.5 text-muted" />
+          </span>
           <select id="hw-bw-select" class="hw-editable-select"></select>
         </span>
         <!-- GPU Cores -->
@@ -102,41 +107,46 @@ function timeAgo(dateStr: string | null): string {
           <span id="hw-gpu-cores-text" class="text-secondary"></span>
         </span>
         <!-- WebGPU -->
-        <span id="hw-webgpu-badge" class="hidden inline-flex items-center gap-1 rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] text-accent">
+        <span id="hw-webgpu-badge" class="hidden inline-flex items-center gap-1 rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-xs text-accent">
           <IconCheck class="h-3 w-3" />
           <span>WebGPU</span>
         </span>
       </div>
-      <p id="hw-notice" class="mt-1.5 text-center text-[10px] text-muted invisible">
+      <p id="hw-notice" class="mt-1.5 text-center text-xs text-muted invisible">
         Estimates based on browser APIs. Actual specs may vary.
       </p>
     </section>
 
     <!-- Summary counters — grade distribution -->
     <div id="summary-bar" class="mb-8 invisible">
-      <div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 font-mono text-[10px] sm:text-[11px] sm:gap-x-5">
-        <span class="flex items-center gap-1" style="color: var(--color-can-run)">
-          <span id="count-s" class="font-bold">0</span>
+      <div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 font-mono text-xs sm:text-[13px] sm:gap-x-4">
+        <span class="flex items-center gap-1.5" style="color: var(--color-can-run)" data-tooltip="Grade S — Plenty of VRAM, fast inference" tabindex="0" role="group" aria-label="Grade S: Runs great">
+          <span id="count-s" class="font-bold text-sm sm:text-base">0</span>
           <span class="font-medium uppercase tracking-wide">Runs great</span>
         </span>
-        <span class="flex items-center gap-1" style="color: var(--color-grade-a)">
-          <span id="count-a" class="font-bold">0</span>
+        <span class="h-3 w-px bg-edge/40"></span>
+        <span class="flex items-center gap-1.5" style="color: var(--color-grade-a)" data-tooltip="Grade A — Runs smoothly with good headroom" tabindex="0" role="group" aria-label="Grade A: Runs well">
+          <span id="count-a" class="font-bold text-sm sm:text-base">0</span>
           <span class="font-medium uppercase tracking-wide">Runs well</span>
         </span>
-        <span class="flex items-center gap-1" style="color: var(--color-grade-b)">
-          <span id="count-b" class="font-bold">0</span>
+        <span class="h-3 w-px bg-edge/40"></span>
+        <span class="flex items-center gap-1.5" style="color: var(--color-grade-b)" data-tooltip="Grade B — Decent performance, uses most memory" tabindex="0" role="group" aria-label="Grade B: Decent">
+          <span id="count-b" class="font-bold text-sm sm:text-base">0</span>
           <span class="font-medium uppercase tracking-wide">Decent</span>
         </span>
-        <span class="flex items-center gap-1" style="color: var(--color-maybe)">
-          <span id="count-c" class="font-bold">0</span>
+        <span class="h-3 w-px bg-edge/40"></span>
+        <span class="flex items-center gap-1.5" style="color: var(--color-maybe)" data-tooltip="Grade C — Tight fit, slower inference speeds" tabindex="0" role="group" aria-label="Grade C: Tight fit">
+          <span id="count-c" class="font-bold text-sm sm:text-base">0</span>
           <span class="font-medium uppercase tracking-wide">Tight fit</span>
         </span>
-        <span class="flex items-center gap-1" style="color: var(--color-grade-d)">
-          <span id="count-d" class="font-bold">0</span>
+        <span class="h-3 w-px bg-edge/40"></span>
+        <span class="flex items-center gap-1.5" style="color: var(--color-grade-d)" data-tooltip="Grade D — Barely fits, very slow inference" tabindex="0" role="group" aria-label="Grade D: Barely runs">
+          <span id="count-d" class="font-bold text-sm sm:text-base">0</span>
           <span class="font-medium uppercase tracking-wide">Barely runs</span>
         </span>
-        <span class="flex items-center gap-1" style="color: var(--color-cannot-run)">
-          <span id="count-f" class="font-bold">0</span>
+        <span class="h-3 w-px bg-edge/40"></span>
+        <span class="flex items-center gap-1.5" style="color: var(--color-cannot-run)" data-tooltip="Grade F — Not enough memory to run this model" tabindex="0" role="group" aria-label="Grade F: Too heavy">
+          <span id="count-f" class="font-bold text-sm sm:text-base">0</span>
           <span class="font-medium uppercase tracking-wide">Too heavy</span>
         </span>
       </div>
@@ -154,7 +164,7 @@ function timeAgo(dateStr: string | null): string {
           class="filter-select w-full !pl-8 pr-8"
           autocomplete="off"
         />
-        <kbd class="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 rounded border border-edge/60 bg-surface-raised px-1.5 py-0.5 font-mono text-[10px] leading-none text-secondary shadow-[0_1px_0_0_var(--color-edge)] sm:inline-block">/</kbd>
+        <kbd class="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 rounded border border-edge/60 bg-surface-raised px-1.5 py-0.5 font-mono text-xs leading-none text-secondary shadow-[0_1px_0_0_var(--color-edge)] sm:inline-block">/</kbd>
       </div>
 
       <span class="hidden h-4 w-px bg-edge/40 sm:block"></span>
@@ -185,6 +195,16 @@ function timeAgo(dateStr: string | null): string {
         ))}
       </select>
 
+      <!-- License filter -->
+      <select id="filter-license" class="filter-select">
+        <option value="all">All licenses</option>
+        <option value="commercial">Commercial use</option>
+        <option value="non-commercial">Non-commercial</option>
+        {LICENSE_LIST.map((l) => (
+          <option value={l}>{l}</option>
+        ))}
+      </select>
+
       <!-- Sort -->
       <select id="sort-select" class="filter-select">
         <option value="score">Sort: Score</option>
@@ -206,7 +226,7 @@ function timeAgo(dateStr: string | null): string {
         <IconGridDots id="view-icon-advanced" class="hidden h-3 w-3" />
         <!-- List: rows icon -->
         <IconList id="view-icon-list" class="h-3 w-3" />
-        <span id="view-label" class="text-[10px]">List</span>
+        <span id="view-label" class="text-xs">List</span>
       </button>
     </div>
 
@@ -225,13 +245,15 @@ function timeAgo(dateStr: string | null): string {
             data-context={model.contextLength}
             data-release={model.releaseDate || ""}
             data-featured="true"
-            class="model-card list-mode group relative flex h-full flex-col rounded-lg border border-edge/60 bg-black transition-all hover:border-accent/30 hover:bg-surface-hover"
+            data-license={model.license || ""}
+            data-commercial={isCommercialLicense(model.license) ? "true" : "false"}
+            class="model-card list-mode group relative flex h-full flex-col rounded-lg border border-edge/60 bg-surface-card transition-all hover:border-accent/30 hover:bg-surface-hover"
           >
             <div data-card-body class="flex flex-col p-4 pb-3">
               <div data-card-top class="min-w-0">
                 <div class="flex items-center justify-between gap-2">
                   <div class="flex items-center gap-2 min-w-0">
-                    <h3 class="truncate font-pixel text-sm text-primary" transition:name={`model-title-${model.id}`}>{model.name}</h3>
+                    <h3 class="truncate font-pixel text-base text-primary" transition:name={`model-title-${model.id}`}>{model.name}</h3>
                     <span data-badges class="inline-flex items-center gap-1 shrink-0">
                       {model.architecture === "moe" && (
                         <span class="shrink-0 rounded border border-info/20 bg-info/5 p-0.5 text-info" title="Mixture of Experts">
@@ -259,16 +281,16 @@ function timeAgo(dateStr: string | null): string {
                     </span>
                   </div>
                   {model.releaseDate && (
-                    <span data-time-ago class="shrink-0 font-mono text-[9px] text-muted/60">{timeAgo(model.releaseDate)}</span>
+                    <span data-time-ago class="shrink-0 font-mono text-[11px] text-muted/60">{timeAgo(model.releaseDate)}</span>
                   )}
                 </div>
-                <p data-card-provider class="mt-0.5 font-mono text-[11px] text-muted">
-                  {model.provider} · {model.params}
+                <p data-card-provider class="mt-0.5 font-mono text-[13px] text-muted">
+                  {model.provider} · {model.params}{model.license && ` · ${model.license}`}
                 </p>
-                <p data-description class="mt-1 text-[11px] leading-snug text-secondary/60 italic">{model.description}</p>
+                <p data-description class="mt-1 text-[13px] leading-snug text-secondary/60 italic">{model.description}</p>
               </div>
-              <div data-card-stats class="mt-3 flex items-center gap-3 font-mono text-[11px]">
-                <span data-vram class="inline-flex items-center gap-1 text-muted"><span data-vram-val class="text-secondary">{(model.quants.find(q => q.name === "Q4_K_M") || model.quants[0]).vramGB}</span> GB <span data-mem-pct-pill class="hidden rounded-full px-1.5 py-px text-[9px] font-medium" data-mem-pct></span></span>
+              <div data-card-stats class="mt-3 flex items-center gap-3 font-mono text-[13px]">
+                <span data-vram class="inline-flex items-center gap-1 text-muted"><span data-vram-val class="text-secondary">{(model.quants.find(q => q.name === "Q4_K_M") || model.quants[0]).vramGB}</span> GB <span data-mem-pct-pill class="hidden rounded-full px-1.5 py-px text-[11px] font-medium" data-mem-pct></span></span>
                 <span data-ctx-sep class="text-edge/40">·</span>
                 <span data-ctx class="text-muted"><span class="text-secondary">{model.contextLength >= 1024 ? `${Math.round(model.contextLength / 1024)}K` : model.contextLength}</span> ctx</span>
                 <span data-tok-sep class="text-edge/40">·</span>
@@ -279,13 +301,13 @@ function timeAgo(dateStr: string | null): string {
                   {model.quants.map((q, i) => (
                     <button
                       data-quant-btn={i}
-                      class={`quant-btn rounded px-1.5 py-0.5 text-[10px] font-mono transition-colors ${i === 2 ? "border border-accent/30 bg-accent/10 text-accent" : "border border-transparent text-muted hover:text-secondary"}`}
+                      class={`quant-btn rounded px-1.5 py-0.5 text-xs font-mono transition-colors ${i === 2 ? "border border-accent/30 bg-accent/10 text-accent" : "border border-transparent text-muted hover:text-secondary"}`}
                     >
                       {q.name}
                     </button>
                   ))}
                 </div>
-                <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
+                <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                   <div class="flex justify-between">
                     <span class="text-muted">Released</span>
                     <span class="font-mono text-secondary">{model.releaseDate}</span>
@@ -307,14 +329,14 @@ function timeAgo(dateStr: string | null): string {
                 </div>
                 <div class="mt-2 flex flex-wrap gap-1">
                   {model.useCase.map((tag) => (
-                    <span class="rounded border border-edge/40 px-1.5 py-0.5 text-[9px] text-muted">{tag}</span>
+                    <span class="rounded border border-edge/40 px-1.5 py-0.5 text-[11px] text-muted">{tag}</span>
                   ))}
                 </div>
               </div>
             </div>
             <div data-card-footer class="mt-auto flex items-center justify-between px-4 pb-3">
-              <span data-status-label class="font-mono text-[10px] font-medium uppercase tracking-wider text-muted"></span>
-              <span data-score-num class="font-mono text-[10px] text-muted/50"></span>
+              <span data-status-label class="font-mono text-xs font-medium uppercase tracking-wider text-muted"></span>
+              <span data-score-num class="font-mono text-xs text-muted/50"></span>
             </div>
           </article>
         </a>
@@ -324,7 +346,7 @@ function timeAgo(dateStr: string | null): string {
     <!-- Section divider -->
     <div id="rest-divider" class="my-8 flex items-center gap-4">
       <div class="h-px flex-1 bg-edge/30"></div>
-      <span class="font-mono text-[11px] text-muted/60">All models</span>
+      <span class="font-mono text-[13px] text-muted/60">All models</span>
       <div class="h-px flex-1 bg-edge/30"></div>
     </div>
 
@@ -342,13 +364,15 @@ function timeAgo(dateStr: string | null): string {
             data-provider={model.provider}
             data-context={model.contextLength}
             data-release={model.releaseDate || ""}
-            class="model-card list-mode group relative flex h-full flex-col rounded-lg border border-edge/60 bg-black transition-all hover:border-accent/30 hover:bg-surface-hover"
+            data-license={model.license || ""}
+            data-commercial={isCommercialLicense(model.license) ? "true" : "false"}
+            class="model-card list-mode group relative flex h-full flex-col rounded-lg border border-edge/60 bg-surface-card transition-all hover:border-accent/30 hover:bg-surface-hover"
           >
             <div data-card-body class="flex flex-col p-4 pb-3">
               <div data-card-top class="min-w-0">
                 <div class="flex items-center justify-between gap-2">
                   <div class="flex items-center gap-2 min-w-0">
-                    <h3 class="truncate font-pixel text-sm text-primary" transition:name={`model-title-${model.id}`}>{model.name}</h3>
+                    <h3 class="truncate font-pixel text-base text-primary" transition:name={`model-title-${model.id}`}>{model.name}</h3>
                     <span data-badges class="inline-flex items-center gap-1 shrink-0">
                       {model.architecture === "moe" && (
                         <span class="shrink-0 rounded border border-info/20 bg-info/5 p-0.5 text-info" title="Mixture of Experts">
@@ -373,16 +397,16 @@ function timeAgo(dateStr: string | null): string {
                     </span>
                   </div>
                   {model.releaseDate && (
-                    <span data-time-ago class="shrink-0 font-mono text-[9px] text-muted/60">{timeAgo(model.releaseDate)}</span>
+                    <span data-time-ago class="shrink-0 font-mono text-[11px] text-muted/60">{timeAgo(model.releaseDate)}</span>
                   )}
                 </div>
-                <p data-card-provider class="mt-0.5 font-mono text-[11px] text-muted">
-                  {model.provider} · {model.params}
+                <p data-card-provider class="mt-0.5 font-mono text-[13px] text-muted">
+                  {model.provider} · {model.params}{model.license && ` · ${model.license}`}
                 </p>
-                <p data-description class="mt-1 text-[11px] leading-snug text-secondary/60 italic">{model.description}</p>
+                <p data-description class="mt-1 text-[13px] leading-snug text-secondary/60 italic">{model.description}</p>
               </div>
-              <div data-card-stats class="mt-3 flex items-center gap-3 font-mono text-[11px]">
-                <span data-vram class="inline-flex items-center gap-1 text-muted"><span data-vram-val class="text-secondary">{(model.quants.find(q => q.name === "Q4_K_M") || model.quants[0]).vramGB}</span> GB <span data-mem-pct-pill class="hidden rounded-full px-1.5 py-px text-[9px] font-medium" data-mem-pct></span></span>
+              <div data-card-stats class="mt-3 flex items-center gap-3 font-mono text-[13px]">
+                <span data-vram class="inline-flex items-center gap-1 text-muted"><span data-vram-val class="text-secondary">{(model.quants.find(q => q.name === "Q4_K_M") || model.quants[0]).vramGB}</span> GB <span data-mem-pct-pill class="hidden rounded-full px-1.5 py-px text-[11px] font-medium" data-mem-pct></span></span>
                 <span data-ctx-sep class="text-edge/40">·</span>
                 <span data-ctx class="text-muted"><span class="text-secondary">{model.contextLength >= 1024 ? `${Math.round(model.contextLength / 1024)}K` : model.contextLength}</span> ctx</span>
                 <span data-tok-sep class="text-edge/40">·</span>
@@ -393,13 +417,13 @@ function timeAgo(dateStr: string | null): string {
                   {model.quants.map((q, i) => (
                     <button
                       data-quant-btn={i}
-                      class={`quant-btn rounded px-1.5 py-0.5 text-[10px] font-mono transition-colors ${i === 2 ? "border border-accent/30 bg-accent/10 text-accent" : "border border-transparent text-muted hover:text-secondary"}`}
+                      class={`quant-btn rounded px-1.5 py-0.5 text-xs font-mono transition-colors ${i === 2 ? "border border-accent/30 bg-accent/10 text-accent" : "border border-transparent text-muted hover:text-secondary"}`}
                     >
                       {q.name}
                     </button>
                   ))}
                 </div>
-                <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
+                <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                   <div class="flex justify-between">
                     <span class="text-muted">Released</span>
                     <span class="font-mono text-secondary">{model.releaseDate}</span>
@@ -421,14 +445,14 @@ function timeAgo(dateStr: string | null): string {
                 </div>
                 <div class="mt-2 flex flex-wrap gap-1">
                   {model.useCase.map((tag) => (
-                    <span class="rounded border border-edge/40 px-1.5 py-0.5 text-[9px] text-muted">{tag}</span>
+                    <span class="rounded border border-edge/40 px-1.5 py-0.5 text-[11px] text-muted">{tag}</span>
                   ))}
                 </div>
               </div>
             </div>
             <div data-card-footer class="mt-auto flex items-center justify-between px-4 pb-3">
-              <span data-status-label class="font-mono text-[10px] font-medium uppercase tracking-wider text-muted"></span>
-              <span data-score-num class="font-mono text-[10px] text-muted/50"></span>
+              <span data-status-label class="font-mono text-xs font-medium uppercase tracking-wider text-muted"></span>
+              <span data-score-num class="font-mono text-xs text-muted/50"></span>
             </div>
           </article>
         </a>
@@ -438,14 +462,14 @@ function timeAgo(dateStr: string | null): string {
     <!-- No results empty state -->
     <div id="no-results" class="hidden py-20 text-center">
       <p class="font-pixel text-lg text-muted/60">No models found</p>
-      <p class="mt-2 text-sm text-muted/40">Try adjusting your search or filters</p>
-      <button id="reset-filters" class="mt-5 inline-flex items-center gap-1.5 rounded-lg border border-edge/60 bg-surface-raised px-4 py-2 font-mono text-xs text-secondary transition-colors hover:border-accent/30 hover:bg-surface-hover hover:text-primary cursor-pointer">
+      <p class="mt-2 text-base text-muted/40">Try adjusting your search or filters</p>
+      <button id="reset-filters" class="mt-5 inline-flex items-center gap-1.5 rounded-lg border border-edge/60 bg-surface-raised px-4 py-2 font-mono text-sm text-secondary transition-colors hover:border-accent/30 hover:bg-surface-hover hover:text-primary cursor-pointer">
         Reset filters
       </button>
     </div>
 
     <Footer class="mt-20">
-      <p class="text-[11px] text-muted/70">
+      <p class="text-[13px] text-muted/70">
         Data sourced from <a href="https://github.com/ggerganov/llama.cpp" target="_blank" rel="noopener" class="text-muted underline decoration-edge underline-offset-2 hover:text-primary">llama.cpp</a>, <a href="https://ollama.com" target="_blank" rel="noopener" class="text-muted underline decoration-edge underline-offset-2 hover:text-primary">Ollama</a> and <a href="https://lmstudio.ai" target="_blank" rel="noopener" class="text-muted underline decoration-edge underline-offset-2 hover:text-primary">LM Studio</a>.
       </p>
     </Footer>
@@ -638,11 +662,11 @@ function timeAgo(dateStr: string | null): string {
         memPill.textContent = `${memPct}%`;
         memPill.classList.remove("hidden");
         if (memPct > 100) {
-          memPill.className = "rounded-full bg-cannot-run/15 px-1.5 py-px text-[9px] font-medium text-cannot-run";
+          memPill.className = "rounded-full bg-cannot-run/15 px-1.5 py-px text-[11px] font-medium text-cannot-run";
         } else if (memPct > 75) {
-          memPill.className = "rounded-full bg-maybe/15 px-1.5 py-px text-[9px] font-medium text-maybe";
+          memPill.className = "rounded-full bg-maybe/15 px-1.5 py-px text-[11px] font-medium text-maybe";
         } else {
-          memPill.className = "rounded-full bg-can-run/15 px-1.5 py-px text-[9px] font-medium text-can-run";
+          memPill.className = "rounded-full bg-can-run/15 px-1.5 py-px text-[11px] font-medium text-can-run";
         }
       }
     }
@@ -665,14 +689,14 @@ function timeAgo(dateStr: string | null): string {
       if (toks !== null && status !== "cannot-run") {
         tokEl.textContent = `~${toks} tok/s`;
         // Color based on speed
-        if (toks >= 60) tokEl.className = "font-mono text-[11px] text-can-run";
-        else if (toks >= 30) tokEl.className = "font-mono text-[11px] text-can-run/70";
-        else if (toks >= 15) tokEl.className = "font-mono text-[11px] text-maybe";
-        else if (toks >= 5) tokEl.className = "font-mono text-[11px] text-maybe/70";
-        else tokEl.className = "font-mono text-[11px] text-cannot-run";
+        if (toks >= 60) tokEl.className = "font-mono text-[13px] text-can-run";
+        else if (toks >= 30) tokEl.className = "font-mono text-[13px] text-can-run/70";
+        else if (toks >= 15) tokEl.className = "font-mono text-[13px] text-maybe";
+        else if (toks >= 5) tokEl.className = "font-mono text-[13px] text-maybe/70";
+        else tokEl.className = "font-mono text-[13px] text-cannot-run";
       } else {
         tokEl.textContent = "0 tok/s";
-        tokEl.className = "font-mono text-[11px] text-cannot-run/70";
+        tokEl.className = "font-mono text-[13px] text-cannot-run/70";
       }
     }
 
@@ -680,9 +704,9 @@ function timeAgo(dateStr: string | null): string {
     const quantBtns = card.querySelectorAll<HTMLElement>("[data-quant-btn]");
     quantBtns.forEach((btn, i) => {
       if (i === quantIndex) {
-        btn.className = "quant-btn rounded px-1.5 py-0.5 text-[10px] font-mono transition-colors border border-accent/30 bg-accent/10 text-accent";
+        btn.className = "quant-btn rounded px-1.5 py-0.5 text-xs font-mono transition-colors border border-accent/30 bg-accent/10 text-accent";
       } else {
-        btn.className = "quant-btn rounded px-1.5 py-0.5 text-[10px] font-mono transition-colors border border-transparent text-muted hover:text-secondary";
+        btn.className = "quant-btn rounded px-1.5 py-0.5 text-xs font-mono transition-colors border border-transparent text-muted hover:text-secondary";
       }
     });
 
@@ -786,6 +810,7 @@ function timeAgo(dateStr: string | null): string {
   let activeStatusFilter = "all";
   let activeUseFilter = "all";
   let activeProviderFilter = "all";
+  let activeLicenseFilter = "all";
   let searchQuery = "";
 
   function applyFilters() {
@@ -796,19 +821,30 @@ function timeAgo(dateStr: string | null): string {
     $$("#models-grid > a, #models-grid-rest > a").forEach(link => {
       const card = link.querySelector<HTMLElement>("[data-model-id]");
       if (!card) return;
-      const status = card.dataset.status || "unknown";
+      const grade = card.dataset.grade || "?";
       const uses = card.dataset.uses || "";
       const provider = card.dataset.provider || "";
       const name = (card.dataset.modelName || "").toLowerCase();
       const isFeatured = card.dataset.featured === "true";
+      const license = card.dataset.license || "";
+      const isCommercial = card.dataset.commercial === "true";
       let show = true;
 
       if (query && !name.includes(query)) show = false;
       if (activeStatusFilter === "featured") {
         if (!isFeatured) show = false;
-      } else if (activeStatusFilter !== "all" && status !== activeStatusFilter) show = false;
+      } else if (activeStatusFilter === "can-run") {
+        if (!["S", "A", "B"].includes(grade)) show = false;
+      } else if (activeStatusFilter === "tight") {
+        if (!["C", "D"].includes(grade)) show = false;
+      } else if (activeStatusFilter === "cannot-run") {
+        if (grade !== "F") show = false;
+      }
       if (activeUseFilter !== "all" && !uses.includes(activeUseFilter)) show = false;
       if (activeProviderFilter !== "all" && provider !== activeProviderFilter) show = false;
+      if (activeLicenseFilter === "commercial" && !isCommercial) show = false;
+      else if (activeLicenseFilter === "non-commercial" && isCommercial) show = false;
+      else if (activeLicenseFilter !== "all" && activeLicenseFilter !== "commercial" && activeLicenseFilter !== "non-commercial" && license !== activeLicenseFilter) show = false;
 
       link.style.display = show ? "" : "none";
       if (show) {
@@ -835,16 +871,19 @@ function timeAgo(dateStr: string | null): string {
     const statusSelect = $<HTMLSelectElement>("#filter-status");
     const useSelect = $<HTMLSelectElement>("#filter-use");
     const providerSelect = $<HTMLSelectElement>("#filter-provider");
+    const licenseSelect = $<HTMLSelectElement>("#filter-license");
 
     searchQuery = "";
     activeStatusFilter = "all";
     activeUseFilter = "all";
     activeProviderFilter = "all";
+    activeLicenseFilter = "all";
 
     if (searchInput) searchInput.value = "";
     if (statusSelect) statusSelect.value = "all";
     if (useSelect) useSelect.value = "all";
     if (providerSelect) providerSelect.value = "all";
+    if (licenseSelect) licenseSelect.value = "all";
 
     applyFilters();
   }
@@ -853,6 +892,7 @@ function timeAgo(dateStr: string | null): string {
     const statusSelect = $<HTMLSelectElement>("#filter-status");
     const useSelect = $<HTMLSelectElement>("#filter-use");
     const providerSelect = $<HTMLSelectElement>("#filter-provider");
+    const licenseSelect = $<HTMLSelectElement>("#filter-license");
     const resetBtn = $("#reset-filters");
 
     statusSelect?.addEventListener("change", () => {
@@ -867,6 +907,11 @@ function timeAgo(dateStr: string | null): string {
 
     providerSelect?.addEventListener("change", () => {
       activeProviderFilter = providerSelect.value;
+      applyFilters();
+    });
+
+    licenseSelect?.addEventListener("change", () => {
+      activeLicenseFilter = licenseSelect.value;
       applyFilters();
     });
 
@@ -980,6 +1025,7 @@ function timeAgo(dateStr: string | null): string {
     btn.addEventListener("click", () => {
       const idx = modes.indexOf(viewMode);
       viewMode = modes[(idx + 1) % modes.length];
+      localStorage.setItem("viewMode", viewMode);
       applyViewMode();
     });
   }
@@ -1058,9 +1104,10 @@ function timeAgo(dateStr: string | null): string {
     activeStatusFilter = "all";
     activeUseFilter = "all";
     activeProviderFilter = "all";
+    activeLicenseFilter = "all";
     searchQuery = "";
     currentSort = "score";
-    viewMode = "list";
+    viewMode = (localStorage.getItem("viewMode") as ViewMode) || "list";
 
     setupQuantButtons();
     setupFilters();
@@ -1069,6 +1116,7 @@ function timeAgo(dateStr: string | null): string {
     setupViewToggle();
     setupKeyboardNav();
     setupHardwareEditing();
+    applyViewMode();
     init();
   });
 </script>
@@ -1109,6 +1157,13 @@ function timeAgo(dateStr: string | null): string {
     outline: none;
     transition: border-color 0.15s;
     cursor: pointer;
+  }
+
+  @media (min-width: 640px) {
+    .filter-select {
+      font-size: 13px;
+      padding: 7px 12px;
+    }
   }
 
   .filter-select:focus {
@@ -1162,7 +1217,7 @@ function timeAgo(dateStr: string | null): string {
 
   .model-card.list-mode [data-card-top] {
     flex: 1;
-    min-width: 0;
+    min-width: 5rem;
   }
 
   .model-card.list-mode [data-time-ago] {
@@ -1173,7 +1228,6 @@ function timeAgo(dateStr: string | null): string {
   .model-card.list-mode [data-card-stats] {
     margin-top: 0;
     white-space: nowrap;
-    width: 15rem;
     flex-shrink: 0;
     justify-content: flex-end;
   }
@@ -1182,53 +1236,58 @@ function timeAgo(dateStr: string | null): string {
     margin-top: 0;
     padding: 0 1rem 0 0;
     gap: 0.5rem;
-    width: 10rem;
     flex-shrink: 0;
   }
+
+  /* Priority order for hiding:
+     7. time-ago (least important)
+     6. badges (vision, moe, fav)
+     5. vram / memory
+     4. context
+     3. score → always visible
+     2. tok/s → always visible
+     1. name → NEVER hidden */
 
   @media (max-width: 1023px) {
     .model-card.list-mode [data-status-label] {
       display: none !important;
     }
-
-    .model-card.list-mode [data-card-footer] {
-      width: auto;
-      min-width: 0;
-    }
   }
 
-  @media (max-width: 639px) {
+  @media (max-width: 767px) {
     .model-card.list-mode [data-time-ago] {
       display: none !important;
     }
 
-    .model-card.list-mode [data-card-stats] {
-      width: auto;
-      min-width: 0;
+    .model-card.list-mode [data-badges] {
+      display: none !important;
     }
 
+    .model-card.list-mode [data-card-body] {
+      gap: 0.75rem;
+    }
+  }
+
+  @media (max-width: 579px) {
+    .model-card.list-mode [data-vram],
+    .model-card.list-mode [data-tok-sep] {
+      display: none !important;
+    }
+  }
+
+  @media (max-width: 479px) {
     .model-card.list-mode [data-ctx],
     .model-card.list-mode [data-ctx-sep] {
       display: none !important;
     }
 
     .model-card.list-mode [data-card-body] {
-      gap: 1rem;
+      gap: 0.5rem;
+      padding: 0.5rem 0.75rem;
     }
 
     .model-card.list-mode [data-card-footer] {
-      padding-right: 0.75rem;
-    }
-  }
-
-  @media (max-width: 479px) {
-    .model-card.list-mode [data-badges] {
-      display: none !important;
-    }
-
-    .model-card.list-mode [data-vram],
-    .model-card.list-mode [data-tok-sep] {
-      display: none !important;
+      padding-right: 0.5rem;
     }
   }
 
