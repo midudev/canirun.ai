@@ -85,7 +85,7 @@ function timeAgo(dateStr: string | null): string {
         <span class="text-edge/40">|</span>
         <!-- RAM -->
         <span id="hw-ram" class="inline-flex items-center gap-1.5 text-muted">
-          <span data-tooltip="RAM — System memory. On Apple Silicon and iGPUs, it's shared with the GPU (unified VRAM)" data-tooltip-pos="bottom" tabindex="0" aria-label="RAM info" class="inline-flex shrink-0">
+          <span data-tooltip="VRAM — Video memory available for loading models. On Apple Silicon/iGPUs, it's shared with system RAM" data-tooltip-pos="bottom" tabindex="0" aria-label="RAM info" class="inline-flex shrink-0">
             <IconRam class="h-3.5 w-3.5" />
           </span>
           <select id="hw-ram-select" class="hw-editable-select" disabled>
