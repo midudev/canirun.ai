@@ -268,10 +268,10 @@ function timeAgo(dateStr: string | null): string {
                 <p data-description class="mt-1 text-[11px] leading-snug text-secondary/60 italic">{model.description}</p>
               </div>
               <div data-card-stats class="mt-3 flex items-center gap-3 font-mono text-[11px]">
-                <span class="inline-flex items-center gap-1 text-muted"><span data-vram-val class="text-secondary">{(model.quants.find(q => q.name === "Q4_K_M") || model.quants[0]).vramGB}</span> GB <span data-mem-pct-pill class="hidden rounded-full px-1.5 py-px text-[9px] font-medium" data-mem-pct></span></span>
+                <span data-vram class="inline-flex items-center gap-1 text-muted"><span data-vram-val class="text-secondary">{(model.quants.find(q => q.name === "Q4_K_M") || model.quants[0]).vramGB}</span> GB <span data-mem-pct-pill class="hidden rounded-full px-1.5 py-px text-[9px] font-medium" data-mem-pct></span></span>
                 <span data-ctx-sep class="text-edge/40">·</span>
                 <span data-ctx class="text-muted"><span class="text-secondary">{model.contextLength >= 1024 ? `${Math.round(model.contextLength / 1024)}K` : model.contextLength}</span> ctx</span>
-                <span class="text-edge/40">·</span>
+                <span data-tok-sep class="text-edge/40">·</span>
                 <span data-tok-speed class="text-muted"></span>
               </div>
               <div data-advanced class="mt-3 hidden border-t border-edge/30 pt-3">
@@ -388,10 +388,10 @@ function timeAgo(dateStr: string | null): string {
                 <p data-description class="mt-1 text-[11px] leading-snug text-secondary/60 italic">{model.description}</p>
               </div>
               <div data-card-stats class="mt-3 flex items-center gap-3 font-mono text-[11px]">
-                <span class="inline-flex items-center gap-1 text-muted"><span data-vram-val class="text-secondary">{(model.quants.find(q => q.name === "Q4_K_M") || model.quants[0]).vramGB}</span> GB <span data-mem-pct-pill class="hidden rounded-full px-1.5 py-px text-[9px] font-medium" data-mem-pct></span></span>
+                <span data-vram class="inline-flex items-center gap-1 text-muted"><span data-vram-val class="text-secondary">{(model.quants.find(q => q.name === "Q4_K_M") || model.quants[0]).vramGB}</span> GB <span data-mem-pct-pill class="hidden rounded-full px-1.5 py-px text-[9px] font-medium" data-mem-pct></span></span>
                 <span data-ctx-sep class="text-edge/40">·</span>
                 <span data-ctx class="text-muted"><span class="text-secondary">{model.contextLength >= 1024 ? `${Math.round(model.contextLength / 1024)}K` : model.contextLength}</span> ctx</span>
-                <span class="text-edge/40">·</span>
+                <span data-tok-sep class="text-edge/40">·</span>
                 <span data-tok-speed class="text-muted"></span>
               </div>
               <div data-advanced class="mt-3 hidden border-t border-edge/30 pt-3">
@@ -1245,6 +1245,11 @@ function timeAgo(dateStr: string | null): string {
 
   @media (max-width: 479px) {
     .model-card.list-mode [data-badges] {
+      display: none !important;
+    }
+
+    .model-card.list-mode [data-vram],
+    .model-card.list-mode [data-tok-sep] {
       display: none !important;
     }
   }
