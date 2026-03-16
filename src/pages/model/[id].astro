@@ -48,6 +48,18 @@ function formatNum(n: number): string {
   return String(n)
 }
 
+const licenseTier = getLicenseTier(model.license)
+const licenseColors = licenseTier === "open"
+  ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-400"
+  : licenseTier === "partial"
+    ? "border-amber-400/30 bg-amber-400/10 text-amber-400"
+    : "border-orange-400/30 bg-orange-400/10 text-orange-400"
+const licenseHint = licenseTier === "open"
+  ? `${model.license} — Fully open, commercial use allowed`
+  : licenseTier === "partial"
+    ? `${model.license} — Commercial with conditions`
+    : `${model.license} — Restrictive license`
+
 const USE_CASE_ICONS: Record<string, any> = {
   chat: IconChat,
   code: IconCode,
@@ -165,28 +177,15 @@ const USE_CASE_ICONS: Record<string, any> = {
               )
             }
             {
-              model.license && (() => {
-                const tier = getLicenseTier(model.license);
-                const colors = tier === "open"
-                  ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-400"
-                  : tier === "partial"
-                    ? "border-amber-400/30 bg-amber-400/10 text-amber-400"
-                    : "border-orange-400/30 bg-orange-400/10 text-orange-400";
-                const hint = tier === "open"
-                  ? `${model.license} — Fully open, commercial use allowed`
-                  : tier === "partial"
-                    ? `${model.license} — Commercial with conditions`
-                    : `${model.license} — Restrictive license`;
-                return (
-                  <span
-                    class={`inline-flex items-center gap-1 rounded border px-2 py-0.5 font-mono text-xs ${colors}`}
-                    title={hint}
-                  >
-                    <IconLicense class="h-3 w-3" />
-                    {model.license}
-                  </span>
-                );
-              })()
+              model.license && (
+                <span
+                  class={`inline-flex items-center gap-1 rounded border px-2 py-0.5 font-mono text-xs ${licenseColors}`}
+                  title={licenseHint}
+                >
+                  <IconLicense class="h-3 w-3" />
+                  {model.license}
+                </span>
+              )
             }
           </div>
           <p class="mt-1 font-mono text-[13px] text-muted">
