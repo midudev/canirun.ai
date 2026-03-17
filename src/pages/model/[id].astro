@@ -29,6 +29,7 @@ import IconMultilingual from "@/icons/multilingual.svg"
 import IconSearch from "@/icons/search.svg"
 import IconLmStudio from "@/icons/logo-lmstudio.svg"
 import IconLicense from "@/icons/license.svg"
+import { getModelTitleTransitionName } from "@/lib/view-transitions"
 
 export function getStaticPaths() {
   return models.map((model) => ({
@@ -125,7 +126,7 @@ const USE_CASE_ICONS: Record<string, any> = {
           <div class="flex items-center gap-3">
             <h1
               class="font-pixel text-2xl tracking-tight text-primary sm:text-3xl"
-              transition:name={`model-title-${model.id}`}
+              style={`view-transition-name: ${getModelTitleTransitionName(model.id)};`}
             >
               {model.name}
             </h1>
