@@ -173,6 +173,64 @@ export const GPU_DB: Record<string, { vram: number; bw: number; cores: number }>
   "Quadro RTX 6000": { vram: 24, bw: 672, cores: 4608 },
   "Quadro RTX 5000": { vram: 16, bw: 448, cores: 3072 },
   "Quadro RTX 4000": { vram: 8, bw: 416, cores: 2304 },
+  "Quadro RTX 3000": { vram: 6, bw: 336, cores: 1920 },
+  "Quadro T2000": { vram: 4, bw: 128, cores: 1024 },
+  "Quadro T1000": { vram: 4, bw: 160, cores: 896 },
+  "T1200": { vram: 4, bw: 160, cores: 1024 },
+  "NVIDIA T600": { vram: 4, bw: 160, cores: 640 },
+  "NVIDIA T550": { vram: 4, bw: 128, cores: 1024 },
+  "NVIDIA T500": { vram: 4, bw: 128, cores: 1024 },
+
+  // NVIDIA Quadro / professional (Pascal)
+  "Quadro P5200": { vram: 16, bw: 256, cores: 2560 },
+  "Quadro P5000": { vram: 16, bw: 288, cores: 2560 },
+  "Quadro P4200": { vram: 8, bw: 224, cores: 1792 },
+  "Quadro P4000": { vram: 8, bw: 243, cores: 1792 },
+  "Quadro P3000": { vram: 6, bw: 168, cores: 1280 },
+  "Quadro P3200": { vram: 6, bw: 192, cores: 1280 },
+  "Quadro P2000": { vram: 5, bw: 140, cores: 1024 },
+  "Quadro P1000": { vram: 4, bw: 82, cores: 640 },
+  "Quadro P620": { vram: 2, bw: 80, cores: 512 },
+  "Quadro P600": { vram: 2, bw: 64, cores: 384 },
+  "Quadro P520": { vram: 2, bw: 80, cores: 384 },
+  "Quadro P500": { vram: 2, bw: 64, cores: 256 },
+
+  // NVIDIA Quadro / professional (Maxwell)
+  "Quadro M5500": { vram: 8, bw: 211, cores: 2048 },
+  "Quadro M5000M": { vram: 8, bw: 160, cores: 1536 },
+  "Quadro M4000M": { vram: 4, bw: 160, cores: 1024 },
+  "Quadro M3000M": { vram: 4, bw: 160, cores: 1024 },
+  "Quadro M2200": { vram: 4, bw: 140, cores: 1024 },
+  "Quadro M2000M": { vram: 4, bw: 80, cores: 640 },
+  "Quadro M1200": { vram: 4, bw: 128, cores: 640 },
+  "Quadro M1000M": { vram: 2, bw: 80, cores: 512 },
+  "Quadro M620": { vram: 2, bw: 80, cores: 512 },
+  "Quadro M600M": { vram: 2, bw: 64, cores: 384 },
+  "Quadro M520": { vram: 2, bw: 80, cores: 384 },
+  "Quadro M500M": { vram: 2, bw: 64, cores: 384 },
+
+  // NVIDIA Quadro / professional (Kepler)
+  "Quadro K5100M": { vram: 8, bw: 160, cores: 1536 },
+  "Quadro K5000M": { vram: 4, bw: 173, cores: 1344 },
+  "Quadro K4100M": { vram: 4, bw: 115, cores: 1152 },
+  "Quadro K4000M": { vram: 4, bw: 134, cores: 960 },
+  "Quadro K3100M": { vram: 4, bw: 80, cores: 768 },
+  "Quadro K3000M": { vram: 2, bw: 80, cores: 576 },
+  "Quadro K2100M": { vram: 2, bw: 64, cores: 576 },
+  "Quadro K2000M": { vram: 2, bw: 64, cores: 384 },
+  "Quadro K1100M": { vram: 2, bw: 64, cores: 384 },
+  "Quadro K1000M": { vram: 2, bw: 64, cores: 384 },
+  "Quadro K620M": { vram: 2, bw: 64, cores: 384 },
+  "Quadro K610M": { vram: 1, bw: 29, cores: 192 },
+  "Quadro K510M": { vram: 2, bw: 80, cores: 384 },
+  "Quadro K500M": { vram: 2, bw: 64, cores: 192 },
+
+  // NVIDIA RTX Ampere workstation entries missing from old Quadro matrix
+  "RTX A3000": { vram: 6, bw: 192, cores: 4096 },
+  "RTX A3000 12GB": { vram: 12, bw: 336, cores: 4096 },
+  "RTX A2000 8GB": { vram: 8, bw: 288, cores: 3328 },
+  "RTX A1000": { vram: 4, bw: 192, cores: 2048 },
+  "RTX A500": { vram: 4, bw: 128, cores: 2048 },
 
   // AMD RX 5xxx (RDNA 1)
   "RX 5700 XT": { vram: 8, bw: 448, cores: 2560 },
@@ -1338,7 +1396,7 @@ export function buildSelectOptions(presets: number[], detected: number | null): 
 
 export function getGPUCategory(name: string): string {
   // Pro/workstation cards must be checked BEFORE consumer series (e.g. "RTX 5000 Ada" vs "RTX 5090")
-  if (name.includes("Ada") || name.startsWith("RTX PRO") || name.startsWith("RTX 6000") || name.startsWith("RTX 4500") || name.startsWith("RTX A") || name.startsWith("Quadro")) return "NVIDIA Pro";
+  if (name.includes("Ada") || name.startsWith("RTX PRO") || name.startsWith("RTX 6000") || name.startsWith("RTX 4500") || name.startsWith("RTX A") || name.startsWith("Quadro") || name.startsWith("NVIDIA T") || /^T\d{3,4}$/.test(name)) return "NVIDIA Pro";
   if (/^(A100|H100|GH200|DGX Spark|L40S|L4|T4|Tesla P40)$/.test(name)) return "NVIDIA Datacenter";
   if (name.startsWith("RTX 50")) return "NVIDIA RTX 50";
   if (name.startsWith("RTX 40")) return "NVIDIA RTX 40";
