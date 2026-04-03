@@ -1,5 +1,6 @@
 import satori from 'satori';
 import { Resvg } from '@resvg/resvg-js';
+import sharp from 'sharp';
 
 let fontsCache: { name: string; data: ArrayBuffer; weight: number; style: string }[] | null = null;
 
@@ -33,7 +34,8 @@ export async function renderOgImage(element: any): Promise<Buffer> {
   const fonts = await getFonts();
   const svg = await satori(element, { width: 1200, height: 630, fonts });
   const resvg = new Resvg(svg);
-  return Buffer.from(resvg.render().asPng());
+  const png = Buffer.from(resvg.render().asPng());
+  return sharp(png).jpeg({ quality: 82, mozjpeg: true }).toBuffer();
 }
 
 export function badge(label: string, color: string, bg: string, border: string) {

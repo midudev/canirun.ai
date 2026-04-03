@@ -12,7 +12,7 @@ interface Props {
 const {
   title = "CanIRun.ai — Can your machine run AI models?",
   description = "Detect your hardware and find out which AI models you can run locally. GPU, CPU, and RAM analysis in your browser.",
-  image = "/og/home.png",
+  image = "/og/home.jpg",
   type = "website",
 } = Astro.props;
 
@@ -57,6 +57,7 @@ const ogImageURL = new URL(image, Astro.site);
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:image" content={ogImageURL.href} />
+    <meta property="og:image:type" content="image/jpeg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:site_name" content="CanIRun.ai" />

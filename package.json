@@ -12,8 +12,8 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@astrojs/node": "^10.0.4",
     "@astrojs/sitemap": "3.7.1",
+    "@astrojs/vercel": "^10.0.4",
     "@libsql/client": "^0.17.2",
     "@resvg/resvg-js": "2.6.2",
     "@tailwindcss/vite": "4.2.1",
@@ -21,6 +21,7 @@
     "astro": "6.0.8",
     "geist": "1.7.0",
     "satori": "0.25.0",
+    "sharp": "^0.34.5",
     "tailwindcss": "4.2.1"
   },
   "devDependencies": {

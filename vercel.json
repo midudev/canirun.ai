@@ -1,0 +1,6 @@
+{
+  "redirects": [
+    { "source": "/og/home.png", "destination": "/og/home.jpg", "permanent": true },
+    { "source": "/og/:id.png", "destination": "/og/:id.jpg", "permanent": true }
+  ]
+}
