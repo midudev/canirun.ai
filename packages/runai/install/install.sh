@@ -14,21 +14,32 @@ esac
 
 echo "Installing runai (${OS_LABEL})..."
 
+if ! command -v pnpm >/dev/null 2>&1; then
+  echo "pnpm not found. Enabling pnpm with Corepack..."
+  corepack enable pnpm
+fi
+
+if ! command -v pnpm >/dev/null 2>&1; then
+  echo "pnpm is not available in PATH."
+  echo "Install pnpm from https://pnpm.io/installation and run this installer again."
+  exit 1
+fi
+
 if ! command -v bun >/dev/null 2>&1; then
-  echo "Bun not found. Installing Bun..."
+  echo "Bun runtime not found. Installing Bun..."
   curl -fsSL https://bun.sh/install | bash
   export BUN_INSTALL="${HOME}/.bun"
   export PATH="${BUN_INSTALL}/bin:${PATH}"
 fi
 
 if ! command -v bun >/dev/null 2>&1; then
-  echo "Bun installation failed or Bun is not in PATH."
+  echo "Bun runtime installation failed or Bun is not in PATH."
   echo "Please add ~/.bun/bin to your PATH and run this installer again."
   exit 1
 fi
 
-echo "Installing runai globally from npm registry..."
-bun install -g runai
+echo "Installing runai globally with pnpm..."
+pnpm add -g runai
 
 echo ""
 echo "Done."

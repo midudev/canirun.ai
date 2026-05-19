@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { recommendTopModels } from "../src/recommend";
 import type { CliHardwareInfo } from "../src/types";
 

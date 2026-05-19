@@ -14,19 +14,20 @@ Local AI runtime with hardware-aware model recommendations and an OpenAI-compati
 
 - Supported installer platforms: macOS, Linux, and Windows.
 - Model recommendation quality is currently optimized for macOS/Apple Silicon.
-- [Bun](https://bun.sh/) installed.
+- [pnpm](https://pnpm.io/) installed.
+- [Bun](https://bun.sh/) runtime installed.
 
 ## Development Setup
 
 ```bash
 cd packages/runai
-bun install
+pnpm install
 ```
 
 To run the local CLI binary:
 
 ```bash
-bun run src/cli.ts --help
+pnpm run dev -- --help
 ```
 
 ## Quick Start
@@ -34,55 +35,55 @@ bun run src/cli.ts --help
 ### 1) Recommend and install models
 
 ```bash
-bun run src/cli.ts recommend
+pnpm run recommend
 ```
 
 Useful options:
 
 ```bash
-bun run src/cli.ts recommend --top 5
-bun run src/cli.ts recommend --json
-bun run src/cli.ts recommend --install all
-bun run src/cli.ts recommend --install 1,2
-bun run src/cli.ts recommend --install qwen3-0.6b
+pnpm run recommend -- --top 5
+pnpm run recommend -- --json
+pnpm run recommend -- --install all
+pnpm run recommend -- --install 1,2
+pnpm run recommend -- --install qwen3-0.6b
 ```
 
 ### 2) Browse the catalog
 
 ```bash
-bun run src/cli.ts browse qwen --limit 10
-bun run src/cli.ts browse --json
+pnpm run browse -- qwen --limit 10
+pnpm run browse -- --json
 ```
 
 ### 3) Pull a GGUF model manually
 
 ```bash
-bun run src/cli.ts pull "https://huggingface.co/<repo>/resolve/main/model.gguf?download=true" --name my-model.gguf
+pnpm run dev -- pull "https://huggingface.co/<repo>/resolve/main/model.gguf?download=true" --name my-model.gguf
 ```
 
 ### 4) Start local interactive chat
 
 ```bash
-bun run src/cli.ts chat
+pnpm run dev -- chat
 ```
 
 You can also pass a model path or ID:
 
 ```bash
-bun run src/cli.ts chat --model /path/to/model.gguf
-bun run src/cli.ts chat --model qwen3-0.6b
+pnpm run dev -- chat --model /path/to/model.gguf
+pnpm run dev -- chat --model qwen3-0.6b
 ```
 
 ### 5) Start the OpenAI-compatible API
 
 ```bash
-bun run src/cli.ts serve --model /path/to/model.gguf --port 11435
+pnpm run serve -- --model /path/to/model.gguf --port 11435
 ```
 
 Equivalent alias:
 
 ```bash
-bun run src/cli.ts api --model /path/to/model.gguf
+pnpm run api -- --model /path/to/model.gguf
 ```
 
 Endpoints:
@@ -99,7 +100,7 @@ curl -s http://localhost:11435/v1/chat/completions \
   -H "content-type: application/json" \
   -d '{
     "model":"local",
-    "messages":[{"role":"user","content":"Give me a short sentence about Bun"}],
+    "messages":[{"role":"user","content":"Give me a short sentence about local AI"}],
     "stream": false
   }'
 ```
@@ -121,9 +122,9 @@ curl -N http://localhost:11435/v1/chat/completions \
 Validates runtime, directory access, `node-llama-cpp`, and model consistency:
 
 ```bash
-bun run src/cli.ts doctor
-bun run src/cli.ts doctor --json
-bun run src/cli.ts doctor --model /path/to/model.gguf
+pnpm run dev -- doctor
+pnpm run dev -- doctor --json
+pnpm run dev -- doctor --model /path/to/model.gguf
 ```
 
 ## Environment Variables
@@ -139,13 +140,13 @@ bun run src/cli.ts doctor --model /path/to/model.gguf
 ## Package Scripts
 
 ```bash
-bun run dev
-bun run build
-bun run test
-bun run recommend
-bun run browse
-bun run serve
-bun run api
+pnpm run dev
+pnpm run build
+pnpm run test
+pnpm run recommend
+pnpm run browse
+pnpm run serve
+pnpm run api
 ```
 
 Smoke test:
@@ -168,4 +169,4 @@ Windows (PowerShell):
 .\install\install.ps1
 ```
 
-These scripts install Bun if needed and then install `runai` globally.
+These scripts install the Bun runtime if needed and then install `runai` globally with pnpm.
