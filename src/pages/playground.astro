@@ -1,0 +1,349 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import NavHeader from "@/components/NavHeader.astro";
+
+export const prerender = true;
+---
+
+<Layout
+  title="Playground — Run AI models in your browser | CanIRun.ai"
+  description="Run AI models directly in your browser with WebGPU acceleration. Chat with local LLMs, switch models, and keep your conversations private."
+>
+  <div class="flex flex-col h-dvh overflow-hidden">
+    <NavHeader />
+
+    <main class="flex flex-1 min-h-0">
+      <!-- Sidebar -->
+      <aside
+        id="pg-sidebar"
+        class="pg-sidebar hidden md:flex flex-col w-[280px] shrink-0 border-r border-edge/40 bg-surface-raised"
+      >
+        <div class="flex flex-col gap-0.5 p-2">
+          <div class="flex items-center gap-1">
+            <button
+              id="pg-new-chat"
+              class="flex flex-1 items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-primary transition-colors hover:bg-surface-hover cursor-pointer"
+            >
+              <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              New chat
+            </button>
+            <button
+              id="pg-sidebar-collapse"
+              class="flex size-9 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-hover hover:text-primary cursor-pointer"
+              aria-label="Collapse sidebar"
+            >
+              <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+            </button>
+          </div>
+          <button
+            id="pg-search-trigger"
+            class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-secondary transition-colors hover:bg-surface-hover cursor-pointer"
+          >
+            <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Search chats
+          </button>
+        </div>
+        <div id="pg-search-bar" class="px-2 pb-1.5 hidden">
+          <div class="flex items-center gap-2 rounded-lg bg-surface-hover/60 px-3 py-2 border border-edge/40">
+            <svg class="size-4 text-muted shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input
+              id="pg-search-input"
+              type="text"
+              placeholder="Search..."
+              class="flex-1 bg-transparent text-sm text-primary placeholder:text-muted/40 outline-none min-w-0"
+            />
+            <button id="pg-search-close" class="flex size-5 items-center justify-center rounded text-muted hover:text-primary transition-colors cursor-pointer">
+              <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        </div>
+        <div id="pg-conversation-list" class="pg-conv-list flex-1 overflow-y-auto px-1.5 py-1"></div>
+        <div id="pg-sidebar-footer" class="px-2 py-1.5 border-t border-edge/40 space-y-0.5 hidden">
+          <button
+            id="pg-archived-toggle"
+            class="w-full items-center gap-2 rounded-md px-2 py-1.5 font-mono text-[11px] text-muted transition-colors hover:bg-surface-hover hover:text-secondary cursor-pointer hidden"
+          >
+          </button>
+          <button
+            id="pg-clear-all"
+            class="w-full items-center gap-2 rounded-md px-2 py-1.5 font-mono text-[11px] text-muted transition-colors hover:bg-danger/10 hover:text-danger cursor-pointer hidden"
+          >
+            <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            Clear all
+          </button>
+        </div>
+      </aside>
+
+      <!-- Mobile sidebar backdrop -->
+      <div id="pg-sidebar-backdrop" class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm hidden" aria-hidden="true"></div>
+
+      <!-- Context menu -->
+      <div id="pg-context-menu" class="pg-context-menu fixed z-[60] hidden" role="menu"></div>
+
+      <!-- Chat area -->
+      <div class="flex flex-1 flex-col min-w-0">
+        <!-- Header bar -->
+        <div class="flex items-center gap-3 px-3 py-2 border-b border-edge/40 sm:px-4">
+          <button
+            id="pg-sidebar-toggle"
+            class="flex size-8 items-center justify-center rounded-lg text-secondary transition-colors hover:bg-surface-hover hover:text-primary cursor-pointer"
+            aria-label="Toggle sidebar"
+            style="display:none"
+          >
+            <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+          </button>
+
+          <div id="pg-model-picker" class="relative">
+            <button
+              id="pg-model-trigger"
+              class="flex items-center gap-2 rounded-lg border border-edge/60 bg-surface-card pl-3 pr-2 py-1.5 font-mono text-xs text-primary outline-none transition-colors hover:border-edge focus:border-accent/40 cursor-pointer min-w-0"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+            >
+              <span id="pg-model-trigger-label" class="truncate">Select model...</span>
+              <span id="pg-model-trigger-status" class="pg-status-dot size-1.5 rounded-full bg-muted shrink-0"></span>
+              <svg class="size-3 shrink-0 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div
+              id="pg-model-dropdown"
+              class="absolute left-0 top-full z-50 mt-1 hidden w-[340px] max-h-[70vh] overflow-y-auto rounded-xl border border-edge/60 bg-surface-card shadow-xl shadow-black/30"
+              role="listbox"
+            >
+              <!-- Rendered by JS -->
+            </div>
+          </div>
+
+          <div id="pg-model-status" class="hidden sm:flex items-center gap-1.5 font-mono text-[11px] text-muted">
+            <span class="pg-status-text">Not loaded</span>
+          </div>
+
+          <div class="ml-auto flex items-center gap-1">
+            <button
+              id="pg-settings-btn"
+              class="flex size-8 items-center justify-center rounded-lg text-secondary transition-colors hover:bg-surface-hover hover:text-primary cursor-pointer"
+              aria-label="Settings"
+            >
+              <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Messages / Welcome -->
+        <div id="pg-messages" class="flex-1 overflow-y-auto">
+          <div id="pg-welcome" class="flex flex-col items-center justify-center h-full px-4 py-12 text-center">
+            <div class="max-w-md space-y-6">
+              <div class="space-y-2">
+                <h1 class="font-pixel text-lg text-accent">playground</h1>
+                <p class="text-sm text-secondary leading-relaxed">
+                  Run AI models directly in your browser with WebGPU.
+                  No servers, no API keys — everything stays on your device.
+                </p>
+              </div>
+
+              <div id="pg-webgpu-status" class="flex items-center justify-center gap-2 rounded-lg border border-edge/40 bg-surface-card px-4 py-2.5 font-mono text-xs">
+                <span class="pg-webgpu-dot size-2 rounded-full"></span>
+                <span class="pg-webgpu-text"></span>
+              </div>
+
+              <div class="space-y-3 text-left">
+                <div class="flex items-start gap-3 rounded-lg border border-edge/40 bg-surface-card p-3">
+                  <span class="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md bg-accent/10 text-accent text-[10px] font-bold">1</span>
+                  <div>
+                    <p class="text-xs font-medium text-primary">Select a model</p>
+                    <p class="text-[11px] text-muted">Choose from curated models optimized for browser inference</p>
+                  </div>
+                </div>
+                <div class="flex items-start gap-3 rounded-lg border border-edge/40 bg-surface-card p-3">
+                  <span class="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md bg-accent/10 text-accent text-[10px] font-bold">2</span>
+                  <div>
+                    <p class="text-xs font-medium text-primary">Wait for download</p>
+                    <p class="text-[11px] text-muted">Models are cached locally after first download for offline use</p>
+                  </div>
+                </div>
+                <div class="flex items-start gap-3 rounded-lg border border-edge/40 bg-surface-card p-3">
+                  <span class="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md bg-accent/10 text-accent text-[10px] font-bold">3</span>
+                  <div>
+                    <p class="text-xs font-medium text-primary">Start chatting</p>
+                    <p class="text-[11px] text-muted">Conversations are saved locally and persist across sessions</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Input area -->
+        <div id="pg-input-area" class="border-t border-edge/40 p-3 sm:p-4">
+          <div class="max-w-3xl mx-auto">
+            <div id="pg-attachments" class="hidden mb-2 flex gap-2 flex-wrap"></div>
+            <div id="pg-queue" class="hidden mb-2 space-y-1.5"></div>
+            <div id="pg-input-wrapper" class="flex items-end gap-1.5 rounded-2xl border border-edge/60 bg-surface-card px-2 py-2 transition-colors focus-within:border-accent/40">
+              <button
+                id="pg-attach-btn"
+                class="flex shrink-0 size-8 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-hover hover:text-primary cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                aria-label="Attach file"
+                disabled
+              >
+                <svg class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              </button>
+              <textarea
+                id="pg-input"
+                class="flex-1 min-h-[20px] resize-none bg-transparent py-1.5 text-sm text-primary placeholder:text-muted outline-none disabled:opacity-50 overflow-hidden leading-5"
+                rows="1"
+                placeholder="Type your message..."
+                disabled
+              ></textarea>
+              <button
+                id="pg-mic-btn"
+                class="flex shrink-0 size-8 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-hover hover:text-primary cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                aria-label="Record audio"
+                disabled
+              >
+                <svg class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+              </button>
+              <button
+                id="pg-context-compact"
+                class="pg-context-button shrink-0"
+                type="button"
+                aria-label="Context usage"
+                disabled
+              >
+                <span class="pg-context-core" aria-hidden="true"></span>
+              </button>
+              <button
+                id="pg-send"
+                class="flex shrink-0 size-8 items-center justify-center rounded-full bg-accent text-surface transition-all hover:bg-accent-dim disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                disabled
+                aria-label="Send message"
+              >
+                <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+              </button>
+              <button
+                id="pg-stop"
+                class="hidden shrink-0 size-8 items-center justify-center rounded-full bg-danger/10 text-danger transition-colors hover:bg-danger/20 cursor-pointer"
+                aria-label="Stop generating"
+              >
+                <svg class="size-4" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+              </button>
+            </div>
+            <input id="pg-file-input" type="file" class="hidden" multiple accept="image/*,.pdf,.txt,.md,.csv,.json,.xml,.html" />
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Loading card is injected inline into #pg-messages by JS -->
+
+    <!-- Settings panel -->
+    <div id="pg-settings" class="fixed inset-y-0 right-0 z-50 flex" style="display:none">
+      <div id="pg-settings-backdrop" class="flex-1 bg-black/40 backdrop-blur-sm"></div>
+      <div class="w-80 overflow-y-auto border-l border-edge/40 bg-surface-raised p-5">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="font-mono text-sm text-primary">Settings</h2>
+          <button id="pg-settings-close" class="flex size-7 items-center justify-center rounded-lg text-secondary transition-colors hover:bg-surface-hover hover:text-primary cursor-pointer" aria-label="Close settings">
+            <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <div class="space-y-5">
+          <div class="space-y-2">
+            <label for="pg-system-prompt" class="font-mono text-[11px] font-medium text-secondary">System prompt</label>
+            <textarea
+              id="pg-system-prompt"
+              class="w-full resize-none rounded-lg border border-edge/60 bg-surface-card px-3 py-2 text-xs text-primary placeholder:text-muted outline-none transition-colors focus:border-accent/40"
+              rows="4"
+              placeholder="You are a helpful assistant..."
+            ></textarea>
+          </div>
+
+          <div class="space-y-1">
+            <div class="flex items-center justify-between">
+              <label for="pg-temperature" class="font-mono text-[11px] font-medium text-secondary">Temperature</label>
+              <span id="pg-temperature-val" class="font-mono text-[11px] text-muted">0.7</span>
+            </div>
+            <input id="pg-temperature" type="range" min="0" max="2" step="0.1" value="0.7" class="pg-range w-full" />
+          </div>
+
+          <div class="space-y-1">
+            <div class="flex items-center justify-between">
+              <label for="pg-max-tokens" class="font-mono text-[11px] font-medium text-secondary">Max tokens</label>
+              <span id="pg-max-tokens-val" class="font-mono text-[11px] text-muted">4096</span>
+            </div>
+            <input id="pg-max-tokens" type="range" min="64" max="8192" step="64" value="4096" class="pg-range w-full" />
+          </div>
+
+          <div class="space-y-1">
+            <div class="flex items-center justify-between">
+              <label for="pg-top-p" class="font-mono text-[11px] font-medium text-secondary">Top-p</label>
+              <span id="pg-top-p-val" class="font-mono text-[11px] text-muted">0.9</span>
+            </div>
+            <input id="pg-top-p" type="range" min="0" max="1" step="0.05" value="0.9" class="pg-range w-full" />
+          </div>
+
+          <div class="border-t border-edge/40 pt-4">
+            <h3 class="font-mono text-[11px] font-medium text-secondary mb-3">Model info</h3>
+            <div id="pg-model-info" class="space-y-1.5 font-mono text-[11px] text-muted">
+              <p>No model selected</p>
+            </div>
+          </div>
+
+          <div class="border-t border-edge/40 pt-4 space-y-2">
+            <div class="flex items-center justify-between">
+              <h3 class="font-mono text-[11px] font-medium text-secondary">Cached models</h3>
+              <span id="pg-cached-total" class="font-mono text-[10px] text-muted/60"></span>
+            </div>
+            <div id="pg-cached-list" class="space-y-1.5"></div>
+            <button
+              id="pg-delete-all-cache"
+              class="hidden w-full rounded-lg border border-danger/30 px-3 py-1.5 font-mono text-[10px] text-danger/70 transition-colors hover:bg-danger/10 hover:text-danger cursor-pointer"
+            >
+              Delete all cached data
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Drop overlay -->
+  <div
+    id="pg-drop-overlay"
+    class="pg-drop-overlay fixed inset-0 z-[100] hidden items-center justify-center"
+    data-state="valid"
+    aria-hidden="true"
+  >
+    <div class="pg-drop-card">
+      <div class="pg-drop-icon-wrap">
+        <svg class="pg-drop-icon" data-drop-icon="valid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <svg class="pg-drop-icon" data-drop-icon="invalid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="15" y1="9" x2="9" y2="15"/>
+          <line x1="9" y1="9" x2="15" y2="15"/>
+        </svg>
+        <svg class="pg-drop-icon" data-drop-icon="partial" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        <svg class="pg-drop-icon" data-drop-icon="no-model" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+      </div>
+      <p class="pg-drop-title" data-drop-title>Drop files here</p>
+      <p class="pg-drop-subtitle" data-drop-subtitle>Images, PDFs and text files</p>
+      <div class="pg-drop-counts" data-drop-counts></div>
+    </div>
+  </div>
+
+  <script>
+    import { initPlayground } from "@/lib/playground";
+
+    initPlayground();
+    document.addEventListener("astro:after-swap", initPlayground);
+  </script>
+</Layout>
