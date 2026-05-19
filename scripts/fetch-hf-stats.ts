@@ -1,9 +1,9 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S pnpm exec tsx
 /**
  * Fetches download counts and likes from HuggingFace API for all models.
  * Outputs src/data/hf-stats.json consumed at build time.
  *
- * Usage: bun run scripts/fetch-hf-stats.ts
+ * Usage: pnpm exec tsx scripts/fetch-hf-stats.ts
  */
 
 import { models } from "../src/data/models";

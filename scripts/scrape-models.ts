@@ -1,14 +1,16 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S pnpm exec tsx
 /**
  * HuggingFace model scraper for CanIRun.ai
  * Fetches model metadata and computes RAM/VRAM requirements.
  * Outputs data/models.json consumed by the Astro site.
  *
  * Usage:
- *   bun run scripts/scrape-models.ts
- *   bun run scripts/scrape-models.ts --discover
- *   bun run scripts/scrape-models.ts --discover -n 50
+ *   pnpm scrape
+ *   pnpm scrape -- --discover
+ *   pnpm scrape -- --discover -n 50
  */
+
+import { writeFile } from "node:fs/promises";
 
 const HF_API = "https://huggingface.co/api/models";
 const HF_TOKEN = process.env.HF_TOKEN || process.env.HUGGING_FACE_HUB_TOKEN;
@@ -549,7 +551,7 @@ async function main() {
 
   // Write output
   const outputPath = new URL("../data/models.json", import.meta.url).pathname;
-  await Bun.write(outputPath, JSON.stringify(results, null, 2));
+  await writeFile(outputPath, JSON.stringify(results, null, 2));
 
   console.log(`\n✅ Wrote ${results.length} models to data/models.json`);
   console.log(`\n${"Model".padEnd(50)} ${"Params".padStart(8)} ${"Q4 VRAM".padStart(8)} ${"Context".padStart(10)}`);

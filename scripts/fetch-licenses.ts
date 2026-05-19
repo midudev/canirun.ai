@@ -1,9 +1,9 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S pnpm exec tsx
 /**
  * Fetch license information for all models from HuggingFace API.
  * Outputs src/data/licenses.json with { [modelId]: "license name" }
  *
- * Usage:  bun run scripts/fetch-licenses.ts
+ * Usage:  pnpm exec tsx scripts/fetch-licenses.ts
  */
 
 const HF_API = "https://huggingface.co/api/models";

@@ -1,11 +1,11 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S pnpm exec tsx
 /**
  * Fetch README HTML content from Ollama library pages for all models
  * that have an ollamaId. Stores the result in src/data/ollama-readmes.json.
  *
  * Usage:
- *   bun run scripts/fetch-ollama-readmes.ts
- *   bun run scripts/fetch-ollama-readmes.ts --force   # re-fetch all, ignoring cache
+ *   pnpm exec tsx scripts/fetch-ollama-readmes.ts
+ *   pnpm exec tsx scripts/fetch-ollama-readmes.ts --force   # re-fetch all, ignoring cache
  */
 
 import { readFileSync, writeFileSync, existsSync } from "fs";

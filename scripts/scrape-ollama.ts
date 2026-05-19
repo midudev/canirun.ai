@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S pnpm exec tsx
 /**
  * Ultimate Ollama model catalog scraper.
  *
@@ -12,9 +12,9 @@
  * 4. Compare against src/data/models.ts and report missing models.
  *
  * Usage:
- *   bun run scripts/scrape-ollama.ts
- *   bun run scripts/scrape-ollama.ts --limit 10
- *   bun run scripts/scrape-ollama.ts --out src/data/ollama-catalog.json
+ *   pnpm exec tsx scripts/scrape-ollama.ts
+ *   pnpm exec tsx scripts/scrape-ollama.ts --limit 10
+ *   pnpm exec tsx scripts/scrape-ollama.ts --out src/data/ollama-catalog.json
  */
 
 import { writeFileSync, mkdirSync, readFileSync, existsSync } from "fs";
