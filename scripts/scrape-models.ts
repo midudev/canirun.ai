@@ -100,6 +100,7 @@ const TARGET_MODELS = [
   "google/gemma-4-26B-A4B",
   "google/gemma-4-31B-it",
   "google/gemma-4-31B",
+  "google/diffusiongemma-26B-A4B-it",
   // DeepSeek
   "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
   "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
