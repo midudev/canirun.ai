@@ -142,6 +142,7 @@ export const GPU_DB: Record<string, { vram: number; bw: number; cores: number }>
   "L4": { vram: 24, bw: 300, cores: 7424 },
   "T4": { vram: 16, bw: 300, cores: 2560 },
   "Tesla P40": { vram: 24, bw: 346, cores: 3840 },
+  "Tesla V100": { vram: 16, bw: 900, cores: 5120 },
 
   // AMD desktop
   // Source: AMD official product specs
