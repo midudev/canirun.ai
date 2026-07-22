@@ -160,6 +160,7 @@ describe("getGPUCategory", () => {
       ["L4", "NVIDIA Datacenter"],
       ["T4", "NVIDIA Datacenter"],
       ["Tesla P40", "NVIDIA Datacenter"],
+      ["Tesla V100", "NVIDIA Datacenter"],
     ])("%s → %s", (name, expected) => {
       expect(getGPUCategory(name)).toBe(expected);
     });
