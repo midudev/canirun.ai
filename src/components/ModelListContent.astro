@@ -926,15 +926,57 @@ function timeAgo(dateStr: string | null): string {
     return params
   }
 
+  const FILTERS_SESSION_KEY = "canirun:filters"
+
+  function saveFiltersToSession() {
+    try {
+      const params = buildFilterQueryString()
+      if (params.toString()) {
+        sessionStorage.setItem(FILTERS_SESSION_KEY, params.toString())
+      } else {
+        sessionStorage.removeItem(FILTERS_SESSION_KEY)
+      }
+    } catch {
+      // sessionStorage unavailable (private browsing, quota exceeded)
+    }
+  }
+
   function syncFiltersToURL() {
     const params = buildFilterQueryString()
     const qs = params.toString() ? `?${params.toString()}` : ""
     const path = window.location.pathname
     history.replaceState({}, "", `${path}${qs}`)
+    saveFiltersToSession()
   }
 
   function readFiltersFromURL() {
     const params = new URLSearchParams(window.location.search)
+    const hasUrlFilters =
+      params.has("q") ||
+      params.has("status") ||
+      params.has("use") ||
+      params.has("provider") ||
+      params.has("license") ||
+      params.has("sort")
+
+    const restoredFromSession = !hasUrlFilters
+    if (restoredFromSession) {
+      try {
+        const stored = sessionStorage.getItem(FILTERS_SESSION_KEY)
+        if (stored) {
+          const storedParams = new URLSearchParams(stored)
+          params.set("q", storedParams.get("q") || "")
+          params.set("status", storedParams.get("status") || "all")
+          params.set("use", storedParams.get("use") || "all")
+          params.set("provider", storedParams.get("provider") || "all")
+          params.set("license", storedParams.get("license") || "all")
+          params.set("sort", storedParams.get("sort") || "")
+        }
+      } catch {
+        // sessionStorage unavailable
+      }
+    }
+
     searchQuery = params.get("q") || ""
     activeStatusFilter = params.get("status") || "all"
     activeUseFilter = params.get("use") || "all"
@@ -956,6 +998,12 @@ function timeAgo(dateStr: string | null): string {
     if (providerSelect) providerSelect.value = activeProviderFilter
     if (licenseSelect) licenseSelect.value = activeLicenseFilter
     if (sortSelect) sortSelect.value = currentSort
+
+    if (restoredFromSession) {
+      const cleanParams = buildFilterQueryString()
+      const qs = cleanParams.toString() ? `?${cleanParams.toString()}` : ""
+      history.replaceState({}, "", `${window.location.pathname}${qs}`)
+    }
   }
 
   // ── Main Logic ─────────────────────────────────────────────
@@ -1536,6 +1584,11 @@ function timeAgo(dateStr: string | null): string {
     if (providerSelect) providerSelect.value = "all"
     if (licenseSelect) licenseSelect.value = "all"
 
+    try {
+      sessionStorage.removeItem(FILTERS_SESSION_KEY)
+    } catch {
+      // sessionStorage unavailable
+    }
     applyFilters()
     syncFiltersToURL()
   }
@@ -1622,6 +1675,7 @@ function timeAgo(dateStr: string | null): string {
     currentHW = applyOverrides(detectedHW)
     updateHardwarePanel(currentHW)
     updateAllCards(currentHW)
+    applyFilters()
   }
 
   // ── Search ───────────────────────────────────────────────
@@ -2008,7 +2062,6 @@ function timeAgo(dateStr: string | null): string {
     setupPopstate()
     setupSpeedPreview()
     applyViewMode()
-    applyFilters()
     init()
   })
 </script>
