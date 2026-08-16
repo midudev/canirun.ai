@@ -144,10 +144,16 @@ Open [localhost:4321](http://localhost:4321) to see the site.
 ## Project Structure
 
 ```
+packages/
+├── models/
+│   └── src/index.ts        # 90+ AI model definitions with quant calculations (edit here)
+├── compatibility/           # Hardware ↔ model compatibility scoring engine
+└── runai/                   # CLI for running models locally
+
 src/
 ├── data/
-│   ├── models.ts          # 68+ AI model definitions with quant calculations
-│   └── hf-stats.json      # HuggingFace download/like counts
+│   ├── models.ts            # Re-exports @canirun/models (built from packages/models)
+│   └── hf-stats.json        # HuggingFace download/like counts
 ├── lib/
 │   ├── hardware.ts         # Client-side hardware detection engine
 │   └── og.ts               # OG image generation utilities
@@ -169,7 +175,7 @@ src/
 
 Contributions are welcome! Some ways to help:
 
-- **Add a model** — add an entry to `src/data/models.ts` following the existing pattern
+- **Add a model** — add an entry to the `STATIC_MODELS` array in `packages/models/src/index.ts` following the existing pattern (the `AIModel` interface at the top of that file).
 - **Improve hardware detection** — extend the GPU/Apple/Mobile databases in `src/lib/hardware.ts`
 - **Report inaccurate results** — open an issue with your hardware info and the model in question
 - **Fix bugs or improve UI** — PRs are appreciated
