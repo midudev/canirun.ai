@@ -243,6 +243,10 @@ export const GPU_DB: Record<string, { vram: number; bw: number; cores: number }>
   "Quadro M520": { vram: 1, bw: 40, cores: 384 }, // corregido
   "Quadro M500M": { vram: 2, bw: 16, cores: 384 }, // corregido
 
+  // NVIDIA Quadro / professional (Kepler)
+  // Source: NVIDIA official specs
+  "Quadro K4200": { vram: 4, bw: 173, cores: 1344 },
+
   // NVIDIA Quadro / professional (Kepler mobile)
   // Source: Notebookcheck
   "Quadro K5100M": { vram: 8, bw: 160, cores: 1536 },
