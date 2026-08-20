@@ -2,31 +2,58 @@
 import Layout from "@/layouts/Layout.astro";
 import NavHeader from "@/components/NavHeader.astro";
 import ModelListContent from "@/components/ModelListContent.astro";
+import HomePreFooter from "@/components/HomePreFooter.astro";
 ---
 
-<Layout>
+<Layout
+  title="Can I run AI locally? Best models for your GPU"
+  description="Detect your GPU or Mac and see which open LLMs, coding, image and video models you can run locally. VRAM requirements, speed estimates and grades."
+>
   <Fragment slot="head">
     <script type="application/ld+json" set:html={JSON.stringify({
       "@context": "https://schema.org",
-      "@type": "WebApplication",
-      "name": "CanIRun.ai",
-      "url": "https://canirun.ai",
-      "description": "Detect your hardware and find out which AI models you can run locally. GPU, CPU, and RAM analysis in your browser.",
-      "applicationCategory": "DeveloperApplication",
-      "operatingSystem": "Web Browser",
-      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-      "creator": { "@type": "Person", "name": "midudev", "url": "https://midu.dev" }
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "@id": "https://canirun.ai/#website",
+          "name": "CanIRun.ai",
+          "url": "https://canirun.ai",
+          "description": "Detect your hardware and see which open AI models you can run locally.",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://canirun.ai/models?q={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
+        },
+        {
+          "@type": "WebApplication",
+          "name": "CanIRun.ai",
+          "url": "https://canirun.ai",
+          "description": "Detect your GPU or Mac and see which open LLMs, coding, image and video models you can run locally.",
+          "applicationCategory": "DeveloperApplication",
+          "operatingSystem": "Web Browser",
+          "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+          "creator": { "@type": "Person", "name": "midudev", "url": "https://midu.dev" }
+        }
+      ]
     })}></script>
   </Fragment>
   <NavHeader />
   <ModelListContent>
-    <header slot="header" class="mb-10 text-center">
-      <h1 class="font-pixel text-3xl tracking-tight text-accent sm:text-4xl">
-        Can I Run AI locally?
+    <header slot="header" class="page-hero">
+      <h1 class="page-hero-title">
+        Can I run AI locally?
       </h1>
-      <p class="mt-2 text-base text-muted">
-        Find out which AI models your machine can actually run.
+      <p class="page-hero-lede">
+        We detect your GPU or Mac and rank the open models that actually fit.
       </p>
+      <nav aria-label="Quick filters" class="page-hero-links">
+        <a href="/models/coding" class="nav-pill">Can I run coding models?</a>
+        <a href="/models/image" class="nav-pill">Can I run image models?</a>
+        <a href="/models/video" class="nav-pill">Can I run video models?</a>
+        <a href="/devices" class="nav-pill">What can my device run?</a>
+      </nav>
     </header>
+    <HomePreFooter slot="prefooter" />
   </ModelListContent>
 </Layout>

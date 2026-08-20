@@ -1,6 +1,7 @@
 import type { APIRoute, GetStaticPaths } from 'astro';
 import { models } from '@/data/models';
 import { renderOgImage, badge } from '@/lib/og';
+import { getModelUseCategories } from '@/lib/use-categories';
 
 export const getStaticPaths: GetStaticPaths = () =>
   models.map((model) => ({
@@ -20,6 +21,10 @@ function getModelBadges(model: (typeof models)[number]) {
     badges.push(badge('Thinking', '#38bdf8', 'rgba(56,189,248,0.1)', 'rgba(56,189,248,0.3)'));
   if (model.useCase.includes('vision'))
     badges.push(badge('Vision', '#fb7185', 'rgba(251,113,133,0.1)', 'rgba(251,113,133,0.3)'));
+  if (model.useCase.includes('image'))
+    badges.push(badge('Image', '#fb7185', 'rgba(251,113,133,0.1)', 'rgba(251,113,133,0.3)'));
+  if (model.useCase.includes('video'))
+    badges.push(badge('Video', '#fb923c', 'rgba(251,146,60,0.1)', 'rgba(251,146,60,0.3)'));
   return badges;
 }
 
@@ -38,7 +43,7 @@ export const GET: APIRoute = async ({ props }) => {
 
   const modelBadges = getModelBadges(model);
 
-  const useCaseTags = model.useCase.slice(0, 4).map((tag: string) => ({
+  const useCaseTags = getModelUseCategories(model.useCase, model.paramsBillions).map((cat) => ({
     type: 'div',
     props: {
       style: {
@@ -50,7 +55,7 @@ export const GET: APIRoute = async ({ props }) => {
         fontSize: 16,
         color: '#8a8a97',
       },
-      children: tag,
+      children: cat.label,
     },
   }));
 

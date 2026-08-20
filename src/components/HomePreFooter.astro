@@ -1,0 +1,523 @@
+---
+import CompanyLogo from "@/components/CompanyLogo.astro"
+import { ALL_COMPANIES, getCompanyBySlug } from "@/data/companies"
+import { models } from "@/data/models"
+import { formatMemory, getDeviceListings } from "@/lib/devices"
+import { MODEL_CATEGORY_PAGES } from "@/lib/seo-pages"
+
+interface Props {
+  class?: string
+}
+
+const { class: className = "mt-20" } = Astro.props
+
+const modelCount = models.length
+const deviceCount = getDeviceListings().length
+const companyCount = ALL_COMPANIES.length
+
+const devicesByName = new Map(
+  getDeviceListings().map((device) => [device.name, device]),
+)
+
+const popularDeviceNames = [
+  "RTX 5090",
+  "RTX 4090",
+  "RTX 4070",
+  "RTX 4060",
+  "RTX 3060",
+  "M5",
+  "M4 Max",
+  "M4 Pro",
+  "RX 7900 XTX",
+  "Raspberry Pi 5 (8 GB)",
+] as const
+
+const popularDevices = popularDeviceNames.flatMap((name) => {
+  const device = devicesByName.get(name)
+  if (!device) return []
+  return [
+    {
+      name: device.name,
+      href: `/device/${device.slug}`,
+      memory: formatMemory(device),
+    },
+  ]
+})
+
+const companySlugs = [
+  "alibaba",
+  "meta",
+  "google",
+  "deepseek",
+  "openai",
+  "mistral-ai",
+  "microsoft",
+  "z-ai",
+  "black-forest-labs",
+  "minimax",
+] as const
+
+const featuredCompanies = companySlugs.flatMap((slug) => {
+  const company = getCompanyBySlug(slug)
+  return company ? [company] : []
+})
+
+const featuredModelIds = [
+  {
+    id: "qwen3.5-4b",
+    note: "Chat and coding on 8 GB cards and most laptops.",
+  },
+  {
+    id: "gpt-oss-20b",
+    note: "OpenAI's open-weight MoE for reasoning and tools.",
+  },
+  {
+    id: "qwen3.8-27b",
+    note: "Dense multimodal all-rounder with long context.",
+  },
+  {
+    id: "flux2-klein-4b",
+    note: "Fast local text-to-image on consumer GPUs.",
+  },
+  {
+    id: "wan2.2-ti2v-5b",
+    note: "Open text and image to video under Apache 2.0.",
+  },
+  {
+    id: "muse-glimmer-30b",
+    note: "Meta's agentic local model with vision and tools.",
+  },
+] as const
+
+const modelsById = new Map(models.map((model) => [model.id, model]))
+const featuredModels = featuredModelIds.flatMap((item) => {
+  const model = modelsById.get(item.id)
+  return model ? [{ ...item, model }] : []
+})
+
+const vramTiers = [
+  {
+    memory: "8 GB",
+    href: "/vram/8gb",
+    fits: "3B–9B chat models at Q4, plus tiny image models.",
+    example: { href: "/device/rtx-4060", label: "RTX 4060" },
+  },
+  {
+    memory: "12 GB",
+    href: "/vram/12gb",
+    fits: "12B–14B dense models, or smaller mixture-of-experts.",
+    example: { href: "/device/rtx-4070", label: "RTX 4070" },
+  },
+  {
+    memory: "16 GB",
+    href: "/vram/16gb",
+    fits: "20B–27B at Q4, comfortable 14B at higher quality.",
+    example: { href: "/device/m4", label: "Apple M4" },
+  },
+  {
+    memory: "24 GB",
+    href: "/vram/24gb",
+    fits: "30B dense models, mid-size MoE, or local video.",
+    example: { href: "/device/rtx-4090", label: "RTX 4090" },
+  },
+  {
+    memory: "32 GB+",
+    href: "/vram/32gb",
+    fits: "Larger open MoE and high-quality image generation.",
+    example: { href: "/device/rtx-5090", label: "RTX 5090" },
+  },
+]
+
+const faqs = [
+  {
+    question: "How much VRAM do I need to run a local AI model?",
+    answer:
+      "A 7B–9B chat model usually fits in 8 GB of VRAM at Q4 quantization. 12–16 GB covers most 12B–27B models. 24 GB and up opens 30B dense models, mid-size mixture-of-experts, and local image or video generation. On Apple Silicon the limit is unified memory, not a separate GPU frame buffer.",
+  },
+  {
+    question: "Can I run local AI models on a Mac without a dedicated GPU?",
+    answer:
+      "Yes. Apple Silicon Macs share RAM between CPU and GPU, so an M4, M4 Pro or M4 Max can run open models that would otherwise need a discrete graphics card. Bandwidth still matters: a Max chip generates tokens faster than a base M-series chip with the same memory.",
+    extra: [
+      { href: "/device/m4", label: "M4 models" },
+      { href: "/device/m4-pro", label: "M4 Pro" },
+      { href: "/device/m4-max", label: "M4 Max" },
+    ],
+  },
+  {
+    question: "What is the difference between running AI locally and using ChatGPT?",
+    answer:
+      "Local models run on your machine. Prompts never leave the device, there is no subscription meter, and you can keep working offline. Cloud assistants are usually stronger on the hardest tasks, but they need a network and send your data to a provider. CanIRun.ai is for the open-weight models you can download and run yourself.",
+  },
+  {
+    question: "What is quantization and why does it matter?",
+    answer:
+      "Quantization stores model weights in fewer bits so the file is smaller and uses less memory. Q4_K_M is the usual sweet spot for local chat: much smaller than full precision, with only a modest quality drop. Higher formats such as Q8 or F16 look closer to the original model but need more VRAM.",
+    extra: [{ href: "/docs#quantization", label: "Quantization guide" }],
+  },
+  {
+    question: "How does CanIRun.ai know which models fit my hardware?",
+    answer:
+      "The site reads GPU, RAM and CPU hints from the browser, matches them against a hardware database, then scores each open model on estimated speed, memory headroom and quality. You can also skip detection and open a device page for a specific GPU, Apple chip, phone or Raspberry Pi.",
+    extra: [
+      { href: "/why", label: "Scoring methodology" },
+      { href: "/devices", label: "Browse devices" },
+    ],
+  },
+  {
+    question: "How do I download and run a recommended model?",
+    answer:
+      "Open any model page and copy its runai command, or use Ollama or LM Studio with the same GGUF weights. runai picks a quantization for your machine, downloads the file, and starts a local chat with llama.cpp.",
+    extra: [{ href: "/runai", label: "Install runai" }],
+  },
+]
+
+const howToSteps = [
+  {
+    name: "Open CanIRun.ai",
+    text: "Visit the homepage in a desktop browser. No account or extension is required.",
+  },
+  {
+    name: "Detect or pick your hardware",
+    text: "Let the page read your GPU and memory, or browse the device list if detection misses your chip.",
+  },
+  {
+    name: "Compare recommended models",
+    text: "Review the top open models for text, coding, image and video that fit the detected VRAM or unified memory.",
+  },
+  {
+    name: "Run a model locally",
+    text: "Open a model page and launch it with runai, Ollama or LM Studio using the suggested quantization.",
+  },
+]
+---
+
+<div class:list={className}>
+  <script
+    type="application/ld+json"
+    set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "FAQPage",
+          mainEntity: faqs.map((faq) => ({
+            "@type": "Question",
+            name: faq.question,
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: faq.answer,
+            },
+          })),
+        },
+        {
+          "@type": "HowTo",
+          name: "How to see which AI models your computer can run locally",
+          description:
+            "Detect your hardware on CanIRun.ai and get open AI models matched to your VRAM or unified memory.",
+          step: howToSteps.map((step, index) => ({
+            "@type": "HowToStep",
+            position: index + 1,
+            name: step.name,
+            text: step.text,
+          })),
+        },
+      ],
+    })}
+  />
+
+  <section
+    aria-labelledby="home-seo-title"
+    class="border-t border-edge/40 pt-16"
+  >
+    <p class="font-mono text-[11px] uppercase tracking-[0.16em] text-muted">
+      {modelCount} models · {deviceCount} devices · {companyCount} labs
+    </p>
+    <h2
+      id="home-seo-title"
+      class="mt-3 max-w-3xl text-2xl font-medium tracking-tight text-primary sm:text-[1.75rem]"
+    >
+      Run open AI models on your own hardware
+    </h2>
+    <p class="mt-4 max-w-2xl text-base leading-relaxed text-secondary" set:html={`We detect your GPU or unified memory and rank open models you can run locally — chat, coding, image and video. A 9B model fits an <a href="/device/rtx-4060" class="text-primary underline decoration-edge underline-offset-2 transition-colors hover:text-accent">RTX 4060</a>; an <a href="/device/m4-max" class="text-primary underline decoration-edge underline-offset-2 transition-colors hover:text-accent">M4 Max</a> can take larger ones. See the <a href="/why" class="text-primary underline decoration-edge underline-offset-2 transition-colors hover:text-accent">scoring method</a>, <a href="/docs" class="text-primary underline decoration-edge underline-offset-2 transition-colors hover:text-accent">docs</a> or install <a href="/runai" class="text-primary underline decoration-edge underline-offset-2 transition-colors hover:text-accent">runai</a>.`} />
+
+    <nav aria-label="Browse local models by task" class="mt-7 flex flex-wrap gap-2">
+      {
+        MODEL_CATEGORY_PAGES.map((page) => (
+          <a href={`/models/${page.slug}`} class="nav-pill">
+            {page.navLabel}
+          </a>
+        ))
+      }
+    </nav>
+
+    <ol class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      {
+        howToSteps.map((step, index) => (
+          <li>
+            <p class="font-mono text-[11px] tabular-nums text-muted">
+              {String(index + 1).padStart(2, "0")}
+            </p>
+            <p class="mt-2 text-sm font-medium text-primary">{step.name}</p>
+            <p class="mt-1.5 text-sm leading-relaxed text-secondary">{step.text}</p>
+          </li>
+        ))
+      }
+    </ol>
+  </section>
+
+  <section aria-labelledby="vram-guide-title" class="mt-16">
+    <h3 id="vram-guide-title" class="text-lg font-medium tracking-tight text-primary">
+      How much VRAM do you need?
+    </h3>
+    <p class="mt-2 max-w-3xl text-sm leading-relaxed text-muted">
+      Figures assume Q4_K_M plus a small runtime overhead. Mixture-of-experts
+      models still load all experts into memory, even when only a few are
+      active per token.
+    </p>
+    <div class="mt-5 overflow-x-auto rounded-2xl border border-edge/70">
+      <table class="w-full min-w-[36rem] text-left text-sm">
+        <caption class="sr-only">
+          Approximate local AI model sizes by available GPU memory
+        </caption>
+        <thead class="border-b border-edge/60 bg-surface-card font-mono text-[11px] uppercase tracking-wider text-muted">
+          <tr>
+            <th scope="col" class="px-4 py-3 font-medium">Memory</th>
+            <th scope="col" class="px-4 py-3 font-medium">What usually fits</th>
+            <th scope="col" class="px-4 py-3 font-medium">Example device</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-edge/50">
+          {
+            vramTiers.map((tier) => (
+              <tr class="bg-surface-raised">
+                <th
+                  scope="row"
+                  class="whitespace-nowrap px-4 py-3.5 font-mono text-accent"
+                >
+                  <a
+                    href={tier.href}
+                    class="underline decoration-accent/30 underline-offset-2 transition-colors hover:text-primary"
+                  >
+                    {tier.memory}
+                  </a>
+                </th>
+                <td class="px-4 py-3.5 text-secondary">{tier.fits}</td>
+                <td class="px-4 py-3.5">
+                  <a
+                    href={tier.example.href}
+                    class="font-mono text-[13px] text-primary underline decoration-edge underline-offset-2 transition-colors hover:text-accent"
+                  >
+                    {tier.example.label}
+                  </a>
+                </td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="mt-16 grid gap-14 lg:grid-cols-2">
+    <section aria-labelledby="popular-devices-title">
+      <div class="mb-4 flex items-end justify-between gap-4">
+        <h3 id="popular-devices-title" class="text-lg font-medium tracking-tight text-primary">
+          Popular devices
+        </h3>
+        <a
+          href="/devices"
+          class="font-mono text-[13px] text-accent underline decoration-accent/30 underline-offset-2 transition-colors hover:text-primary"
+        >
+          All {deviceCount} devices
+        </a>
+      </div>
+      <ul class="grid gap-2 sm:grid-cols-2">
+        {
+          popularDevices.map((device) => (
+            <li>
+              <a
+                href={device.href}
+                class="group flex min-h-14 items-center justify-between gap-3 rounded-xl border border-edge/70 bg-surface-card px-4 py-3 transition-colors hover:border-accent/30 hover:bg-surface-hover"
+              >
+                <span class="text-sm font-medium text-primary transition-colors group-hover:text-accent">
+                  {device.name}
+                </span>
+                {
+                  device.memory && (
+                    <span class="shrink-0 font-mono text-[11px] text-muted">
+                      {device.memory}
+                    </span>
+                  )
+                }
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+
+    <section aria-labelledby="model-labs-title">
+      <h3 id="model-labs-title" class="mb-4 text-lg font-medium tracking-tight text-primary">
+        Labs behind the models
+      </h3>
+      <ul class="grid grid-cols-2 gap-2">
+        {
+          featuredCompanies.map((company) => (
+            <li>
+              <a
+                href={`/company/${company.slug}`}
+                class="group flex min-h-14 items-center gap-3 rounded-xl border border-edge/70 bg-surface-card px-3 py-3 transition-colors hover:border-accent/30 hover:bg-surface-hover"
+              >
+                <CompanyLogo company={company} class="size-8 rounded-md" />
+                <span class="min-w-0">
+                  <span class="block truncate text-sm font-medium text-primary transition-colors group-hover:text-accent">
+                    {company.name}
+                  </span>
+                  <span class="block truncate font-mono text-[11px] text-muted">
+                    {company.families.join(", ")}
+                  </span>
+                </span>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="featured-models-title" class="mt-16">
+    <h3 id="featured-models-title" class="text-lg font-medium tracking-tight text-primary">
+      Open models worth running locally
+    </h3>
+    <p class="mt-2 max-w-3xl text-sm leading-relaxed text-muted">
+      A short mix of chat, image and video models. The list above still ranks
+      whatever fits the hardware detected on this page.
+    </p>
+    <ul class="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      {
+        featuredModels.map(({ model, note }) => (
+          <li>
+            <a
+              href={`/model/${model.id}`}
+              class="group flex h-full min-h-[5.5rem] flex-col rounded-xl border border-edge/70 bg-surface-card px-4 py-3.5 transition-colors hover:border-accent/30 hover:bg-surface-hover"
+            >
+              <span class="flex items-baseline justify-between gap-3">
+                <span class="text-sm font-medium text-primary transition-colors group-hover:text-accent">
+                  {model.name}
+                </span>
+                <span class="shrink-0 font-mono text-[11px] text-muted">
+                  {model.activeParams ?? model.params}
+                </span>
+              </span>
+              <span class="mt-2 text-sm leading-relaxed text-secondary">
+                {note}
+              </span>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+
+  <section aria-labelledby="home-guides-title" class="mt-16">
+    <h3 id="home-guides-title" class="text-lg font-medium tracking-tight text-primary">
+      Guides
+    </h3>
+    <p class="mt-2 max-w-3xl text-sm leading-relaxed text-muted">
+      If you want the vocabulary or the scoring math, these two pages cover it.
+    </p>
+    <ul class="mt-5 grid gap-2 sm:grid-cols-2">
+      <li>
+        <a
+          href="/docs"
+          class="group flex h-full min-h-[6.5rem] flex-col rounded-xl border border-edge/70 bg-surface-card px-4 py-3.5 transition-colors hover:border-accent/30 hover:bg-surface-hover"
+        >
+          <span class="font-mono text-[11px] uppercase tracking-wider text-muted">
+            Docs
+          </span>
+          <span class="mt-2 text-sm font-medium text-primary transition-colors group-hover:text-accent">
+            VRAM, quantization and GGUF
+          </span>
+          <span class="mt-1.5 text-sm leading-relaxed text-secondary">
+            The terms behind local models, explained without the jargon pile-up.
+          </span>
+        </a>
+      </li>
+      <li>
+        <a
+          href="/why"
+          class="group flex h-full min-h-[6.5rem] flex-col rounded-xl border border-edge/70 bg-surface-card px-4 py-3.5 transition-colors hover:border-accent/30 hover:bg-surface-hover"
+        >
+          <span class="font-mono text-[11px] uppercase tracking-wider text-muted">
+            Why
+          </span>
+          <span class="mt-2 text-sm font-medium text-primary transition-colors group-hover:text-accent">
+            How we detect hardware and score models
+          </span>
+          <span class="mt-1.5 text-sm leading-relaxed text-secondary">
+            The methodology behind every grade, speed estimate and memory call.
+          </span>
+        </a>
+      </li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="home-faq-title" class="mt-16">
+    <h2 id="home-faq-title" class="text-lg font-medium tracking-tight text-primary">
+      Common questions about local AI
+    </h2>
+    <div class="mt-5 divide-y divide-edge/50 border-y border-edge/50">
+      {
+        faqs.map((faq) => (
+          <details class="group">
+            <summary class="cursor-pointer list-none py-4 text-[15px] font-medium text-primary marker:content-none [&::-webkit-details-marker]:hidden">
+              <span class="flex items-center justify-between gap-4">
+                {faq.question}
+                <span
+                  class="shrink-0 text-muted transition-transform duration-150 group-open:rotate-45"
+                  aria-hidden="true"
+                >
+                  +
+                </span>
+              </span>
+            </summary>
+            <div class="max-w-3xl pb-4 text-sm leading-relaxed text-secondary">
+              <p>{faq.answer}</p>
+              {
+                faq.extra && (
+                  <p class="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                    {faq.extra.map((link) => (
+                      <a
+                        href={link.href}
+                        class="font-mono text-[13px] text-accent underline decoration-accent/30 underline-offset-2 transition-colors hover:text-primary"
+                      >
+                        {link.label}
+                      </a>
+                    ))}
+                  </p>
+                )
+              }
+            </div>
+          </details>
+        ))
+      }
+    </div>
+    <p class="mt-8 max-w-3xl text-sm leading-relaxed text-muted" set:html={`Want the scoring formulas, or a side-by-side of two checkpoints? Read <a href="/why" class="text-secondary underline decoration-edge underline-offset-2 transition-colors hover:text-accent">how detection works</a>, open the <a href="/compare" class="text-secondary underline decoration-edge underline-offset-2 transition-colors hover:text-accent">model compare</a> tool, or check the <a href="/tier" class="text-secondary underline decoration-edge underline-offset-2 transition-colors hover:text-accent">tier list</a>.`} />
+  </section>
+</div>
+
+<style>
+  details > summary {
+    transition: color 160ms var(--ease-out);
+  }
+
+  details > summary:hover {
+    color: var(--color-accent);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    details > summary span {
+      transition: none;
+    }
+  }
+</style>

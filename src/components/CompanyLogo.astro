@@ -1,0 +1,89 @@
+---
+import type { CompanyInfo, CompanyLogoKey } from "@/data/companies"
+import LogoAi2 from "@/icons/companies/ai2.svg"
+import LogoDeepSeek from "@/icons/companies/deepseek.svg"
+import LogoGoogle from "@/icons/companies/google.svg"
+import LogoHuggingFace from "@/icons/companies/huggingface.svg"
+import LogoKimi from "@/icons/companies/kimi.svg"
+import LogoLiquid from "@/icons/companies/liquid.svg"
+import LogoLongCat from "@/icons/companies/longcat.svg"
+import LogoMeta from "@/icons/companies/meta.svg"
+import LogoMiniMax from "@/icons/companies/minimax.svg"
+import LogoBfl from "@/icons/companies/bfl.svg"
+import LogoLtx from "@/icons/companies/ltx.svg"
+import LogoInternScience from "@/icons/companies/internscience.svg"
+import LogoIbm from "@/icons/companies/ibm.svg"
+import LogoCohere from "@/icons/companies/cohere.svg"
+import LogoMicrosoft from "@/icons/companies/microsoft.svg"
+import LogoMistral from "@/icons/companies/mistral.svg"
+import LogoNvidia from "@/icons/companies/nvidia.svg"
+import LogoOpenAI from "@/icons/companies/openai.svg"
+import LogoOrnith from "@/icons/companies/ornith.svg"
+import LogoQwen from "@/icons/companies/qwen.svg"
+import LogoTencent from "@/icons/companies/tencent.svg"
+import LogoZai from "@/icons/companies/zai.svg"
+
+interface Props {
+  company: CompanyInfo
+  class?: string
+  decorative?: boolean
+}
+
+const {
+  company,
+  class: className = "size-7",
+  decorative = true,
+} = Astro.props
+
+const LOGOS: Record<CompanyLogoKey, typeof LogoQwen> = {
+  qwen: LogoQwen,
+  meta: LogoMeta,
+  google: LogoGoogle,
+  deepseek: LogoDeepSeek,
+  huggingface: LogoHuggingFace,
+  microsoft: LogoMicrosoft,
+  mistral: LogoMistral,
+  zai: LogoZai,
+  nvidia: LogoNvidia,
+  openai: LogoOpenAI,
+  liquid: LogoLiquid,
+  ai2: LogoAi2,
+  tencent: LogoTencent,
+  longcat: LogoLongCat,
+  kimi: LogoKimi,
+  ornith: LogoOrnith,
+  minimax: LogoMiniMax,
+  bfl: LogoBfl,
+  ltx: LogoLtx,
+  internscience: LogoInternScience,
+  ibm: LogoIbm,
+  cohere: LogoCohere,
+}
+
+const Logo = company.logo ? LOGOS[company.logo] : undefined
+const capitals = company.name.match(/[A-Z]/g)
+const initials =
+  capitals && capitals.length > 1
+    ? capitals.slice(0, 2).join("")
+    : company.name.slice(0, 2).toUpperCase()
+---
+
+<span
+  class:list={[
+    "inline-flex shrink-0 items-center justify-center rounded-md border border-edge/70 bg-surface-raised text-primary",
+    className,
+  ]}
+  aria-hidden={decorative ? "true" : undefined}
+  role={decorative ? undefined : "img"}
+  aria-label={decorative ? undefined : `${company.brand} logo`}
+>
+  {
+    Logo ? (
+      <Logo class="size-[62%]" />
+    ) : (
+      <span class="font-pixel text-[0.42em] tracking-tight text-accent">
+        {initials}
+      </span>
+    )
+  }
+</span>

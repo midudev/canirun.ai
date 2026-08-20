@@ -1,0 +1,267 @@
+---
+import Layout from "@/layouts/Layout.astro"
+import NavHeader from "@/components/NavHeader.astro"
+import Footer from "@/components/Footer.astro"
+import CompanyLogo from "@/components/CompanyLogo.astro"
+import IconArrowLeft from "@/icons/arrow-left.svg"
+import IconMoe from "@/icons/moe.svg"
+import IconThinking from "@/icons/thinking.svg"
+import IconTool from "@/icons/tool.svg"
+import IconVision from "@/icons/vision.svg"
+import { models, type AIModel } from "@/data/models"
+import {
+  ALL_COMPANIES,
+  getCompanyModels,
+  type CompanyInfo,
+} from "@/data/companies"
+import { getModelTitleTransitionName } from "@/lib/view-transitions"
+import { USE_CATEGORIES, matchesUseCategory } from "@/lib/use-categories"
+import { getCategoryPath } from "@/lib/seo-pages"
+
+interface Props {
+  company: CompanyInfo
+  companyModels: AIModel[]
+}
+
+export function getStaticPaths() {
+  return ALL_COMPANIES.map((company) => ({
+    params: { slug: company.slug },
+    props: {
+      company,
+      companyModels: getCompanyModels(company, models).sort(
+        (a, b) => a.paramsBillions - b.paramsBillions,
+      ),
+    },
+  }))
+}
+
+const { company, companyModels } = Astro.props
+const familyLabel = company.families.join(", ")
+const useCases = USE_CATEGORIES
+  .filter((cat) =>
+    companyModels.some((model) =>
+      matchesUseCategory(model.useCase, model.paramsBillions, cat.key),
+    ),
+  )
+  .map((cat) => cat.label)
+const companyUrl = `https://canirun.ai/company/${company.slug}`
+const description = `${company.brand} models you can run locally — ${companyModels.length} open ${familyLabel} checkpoints by ${company.name}. Compare VRAM, size and hardware requirements.`
+---
+
+<Layout
+  title={`${company.brand} models you can run locally | CanIRun.ai`}
+  description={description}
+>
+  <Fragment slot="head">
+    <script
+      type="application/ld+json"
+      set:html={JSON.stringify({
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              {
+                "@type": "ListItem",
+                position: 1,
+                name: "Home",
+                item: "https://canirun.ai",
+              },
+              {
+                "@type": "ListItem",
+                position: 2,
+                name: company.name,
+                item: companyUrl,
+              },
+            ],
+          },
+          {
+            "@type": "Organization",
+            "@id": `${companyUrl}#organization`,
+            name: company.name,
+            alternateName: company.brand,
+            url: companyUrl,
+            sameAs: [company.website],
+            description: company.description,
+          },
+          {
+            "@type": "ItemList",
+            name: `${company.brand} models you can run locally`,
+            numberOfItems: companyModels.length,
+            itemListElement: companyModels.map((model, index) => ({
+              "@type": "ListItem",
+              position: index + 1,
+              url: `https://canirun.ai/model/${model.id}`,
+              name: model.name,
+            })),
+          },
+        ],
+      })}
+    ></script>
+  </Fragment>
+
+  <NavHeader />
+
+  <main class="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+    <a
+      href="/models"
+      class="mb-8 inline-flex items-center gap-1.5 font-mono text-[13px] text-muted transition-colors hover:text-accent"
+    >
+      <IconArrowLeft class="size-3.5" />
+      Back to models
+    </a>
+
+    <header class="mb-10 border-b border-edge/50 pb-10">
+      <div class="flex items-start gap-4 sm:items-center">
+        <CompanyLogo
+          company={company}
+          class="size-14 rounded-xl sm:size-16"
+          decorative={false}
+        />
+        <div class="min-w-0">
+          <p class="mb-1 font-mono text-xs uppercase tracking-widest text-muted">
+            {company.name}
+          </p>
+          <h1
+            class="font-pixel text-3xl tracking-tight text-accent sm:text-4xl"
+          >
+            {company.brand} models you can run locally
+          </h1>
+        </div>
+      </div>
+
+      <p class="mt-5 max-w-3xl text-base leading-relaxed text-secondary">
+        {company.description}
+      </p>
+
+      <div
+        class="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[13px]"
+      >
+        <span class="text-primary">
+          {companyModels.length} {companyModels.length === 1 ? "model" : "models"}
+        </span>
+        <span class="text-edge-subtle">·</span>
+        <span class="text-muted">{familyLabel}</span>
+        <a
+          href={company.website}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-accent underline decoration-accent/30 underline-offset-2 transition-colors hover:text-primary"
+        >
+          Official website ↗
+        </a>
+      </div>
+
+      <div class="mt-4 flex flex-wrap gap-1.5">
+        {
+          useCases.map((useCase) => {
+            const cat = USE_CATEGORIES.find((item) => item.label === useCase)
+            const href = cat ? getCategoryPath(cat.key) : "/models"
+            return (
+              <a
+                href={href}
+                class="rounded border border-edge/60 bg-surface-card px-2 py-1 font-mono text-[11px] capitalize text-muted transition-colors hover:border-accent/30 hover:text-primary"
+              >
+                {useCase}
+              </a>
+            )
+          })
+        }
+      </div>
+    </header>
+
+    <section aria-labelledby="company-models-title">
+      <div class="mb-4 flex items-end justify-between gap-4">
+        <div>
+          <h2
+            id="company-models-title"
+            class="font-pixel text-lg text-primary"
+          >
+            Available models
+          </h2>
+          <p class="mt-1 text-sm text-muted">
+            Ordered from the lightest model to the largest.
+          </p>
+        </div>
+      </div>
+
+      <div class="grid gap-3 sm:grid-cols-2">
+        {
+          companyModels.map((model) => (
+            <a
+              href={`/model/${model.id}`}
+              class="group flex min-w-0 flex-col rounded-lg border border-edge/70 bg-surface-card p-4 transition-colors hover:border-accent/30 hover:bg-surface-hover"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <h3
+                    class="truncate font-pixel text-base text-primary transition-colors group-hover:text-accent"
+                    style={`view-transition-name: ${getModelTitleTransitionName(model.id)};`}
+                  >
+                    {model.name}
+                  </h3>
+                  <p class="mt-1 font-mono text-xs text-muted">
+                    {model.params}
+                    {model.activeParams ? ` · ${model.activeParams}` : ""}
+                    {" · "}
+                    {model.architecture === "moe" ? "MoE" : "Dense"}
+                  </p>
+                </div>
+                <span class="shrink-0 rounded border border-edge/60 bg-surface-raised px-2 py-1 font-mono text-[11px] text-secondary">
+                  {model.quants.find((quant) => quant.name === "Q4_K_M")
+                    ?.vramGB ?? model.quants[0]?.vramGB}GB
+                </span>
+              </div>
+
+              <p class="mt-3 flex-1 text-[13px] leading-relaxed text-secondary/75">
+                {model.description}
+              </p>
+
+              <div class="mt-4 flex flex-wrap items-center gap-1.5">
+                {model.architecture === "moe" && (
+                  <span
+                    class="inline-flex size-5 items-center justify-center rounded border border-info/20 bg-info/5 text-info"
+                    title="Mixture of Experts"
+                  >
+                    <IconMoe class="size-3" />
+                  </span>
+                )}
+                {model.tools && (
+                  <span
+                    class="inline-flex size-5 items-center justify-center rounded border border-purple-400/30 bg-purple-400/10 text-purple-400"
+                    title="Tool use"
+                  >
+                    <IconTool class="size-3" />
+                  </span>
+                )}
+                {model.thinking && (
+                  <span
+                    class="inline-flex size-5 items-center justify-center rounded border border-sky-400/30 bg-sky-400/10 text-sky-400"
+                    title="Thinking / reasoning"
+                  >
+                    <IconThinking class="size-3" />
+                  </span>
+                )}
+                {model.useCase.includes("vision") && (
+                  <span
+                    class="inline-flex size-5 items-center justify-center rounded border border-rose-400/30 bg-rose-400/10 text-rose-400"
+                    title="Vision"
+                  >
+                    <IconVision class="size-3" />
+                  </span>
+                )}
+                <span class="ml-auto font-mono text-[11px] text-muted">
+                  {model.contextLength >= 1024
+                    ? `${Math.round(model.contextLength / 1024)}K`
+                    : model.contextLength} ctx
+                </span>
+              </div>
+            </a>
+          ))
+        }
+      </div>
+    </section>
+
+    <Footer class="mt-16" />
+  </main>
+</Layout>

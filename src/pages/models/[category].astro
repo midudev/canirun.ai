@@ -1,0 +1,130 @@
+---
+import Layout from "@/layouts/Layout.astro"
+import NavHeader from "@/components/NavHeader.astro"
+import ModelListContent from "@/components/ModelListContent.astro"
+import SeoFaq from "@/components/SeoFaq.astro"
+import Breadcrumbs from "@/components/Breadcrumbs.astro"
+import {
+  MODEL_CATEGORY_PAGES,
+  getCategoryBySlug,
+} from "@/lib/seo-pages"
+import { models } from "@/data/models"
+import { matchesUseCategory } from "@/lib/use-categories"
+
+export function getStaticPaths() {
+  return MODEL_CATEGORY_PAGES.map((page) => ({
+    params: { category: page.slug },
+    props: { page },
+  }))
+}
+
+interface Props {
+  page: NonNullable<ReturnType<typeof getCategoryBySlug>>
+}
+
+const { page } = Astro.props
+const matching = models.filter((model) =>
+  matchesUseCategory(model.useCase, model.paramsBillions, page.filter),
+)
+const pageUrl = `https://canirun.ai/models/${page.slug}`
+---
+
+<Layout title={page.title} description={page.description}>
+  <Fragment slot="head">
+    <script
+      type="application/ld+json"
+      set:html={JSON.stringify({
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              {
+                "@type": "ListItem",
+                position: 1,
+                name: "Home",
+                item: "https://canirun.ai",
+              },
+              {
+                "@type": "ListItem",
+                position: 2,
+                name: "Models",
+                item: "https://canirun.ai/models",
+              },
+              {
+                "@type": "ListItem",
+                position: 3,
+                name: page.h1,
+                item: pageUrl,
+              },
+            ],
+          },
+          {
+            "@type": "CollectionPage",
+            "@id": `${pageUrl}#page`,
+            name: page.h1,
+            url: pageUrl,
+            description: page.description,
+            isPartOf: {
+              "@type": "WebSite",
+              name: "CanIRun.ai",
+              url: "https://canirun.ai",
+            },
+            mainEntity: {
+              "@type": "ItemList",
+              name: page.h1,
+              numberOfItems: matching.length,
+              itemListElement: matching.slice(0, 30).map((model, index) => ({
+                "@type": "ListItem",
+                position: index + 1,
+                url: `https://canirun.ai/model/${model.id}`,
+                name: model.name,
+              })),
+            },
+          },
+          {
+            "@type": "FAQPage",
+            mainEntity: page.faqs.map((faq) => ({
+              "@type": "Question",
+              name: faq.question,
+              acceptedAnswer: { "@type": "Answer", text: faq.answer },
+            })),
+          },
+        ],
+      })}
+    ></script>
+  </Fragment>
+  <NavHeader />
+  <ModelListContent mode="browse" useFilter={page.filter}>
+    <header slot="header" class="page-hero">
+      <Breadcrumbs
+        items={[
+          { label: "Home", href: "/" },
+          { label: "Models", href: "/models" },
+          { label: page.navLabel },
+        ]}
+      />
+      <p class="page-hero-kicker">
+        {matching.length} open models
+      </p>
+      <h1 class="page-hero-title">
+        {page.h1}
+      </h1>
+      <p class="page-hero-lede max-w-2xl">
+        {page.intro}
+      </p>
+      <nav aria-label="Other model categories" class="page-hero-links">
+        {
+          MODEL_CATEGORY_PAGES.filter((item) => item.slug !== page.slug).map(
+            (item) => (
+              <a href={`/models/${item.slug}`} class="nav-pill">
+                {item.navLabel}
+              </a>
+            ),
+          )
+        }
+      </nav>
+    </header>
+    <SeoFaq slot="prefooter" faqs={page.faqs} />
+  </ModelListContent>
+</Layout>

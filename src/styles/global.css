@@ -1,74 +1,12 @@
 @import "tailwindcss";
 
-@font-face {
-  font-family: "Geist Sans";
-  src: url("/fonts/Geist-Light.woff2") format("woff2");
-  font-weight: 300;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Geist Sans";
-  src: url("/fonts/Geist-Regular.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Geist Sans";
-  src: url("/fonts/Geist-Medium.woff2") format("woff2");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Geist Sans";
-  src: url("/fonts/Geist-SemiBold.woff2") format("woff2");
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Geist Sans";
-  src: url("/fonts/Geist-Bold.woff2") format("woff2");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Geist Mono";
-  src: url("/fonts/GeistMono-Regular.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Geist Mono";
-  src: url("/fonts/GeistMono-Medium.woff2") format("woff2");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Geist Pixel";
-  src: url("/fonts/GeistPixel-Square.woff2") format("woff2");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
+@theme inline {
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-pixel: var(--font-geist-pixel), var(--font-geist-mono), monospace;
 }
 
 @theme {
-  --font-sans: "Geist Sans", system-ui, -apple-system, sans-serif;
-  --font-mono: "Geist Mono", ui-monospace, monospace;
-  --font-pixel: "Geist Pixel", "Geist Mono", monospace;
-
   --color-surface: #000000;
   --color-surface-raised: #0a0a0a;
   --color-surface-card: #111111;
@@ -79,7 +17,8 @@
 
   --color-primary: #ededef;
   --color-secondary: #8a8a97;
-  --color-muted: #56565f;
+  --color-muted: #6e6e78;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 
   --color-accent: #22c55e;
   --color-accent-dim: #16a34a;
@@ -102,8 +41,19 @@
     background-color: var(--color-surface);
     color: var(--color-primary);
     font-family: var(--font-sans);
+    font-synthesis: none;
+    scrollbar-gutter: stable;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  :focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--color-accent) 75%, transparent);
+    outline-offset: 3px;
+  }
+
+  #content {
+    scroll-margin-top: 1rem;
   }
 
   html.light {
@@ -145,24 +95,160 @@ html.light {
   --color-cannot-run: #b91c1c;
 }
 
+/* Skip link */
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: 0;
+  z-index: 100;
+  transform: translateY(-120%);
+  border-radius: 8px;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-edge);
+  color: var(--color-primary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 0.5rem 0.75rem;
+  transition: transform 160ms var(--ease-out);
+}
+
+.skip-link:focus {
+  transform: translateY(0.75rem);
+}
+
+/* Page heroes */
+.page-hero {
+  margin-bottom: 2.25rem;
+  text-align: center;
+}
+
+.page-hero-kicker {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.page-hero-title {
+  margin-top: 0.75rem;
+  min-height: calc(1.05 * clamp(1.85rem, 4.6vw, 2.75rem));
+  font-family: var(--font-pixel);
+  font-size: clamp(1.85rem, 4.6vw, 2.75rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--color-primary);
+}
+
+.page-hero-title:first-child {
+  margin-top: 0;
+}
+
+.page-hero-lede {
+  margin: 0.9rem auto 0;
+  max-width: 34rem;
+  min-height: 1.6em;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: var(--color-secondary);
+}
+
+.page-hero [aria-label="Breadcrumb"] {
+  display: flex;
+  justify-content: center;
+}
+
+.page-hero-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1.35rem;
+  min-height: 32px;
+}
+
+.nav-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0.35rem 0.8rem;
+  border: 1px solid var(--color-edge);
+  border-radius: 999px;
+  background: var(--color-surface-card);
+  color: var(--color-secondary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-decoration: none;
+  transition:
+    color 160ms var(--ease-out),
+    border-color 160ms var(--ease-out),
+    background-color 160ms var(--ease-out);
+}
+
+.nav-pill:hover {
+  color: var(--color-primary);
+  border-color: color-mix(in srgb, var(--color-accent) 28%, var(--color-edge));
+  background: var(--color-surface-hover);
+}
+
+.nav-pill:active {
+  transform: scale(0.97);
+}
+
+.page-shell {
+  position: relative;
+}
+
+.page-shell::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: -3.5rem -12% auto;
+  height: 22rem;
+  background: radial-gradient(
+    ellipse at 50% 0%,
+    color-mix(in srgb, var(--color-accent) 10%, transparent),
+    transparent 70%
+  );
+  z-index: -1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skip-link,
+  .nav-pill {
+    transition: none;
+  }
+
+  .nav-pill:active {
+    transform: none;
+  }
+}
+
 /* Inline editable select for hardware overrides */
 .hw-editable-select {
   appearance: none;
   -webkit-appearance: none;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 4px;
-  color: var(--color-secondary);
+  border-radius: 6px;
+  color: var(--color-primary);
   font-family: var(--font-mono);
-  font-size: inherit;
-  line-height: inherit;
-  padding: 1px 18px 1px 4px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.3;
+  min-height: 1.625rem;
+  max-width: 100%;
+  padding: 2px 18px 2px 2px;
+  margin-left: -2px;
   cursor: pointer;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2356565f' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236e6e78' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 2px center;
   outline: none;
-  transition: border-color 0.15s, background-color 0.15s;
+  transition:
+    border-color 160ms var(--ease-out),
+    background-color 160ms var(--ease-out);
 }
 
 .hw-editable-select:hover {
@@ -177,7 +263,8 @@ html.light {
 .hw-editable-select:disabled {
   cursor: default;
   background-image: none;
-  padding-right: 4px;
+  padding-right: 2px;
+  color: var(--color-secondary);
 }
 
 .hw-editable-select option {

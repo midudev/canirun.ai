@@ -32,14 +32,14 @@ const licenseModels = models.filter((m) => m.license === license.name);
 ---
 
 <Layout
-  title={`${license.name} License — CanIRun.ai`}
-  description={`${license.fullName}: ${license.summary} See what you can and can't do with ${license.name}-licensed AI models.`}
+  title={`${license.name} license — can I use this model commercially?`}
+  description={`${license.fullName}: ${license.summary} What you can and cannot do with ${license.name}-licensed local AI models.`}
 >
   <NavHeader />
   <main class="mx-auto max-w-3xl px-4 py-12 sm:px-6">
     <!-- Back link -->
     <a
-      href="/"
+      href="/models"
       class="mb-8 inline-flex items-center gap-1.5 font-mono text-[13px] text-muted transition-colors hover:text-accent"
     >
       <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/></svg>

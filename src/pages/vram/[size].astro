@@ -1,0 +1,185 @@
+---
+import Layout from "@/layouts/Layout.astro"
+import NavHeader from "@/components/NavHeader.astro"
+import Footer from "@/components/Footer.astro"
+import SeoFaq from "@/components/SeoFaq.astro"
+import Breadcrumbs from "@/components/Breadcrumbs.astro"
+import CompanyLogo from "@/components/CompanyLogo.astro"
+import { VRAM_PAGES } from "@/lib/seo-pages"
+import { models } from "@/data/models"
+import { getCompanyByProvider } from "@/data/companies"
+
+export function getStaticPaths() {
+  return VRAM_PAGES.map((page) => ({
+    params: { size: page.slug },
+    props: { page },
+  }))
+}
+
+interface Props {
+  page: (typeof VRAM_PAGES)[number]
+}
+
+const { page } = Astro.props
+
+function q4Vram(model: (typeof models)[number]): number {
+  return model.quants.find((quant) => quant.name === "Q4_K_M")?.vramGB ?? model.minRamGB
+}
+
+const fitting = models
+  .filter((model) => q4Vram(model) <= page.gb)
+  .sort((a, b) => a.paramsBillions - b.paramsBillions)
+
+const pageUrl = `https://canirun.ai/vram/${page.slug}`
+---
+
+<Layout title={page.title} description={page.description}>
+  <Fragment slot="head">
+    <script
+      type="application/ld+json"
+      set:html={JSON.stringify({
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              {
+                "@type": "ListItem",
+                position: 1,
+                name: "Home",
+                item: "https://canirun.ai",
+              },
+              {
+                "@type": "ListItem",
+                position: 2,
+                name: "Models",
+                item: "https://canirun.ai/models",
+              },
+              {
+                "@type": "ListItem",
+                position: 3,
+                name: page.h1,
+                item: pageUrl,
+              },
+            ],
+          },
+          {
+            "@type": "CollectionPage",
+            "@id": `${pageUrl}#page`,
+            name: page.h1,
+            url: pageUrl,
+            description: page.description,
+            mainEntity: {
+              "@type": "ItemList",
+              name: page.h1,
+              numberOfItems: fitting.length,
+              itemListElement: fitting.slice(0, 40).map((model, index) => ({
+                "@type": "ListItem",
+                position: index + 1,
+                url: `https://canirun.ai/model/${model.id}`,
+                name: model.name,
+              })),
+            },
+          },
+          {
+            "@type": "FAQPage",
+            mainEntity: page.faqs.map((faq) => ({
+              "@type": "Question",
+              name: faq.question,
+              acceptedAnswer: { "@type": "Answer", text: faq.answer },
+            })),
+          },
+        ],
+      })}
+    ></script>
+  </Fragment>
+
+  <NavHeader />
+  <main class="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+    <Breadcrumbs
+      items={[
+        { label: "Home", href: "/" },
+        { label: "Models", href: "/models" },
+        { label: `${page.gb} GB VRAM` },
+      ]}
+    />
+
+    <header class="mb-10 border-b border-edge/50 pb-10">
+      <p class="mb-2 font-mono text-xs uppercase tracking-widest text-muted">
+        {fitting.length} models at Q4 · {page.gb} GB budget
+      </p>
+      <h1 class="font-pixel text-3xl tracking-tight text-accent sm:text-4xl">
+        {page.h1}
+      </h1>
+      <p class="mt-4 max-w-2xl text-base leading-relaxed text-secondary">
+        {page.intro}
+      </p>
+      <p class="mt-4 font-mono text-[13px] text-muted">
+        Typical fit: {page.fits}
+        <span class="text-edge-subtle"> · </span>
+        Example:
+        <a
+          href={page.exampleHref}
+          class="text-accent underline decoration-accent/30 underline-offset-2 hover:text-primary"
+        >
+          {page.exampleLabel}
+        </a>
+      </p>
+    </header>
+
+    <ul class="grid gap-2 sm:grid-cols-2">
+      {
+        fitting.map((model) => {
+          const company = getCompanyByProvider(model.provider)
+          const vram = q4Vram(model)
+          return (
+            <li>
+              <a
+                href={`/model/${model.id}`}
+                class="group flex items-center gap-3 rounded-lg border border-edge/70 bg-surface-card px-4 py-3 transition-colors hover:border-accent/30 hover:bg-surface-hover"
+              >
+                {company && (
+                  <span class="shrink-0">
+                    <CompanyLogo company={company} class="size-8 rounded-md" />
+                  </span>
+                )}
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate font-pixel text-sm text-primary transition-colors group-hover:text-accent">
+                    {model.name}
+                  </span>
+                  <span class="mt-0.5 block truncate font-mono text-[11px] text-muted">
+                    {model.provider}
+                    {" · "}
+                    {model.activeParams ?? model.params}
+                    {" · "}
+                    {vram} GB Q4
+                  </span>
+                </span>
+              </a>
+            </li>
+          )
+        })
+      }
+    </ul>
+
+    <p class="mt-8 text-sm text-muted">
+      These sizes assume Q4_K_M plus a little runtime overhead.
+      <a
+        href="/models"
+        class="text-accent underline decoration-accent/30 underline-offset-2 hover:text-primary"
+      >
+        Grade the full catalog on your machine
+      </a>
+      or
+      <a
+        href="/devices"
+        class="text-accent underline decoration-accent/30 underline-offset-2 hover:text-primary"
+      >
+        pick a specific GPU
+      </a>.
+    </p>
+
+    <SeoFaq faqs={page.faqs} />
+    <Footer />
+  </main>
+</Layout>

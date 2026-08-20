@@ -1,42 +1,57 @@
 ---
 import Logo from "@/icons/logo.svg";
+import Github from "@/icons/github.svg";
 const currentPath = Astro.url.pathname;
 const buildDate = new Date();
 const githubUrl = "https://github.com/midudev/canirun.ai";
 
 const links = [
+  { href: "/models", label: "models" },
+  { href: "/devices", label: "devices" },
   { href: "/playground", label: "playground" },
   { href: "/compare", label: "compare" },
   { href: "/tier", label: "tier list" },
-  { href: "/docs", label: "docs" },
-  { href: "/why", label: "why" },
 ];
+
+function isActive(href: string) {
+  if (currentPath === href) return true
+  if (href === "/devices" && currentPath.startsWith("/device/")) return true
+  if (
+    href === "/models" &&
+    (currentPath.startsWith("/model/") ||
+      currentPath.startsWith("/models") ||
+      currentPath.startsWith("/vram/"))
+  )
+    return true
+  return false
+}
 ---
 
-<nav class="border-b border-edge/40">
-  <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-2.5 sm:px-6">
-    <div class="flex items-center gap-2">
-      <a href="/" class="flex items-center gap-1 font-pixel text-sm text-accent transition-colors hover:text-primary">
+<nav class="h-14 border-b border-edge/50" aria-label="Primary">
+  <div class="mx-auto flex h-full max-w-6xl items-center justify-between px-4 sm:px-6">
+    <div class="flex items-center gap-2.5">
+      <a href="/" class="flex h-4 items-center gap-1.5 font-pixel text-sm leading-none text-accent transition-colors hover:text-primary">
         <Logo class="size-3" />
         CanIRun.ai
       </a>
-      <time id="build-time" class="font-mono text-xs text-primary/40" datetime={buildDate.toISOString()}>
+      <time id="build-time" class="hidden min-w-[7.5rem] font-mono text-[11px] leading-none text-muted sm:inline-block" datetime={buildDate.toISOString()}>
         updated ...
       </time>
     </div>
 
-    <div class="flex items-center gap-1 sm:gap-4">
+    <div class="flex items-center gap-0.5 sm:gap-3">
       {/* Desktop links */}
-      <div class="hidden items-center gap-4 font-mono text-[13px] sm:flex">
+      <div class="hidden items-center gap-3.5 font-mono text-[13px] sm:flex">
         {links.map(({ href, label }) => (
           <a
             href={href}
+            aria-current={isActive(href) ? "page" : undefined}
             class:list={[
-              "transition-colors hover:text-accent",
-              currentPath === href ? "text-primary" : "text-primary/70",
+              "rounded-sm text-muted transition-colors hover:text-primary",
+              isActive(href) && "text-primary",
             ]}
           >
-            [{label}]
+            {label}
           </a>
         ))}
       </div>
@@ -48,15 +63,13 @@ const links = [
         class="flex size-8 items-center justify-center text-primary/70 transition-colors hover:text-accent"
         aria-label="Open GitHub repository"
       >
-        <svg class="size-[18px]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <polygon points="23 9 23 15 22 15 22 17 21 17 21 19 20 19 20 20 19 20 19 21 18 21 18 22 16 22 16 23 15 23 15 18 14 18 14 17 15 17 15 16 17 16 17 15 18 15 18 14 19 14 19 9 18 9 18 6 16 6 16 7 15 7 15 8 14 8 14 7 10 7 10 8 9 8 9 7 8 7 8 6 6 6 6 9 5 9 5 14 6 14 6 15 7 15 7 16 9 16 9 18 7 18 7 17 6 17 6 16 4 16 4 17 5 17 5 19 6 19 6 20 9 20 9 23 8 23 8 22 6 22 6 21 5 21 5 20 4 20 4 19 3 19 3 17 2 17 2 15 1 15 1 9 2 9 2 7 3 7 3 5 4 5 4 4 5 4 5 3 7 3 7 2 9 2 9 1 15 1 15 2 17 2 17 3 19 3 19 4 20 4 20 5 21 5 21 7 22 7 22 9 23 9"/>
-        </svg>
+        <Github class="size-[18px]" aria-hidden="true" />
       </a>
 
       {/* Theme toggle */}
       <button
         id="theme-toggle"
-        class="flex size-8 items-center justify-center text-primary/70 transition-colors hover:text-accent cursor-pointer"
+        class="relative flex size-8 items-center justify-center text-primary/70 transition-colors hover:text-accent cursor-pointer"
         aria-label="Toggle theme"
       >
         <svg class="theme-icon-sun size-[18px]" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 19a1 1 0 0 1 .993 .883l.007 .117v1a1 1 0 0 1 -1.993 .117l-.007 -.117v-1a1 1 0 0 1 1 -1z" /><path d="M18.313 16.91l.094 .083l.7 .7a1 1 0 0 1 -1.32 1.497l-.094 -.083l-.7 -.7a1 1 0 0 1 1.218 -1.567l.102 .07z" /><path d="M7.007 16.993a1 1 0 0 1 .083 1.32l-.083 .094l-.7 .7a1 1 0 0 1 -1.497 -1.32l.083 -.094l.7 -.7a1 1 0 0 1 1.414 0z" /><path d="M4 11a1 1 0 0 1 .117 1.993l-.117 .007h-1a1 1 0 0 1 -.117 -1.993l.117 -.007h1z" /><path d="M21 11a1 1 0 0 1 .117 1.993l-.117 .007h-1a1 1 0 0 1 -.117 -1.993l.117 -.007h1z" /><path d="M6.213 4.81l.094 .083l.7 .7a1 1 0 0 1 -1.32 1.497l-.094 -.083l-.7 -.7a1 1 0 0 1 1.217 -1.567l.102 .07z" /><path d="M19.107 4.893a1 1 0 0 1 .083 1.32l-.083 .094l-.7 .7a1 1 0 0 1 -1.497 -1.32l.083 -.094l.7 -.7a1 1 0 0 1 1.414 0z" /><path d="M12 2a1 1 0 0 1 .993 .883l.007 .117v1a1 1 0 0 1 -1.993 .117l-.007 -.117v-1a1 1 0 0 1 1 -1z" /><path d="M12 7a5 5 0 1 1 -4.995 5.217l-.005 -.217l.005 -.217a5 5 0 0 1 4.995 -4.783z" /></svg>
@@ -108,12 +121,13 @@ const links = [
     {links.map(({ href, label }) => (
       <a
         href={href}
+        aria-current={isActive(href) ? "page" : undefined}
         class:list={[
           "mobile-menu-link font-mono text-2xl transition-colors hover:text-accent",
-          currentPath === href ? "text-accent" : "text-primary/70",
+          isActive(href) ? "text-accent" : "text-primary/70",
         ]}
       >
-        [{label}]
+        {label}
       </a>
     ))}
   </div>
@@ -203,6 +217,12 @@ const links = [
 </script>
 
 <style>
+  .theme-icon-sun,
+  .theme-icon-moon {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+  }
   .theme-icon-moon { display: none; }
   :global(html.light) .theme-icon-sun { display: none; }
   :global(html.light) .theme-icon-moon { display: block; }

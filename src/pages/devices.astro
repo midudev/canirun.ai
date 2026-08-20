@@ -1,0 +1,351 @@
+---
+import Layout from "@/layouts/Layout.astro"
+import NavHeader from "@/components/NavHeader.astro"
+import Footer from "@/components/Footer.astro"
+import IconSearch from "@/icons/search.svg"
+import IconArrowLeft from "@/icons/arrow-left.svg"
+import VendorLogo from "@/components/VendorLogo.astro"
+import {
+  formatMemory,
+  getDeviceFamilies,
+  getDeviceListings,
+} from "@/lib/devices"
+
+const devices = getDeviceListings()
+const families = getDeviceFamilies(devices)
+const deviceCount = devices.length
+const pageUrl = "https://canirun.ai/devices"
+const title = "Best local AI models by GPU | CanIRun.ai"
+const description =
+  "Find the best open LLMs for your GPU, Apple Silicon, phone or Raspberry Pi. Browse RTX, Radeon, Intel Arc and M-series local AI compatibility."
+
+const faqs = [
+  {
+    question: "How do I see which AI models my device can run?",
+    answer:
+      "Pick your GPU, Apple Silicon chip, phone GPU or Raspberry Pi on this page. Each device opens a list of recommended open models that fit that hardware.",
+  },
+  {
+    question: "Do I need to install anything to check compatibility?",
+    answer:
+      "No. CanIRun.ai estimates local compatibility from known hardware specs. You can also use the homepage to auto-detect your machine in the browser.",
+  },
+  {
+    question: "What if my exact device is not listed?",
+    answer:
+      "Choose the closest GPU or chip in the same series, or go back to the homepage and let CanIRun.ai detect your hardware automatically.",
+  },
+]
+---
+
+<Layout title={title} description={description}>
+  <Fragment slot="head">
+    <script
+      type="application/ld+json"
+      set:html={JSON.stringify({
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              {
+                "@type": "ListItem",
+                position: 1,
+                name: "Home",
+                item: "https://canirun.ai",
+              },
+              {
+                "@type": "ListItem",
+                position: 2,
+                name: "Devices",
+                item: pageUrl,
+              },
+            ],
+          },
+          {
+            "@type": "CollectionPage",
+            "@id": `${pageUrl}#page`,
+            name: "Local AI models by device",
+            url: pageUrl,
+            description,
+            isPartOf: {
+              "@type": "WebSite",
+              name: "CanIRun.ai",
+              url: "https://canirun.ai",
+            },
+            mainEntity: {
+              "@type": "ItemList",
+              name: "Devices that can run AI locally",
+              numberOfItems: deviceCount,
+              itemListElement: devices.map((device, index) => ({
+                "@type": "ListItem",
+                position: index + 1,
+                name: device.name,
+                url: `https://canirun.ai/device/${device.slug}`,
+              })),
+            },
+          },
+          {
+            "@type": "FAQPage",
+            mainEntity: faqs.map((faq) => ({
+              "@type": "Question",
+              name: faq.question,
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: faq.answer,
+              },
+            })),
+          },
+        ],
+      })}
+    ></script>
+  </Fragment>
+
+  <NavHeader />
+
+  <main class="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+    <a
+      href="/models"
+      class="mb-8 inline-flex items-center gap-1.5 font-mono text-[13px] text-muted transition-colors hover:text-accent"
+    >
+      <IconArrowLeft class="size-3.5" />
+      Back to models
+    </a>
+
+    <header class="mb-10 border-b border-edge/50 pb-10">
+      <p class="mb-2 font-mono text-xs uppercase tracking-widest text-muted">
+        {deviceCount} devices
+      </p>
+      <h1 class="font-pixel text-3xl tracking-tight text-accent sm:text-4xl">
+        Local AI models by device
+      </h1>
+      <p class="mt-4 max-w-2xl text-base leading-relaxed text-secondary">
+        Choose your GPU, Apple Silicon chip, phone or single-board computer to
+        see which open AI models it can run locally — including recommended
+        sizes for chat, coding, image and video.
+      </p>
+    </header>
+
+    <div class="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div class="relative max-w-md flex-1">
+        <label class="sr-only" for="device-search">Search devices</label>
+        <IconSearch
+          class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted"
+        />
+        <input
+          id="device-search"
+          type="search"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="Search RTX 4090, M4 Max, Raspberry Pi…"
+          class="w-full rounded-lg border border-edge/70 bg-surface-card py-2.5 pr-4 pl-10 font-mono text-sm text-primary placeholder:text-muted/70 outline-none transition-colors hover:border-edge focus:border-accent/40"
+        />
+      </div>
+      <p
+        id="device-filter-status"
+        class="font-mono text-[13px] text-muted"
+        aria-live="polite"
+      >
+        Showing all {deviceCount} devices
+      </p>
+    </div>
+
+    <nav aria-label="Device families" class="mb-10">
+      <ul class="flex flex-wrap gap-2">
+        {
+          families.map((family) => (
+            <li>
+              <a
+                href={`#${family.id}`}
+                data-family-link={family.id}
+                class="inline-flex min-h-11 items-center gap-2 rounded-lg border border-edge/70 bg-surface-card px-3 py-2 font-mono text-[13px] text-secondary transition-colors hover:border-accent/30 hover:text-accent"
+              >
+                {family.vendors[0] && (
+                  <VendorLogo vendor={family.vendors[0]} class="size-5 rounded" />
+                )}
+                {family.name}
+                <span class="text-muted">{family.count}</span>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+
+    {
+      families.map((family) => {
+        const showSeriesHeadings = family.categories.length > 1
+        return (
+          <section
+            id={family.id}
+            class="device-family mb-14 scroll-mt-8"
+            data-family={family.id}
+            aria-labelledby={`${family.id}-title`}
+          >
+            <header class="mb-5 flex items-start gap-3">
+              {
+                family.vendors.length === 1 && (
+                  <VendorLogo
+                    vendor={family.vendors[0]}
+                    class="mt-0.5 size-10 rounded-lg"
+                    decorative={false}
+                  />
+                )
+              }
+              {
+                family.vendors.length > 1 && (
+                  <span class="mt-0.5 flex -space-x-1.5">
+                    {family.vendors.map((vendor) => (
+                      <VendorLogo vendor={vendor} class="size-8 rounded-lg" />
+                    ))}
+                  </span>
+                )
+              }
+              <div class="min-w-0">
+                <h2
+                  id={`${family.id}-title`}
+                  class="font-pixel text-xl text-primary"
+                >
+                  {family.name}
+                </h2>
+                <p class="mt-1 text-sm text-muted">{family.description}</p>
+              </div>
+            </header>
+
+            {family.categories.map((group) => (
+              <div
+                class="device-category mb-8 last:mb-0"
+                data-category={group.id}
+              >
+                {showSeriesHeadings && (
+                  <h3
+                    id={group.id}
+                    class="mb-3 scroll-mt-8 font-mono text-xs uppercase tracking-widest text-muted"
+                  >
+                    {group.category}
+                  </h3>
+                )}
+                <ul class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {group.devices.map((device) => {
+                    const memory = formatMemory(device)
+                    return (
+                      <li
+                        class="device-card"
+                        data-name={device.name.toLowerCase()}
+                        data-category={group.category.toLowerCase()}
+                        data-family={family.name.toLowerCase()}
+                      >
+                        <a
+                          href={`/device/${device.slug}`}
+                          class="group flex min-h-16 items-center justify-between gap-3 rounded-lg border border-edge/70 bg-surface-card px-4 py-3 transition-colors hover:border-accent/30 hover:bg-surface-hover"
+                        >
+                          <VendorLogo vendor={device.vendor} class="size-8 rounded-md" />
+                          <span class="min-w-0 flex-1">
+                            <span class="block truncate font-pixel text-sm text-primary transition-colors group-hover:text-accent">
+                              {device.name}
+                            </span>
+                            <span class="mt-0.5 block font-mono text-[11px] text-muted">
+                              Recommended models
+                            </span>
+                          </span>
+                          {memory && (
+                            <span class="shrink-0 rounded border border-edge/60 bg-surface-raised px-2 py-1 font-mono text-[11px] text-secondary">
+                              {memory}
+                            </span>
+                          )}
+                        </a>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            ))}
+          </section>
+        )
+      })
+    }
+
+    <p id="device-empty" class="hidden py-16 text-center font-mono text-sm text-muted">
+      No devices match that search.
+    </p>
+
+    <section aria-labelledby="devices-faq-title" class="mt-6 border-t border-edge/50 pt-12">
+      <h2 id="devices-faq-title" class="font-pixel text-lg text-primary">
+        Common questions
+      </h2>
+      <dl class="mt-6 space-y-5">
+        {
+          faqs.map((faq) => (
+            <div>
+              <dt class="font-medium text-primary">{faq.question}</dt>
+              <dd class="mt-1.5 max-w-3xl text-sm leading-relaxed text-secondary">
+                {faq.answer}
+              </dd>
+            </div>
+          ))
+        }
+      </dl>
+    </section>
+
+    <Footer class="mt-16" />
+  </main>
+</Layout>
+
+<script>
+  function initDeviceSearch() {
+    const input = document.getElementById("device-search") as HTMLInputElement | null
+    const status = document.getElementById("device-filter-status")
+    const empty = document.getElementById("device-empty")
+    const cards = [...document.querySelectorAll<HTMLElement>(".device-card")]
+    const categories = [...document.querySelectorAll<HTMLElement>(".device-category")]
+    const families = [...document.querySelectorAll<HTMLElement>(".device-family")]
+    const familyLinks = [...document.querySelectorAll<HTMLElement>("[data-family-link]")]
+    if (!input || !status || !empty) return
+
+    const total = cards.length
+
+    function applyFilter() {
+      const query = input!.value.trim().toLowerCase()
+      let visible = 0
+
+      for (const card of cards) {
+        const haystack = [
+          card.dataset.name ?? "",
+          card.dataset.category ?? "",
+          card.dataset.family ?? "",
+        ].join(" ")
+        const match = !query || haystack.includes(query)
+        card.hidden = !match
+        if (match) visible += 1
+      }
+
+      for (const category of categories) {
+        const hasVisible = [...category.querySelectorAll<HTMLElement>(".device-card")].some(
+          (card) => !card.hidden,
+        )
+        category.hidden = !hasVisible
+      }
+
+      for (const family of families) {
+        const hasVisible = [...family.querySelectorAll<HTMLElement>(".device-category")].some(
+          (category) => !category.hidden,
+        )
+        family.hidden = !hasVisible
+        const link = familyLinks.find((item) => item.dataset.familyLink === family.dataset.family)
+        if (link) {
+          const item = link.closest("li")
+          if (item) item.hidden = !hasVisible
+        }
+      }
+
+      empty!.classList.toggle("hidden", visible > 0)
+      status!.textContent = query
+        ? `${visible} of ${total} devices`
+        : `Showing all ${total} devices`
+    }
+
+    input.addEventListener("input", applyFilter)
+  }
+
+  document.addEventListener("astro:page-load", initDeviceSearch)
+</script>

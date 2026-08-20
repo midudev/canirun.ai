@@ -1,0 +1,86 @@
+---
+import Layout from "@/layouts/Layout.astro"
+import NavHeader from "@/components/NavHeader.astro"
+import ModelListContent from "@/components/ModelListContent.astro"
+import { models } from "@/data/models"
+import { MODEL_CATEGORY_PAGES, VRAM_PAGES } from "@/lib/seo-pages"
+
+const modelCount = models.length
+const pageUrl = "https://canirun.ai/models"
+const title = "Local AI models you can run | CanIRun.ai"
+const description = `Browse ${modelCount} open LLMs, coding, image and video models. See which ones fit your GPU or Mac — VRAM, speed and compatibility grades.`
+---
+
+<Layout title={title} description={description}>
+  <Fragment slot="head">
+    <script
+      type="application/ld+json"
+      set:html={JSON.stringify({
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              {
+                "@type": "ListItem",
+                position: 1,
+                name: "Home",
+                item: "https://canirun.ai",
+              },
+              {
+                "@type": "ListItem",
+                position: 2,
+                name: "Local AI models",
+                item: pageUrl,
+              },
+            ],
+          },
+          {
+            "@type": "CollectionPage",
+            "@id": `${pageUrl}#page`,
+            name: "Local AI models you can run",
+            url: pageUrl,
+            description,
+            isPartOf: {
+              "@type": "WebSite",
+              name: "CanIRun.ai",
+              url: "https://canirun.ai",
+            },
+            mainEntity: {
+              "@type": "ItemList",
+              name: "Open AI models you can run locally",
+              numberOfItems: modelCount,
+            },
+          },
+        ],
+      })}
+    ></script>
+  </Fragment>
+  <NavHeader />
+  <ModelListContent mode="browse">
+    <header slot="header" class="page-hero">
+      <h1 class="page-hero-title">
+        Local AI models you can run
+      </h1>
+      <p class="page-hero-lede">
+        Search the full open catalog — graded for your GPU, Mac or other device.
+      </p>
+      <nav aria-label="Browse by task or VRAM" class="page-hero-links">
+        {
+          MODEL_CATEGORY_PAGES.map((page) => (
+            <a href={`/models/${page.slug}`} class="nav-pill">
+              {page.navLabel}
+            </a>
+          ))
+        }
+        {
+          VRAM_PAGES.map((page) => (
+            <a href={`/vram/${page.slug}`} class="nav-pill">
+              {page.gb} GB
+            </a>
+          ))
+        }
+      </nav>
+    </header>
+  </ModelListContent>
+</Layout>

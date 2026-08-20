@@ -1,0 +1,29 @@
+# CanIRun.ai
+
+> Detect your hardware and see which open AI models you can run locally.
+
+CanIRun.ai grades open-weight chat, coding, image and video models against your GPU, Apple Silicon or other device. Scores use estimated speed, VRAM headroom and model quality.
+
+## Start here
+
+- [Can I run AI locally?](https://canirun.ai/): Best-pick models for the detected machine
+- [Local AI models you can run](https://canirun.ai/models): Full filterable catalog
+- [Local AI models by device](https://canirun.ai/devices): RTX, Radeon, Intel Arc, Apple Silicon, phones, Raspberry Pi
+- [How detection works](https://canirun.ai/why): Hardware APIs and scoring
+- [Docs](https://canirun.ai/docs): Quantization, VRAM, MoE, GGUF
+
+## Browse by task
+
+- [Local LLMs](https://canirun.ai/models/chat)
+- [Local coding models](https://canirun.ai/models/coding)
+- [Local image generation](https://canirun.ai/models/image)
+- [Local video generation](https://canirun.ai/models/video)
+- [Small on-device LLMs](https://canirun.ai/models/lightweight)
+
+## Browse by VRAM
+
+- [8GB VRAM](https://canirun.ai/vram/8gb)
+- [12GB VRAM](https://canirun.ai/vram/12gb)
+- [16GB VRAM](https://canirun.ai/vram/16gb)
+- [24GB VRAM](https://canirun.ai/vram/24gb)
+- [32GB+ VRAM](https://canirun.ai/vram/32gb)

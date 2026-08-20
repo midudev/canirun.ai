@@ -6,6 +6,8 @@ import {
   isCommercialLicense,
   getLicenseTier,
   LICENSE_LIST,
+  isCurrentInLineage,
+  getLineageSuccessor,
 } from "@/data/models"
 import { getLicenseSlug } from "@/data/licenses"
 import hfStats from "@/data/hf-stats.json"
@@ -21,15 +23,45 @@ import IconMoe from "@/icons/moe.svg"
 import IconTool from "@/icons/tool.svg"
 import IconThinking from "@/icons/thinking.svg"
 import IconVision from "@/icons/vision.svg"
+import IconVideo from "@/icons/video.svg"
 import IconStar from "@/icons/star.svg"
 import IconLicense from "@/icons/license.svg"
+import IconLock from "@/icons/lock.svg"
+import IconUnlock from "@/icons/unlock.svg"
+import IconChat from "@/icons/chat.svg"
+import IconEdgeDevice from "@/icons/edge-device.svg"
+import CompanyLogo from "@/components/CompanyLogo.astro"
+import {
+  getCompanyByProvider,
+  getCompanyHref,
+} from "@/data/companies"
 import { getModelTitleTransitionName } from "@/lib/view-transitions"
+import { AA_BENCHMARKS, getAaBenchmark } from "@/data/aa-benchmarks"
+import { USE_CATEGORIES, getModelUseCategories } from "@/lib/use-categories"
+import { deviceKeyToSlug } from "@/lib/device-slugs"
+import { getDeviceListing } from "@/lib/devices"
+
+// Recommendation categories — the page recommends the best models per use case
+// for the detected device instead of dumping the whole catalog.
+const REC_CATEGORIES = [
+  { key: "text", title: "Can I run coding models?", subtitle: "Chat, code and reasoning", Icon: IconChat },
+  { key: "image", title: "Can I run image models?", subtitle: "Generate images locally", Icon: IconVision },
+  { key: "video", title: "Can I run video models?", subtitle: "Generate video locally", Icon: IconVideo },
+  { key: "small", title: "Can I run tiny models?", subtitle: "On-device, 4B and under", Icon: IconEdgeDevice },
+]
+const REC_SKELETON_ROWS = [0, 1, 2]
 
 interface Props {
   deviceKey?: string
+  mode?: "recs" | "browse"
+  useFilter?: string
 }
 
-const { deviceKey } = Astro.props
+const { deviceKey, mode = "recs", useFilter = "all" } = Astro.props
+const recsHref = deviceKey ? `/device/${deviceKeyToSlug(deviceKey)}` : "/"
+const lockedDeviceName = deviceKey
+  ? getDeviceListing(deviceKey)?.name
+  : undefined
 
 const hfStatsTyped = hfStats as Record<
   string,
@@ -39,10 +71,41 @@ const hfStatsTyped = hfStats as Record<
 const sortedModels = [...models].sort(
   (a, b) => a.paramsBillions - b.paramsBillions,
 )
-const featuredModels = sortedModels.filter((m) => m.featured)
-const otherModels = sortedModels.filter((m) => !m.featured)
+const featuredModels = sortedModels.filter(
+  (m) => m.featured && isCurrentInLineage(m, models),
+)
+const otherModels = sortedModels.filter(
+  (m) => !(m.featured && isCurrentInLineage(m, models)),
+)
 
 const providers = [...new Set(models.map((m) => m.provider))].sort()
+
+function aaTooltip(preliminary?: boolean): string {
+  return `Artificial Analysis Intelligence Index ${AA_BENCHMARKS.version}${preliminary ? " (preliminary)" : ""}. Score is for the full / API model.`
+}
+
+function getModelModality(useCase: string[]): {
+  label: "Text" | "Image" | "Video"
+  Icon: typeof IconChat
+} {
+  if (useCase.includes("video")) return { label: "Video", Icon: IconVideo }
+  if (useCase.includes("image")) return { label: "Image", Icon: IconVision }
+  return { label: "Text", Icon: IconChat }
+}
+
+function licenseTooltip(license: string): string {
+  const tier = getLicenseTier(license)
+  if (tier === "open") return `${license} — Fully open, commercial use allowed`
+  if (tier === "partial") return `${license} — Commercial with conditions`
+  return `${license} — Restrictive license`
+}
+
+function licenseIconClass(license: string): string {
+  const tier = getLicenseTier(license)
+  if (tier === "open") return "text-emerald-400/80"
+  if (tier === "partial") return "text-amber-400/80"
+  return "text-orange-400/70"
+}
 
 function timeAgo(dateStr: string | null): string {
   if (!dateStr) return ""
@@ -65,285 +128,371 @@ function timeAgo(dateStr: string | null): string {
 
 <main
   id="results"
-  class="mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-6"
+  class="page-shell mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-6"
   data-device-key={deviceKey}
+  data-mode={mode}
+  data-use-filter={useFilter}
 >
   <!-- Page-specific header -->
   <slot name="header" />
 
-  <!-- Hardware Panel — fixed height to prevent CLS -->
-  <section id="hw-panel" class="mb-10 min-h-[52px]">
-    <div
-      id="hw-bar"
-      class="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 font-mono text-sm text-secondary"
-    >
-      <!-- GPU -->
-      <span id="hw-gpu" class="inline-flex items-center gap-1.5 text-muted">
+  <!-- Hardware Panel — always 5 slots so detection cannot grow/shrink the row -->
+  <section id="hw-panel" class="mb-8" aria-label="Detected hardware" aria-busy="true">
+    <div id="hw-bar" class="hw-spec-panel">
+      <!-- GPU — locked on device pages; only VRAM is editable there -->
+      <span
+        id="hw-gpu"
+        class:list={["hw-spec", lockedDeviceName ? "text-secondary" : "text-muted"]}
+      >
         <span
-          data-tooltip="GPU detected via browser APIs — this is an estimate, actual specs may differ"
+          data-tooltip={lockedDeviceName
+            ? "GPU for this device — change VRAM if your memory configuration differs"
+            : "GPU detected via browser APIs — this is an estimate, actual specs may differ"}
           data-tooltip-pos="bottom"
           tabindex="0"
           aria-label="GPU info"
-          class="inline-flex shrink-0 flex-col items-center gap-1"
+          class="hw-spec-label"
         >
-          <IconGpu class="h-4 w-4 text-muted" />
-          <span
-            class="-mt-px text-[8px] uppercase tracking-widest text-muted leading-none"
-            >GPU</span
-          >
+          <IconGpu class="h-3.5 w-3.5" />
+          GPU
         </span>
-        <select id="hw-device-select" class="hw-editable-select" disabled>
-          <option value="">detecting...</option>
-        </select>
+        {
+          lockedDeviceName ? (
+            <span id="hw-gpu-name" class="hw-spec-value">
+              {lockedDeviceName}
+            </span>
+          ) : (
+            <select id="hw-device-select" class="hw-editable-select" disabled>
+              <option value="">detecting...</option>
+            </select>
+          )
+        }
       </span>
-      <span class="text-edge/40">|</span>
       <!-- VRAM -->
-      <span id="hw-ram" class="inline-flex items-center gap-1.5 text-muted">
+      <span id="hw-ram" class="hw-spec text-muted">
         <span
           data-tooltip="VRAM — Video memory available for loading models. On Apple Silicon/iGPUs, it's shared with system RAM"
           data-tooltip-pos="bottom"
           tabindex="0"
           aria-label="VRAM info"
-          class="inline-flex shrink-0 flex-col items-center gap-1"
+          class="hw-spec-label"
         >
-          <IconRam class="h-4 w-4 text-muted" />
-          <span
-            id="hw-vram-label"
-            class="-mt-px text-[8px] uppercase tracking-widest text-muted leading-none"
-            >VRAM</span
-          >
+          <IconRam class="h-3.5 w-3.5" />
+          <span id="hw-vram-label">VRAM</span>
         </span>
         <select id="hw-ram-select" class="hw-editable-select" disabled>
           <option value="">—</option>
         </select>
       </span>
       <!-- Bandwidth -->
-      <span id="hw-bw" class="hidden inline-flex items-center gap-1.5">
-        <span class="text-edge/40">|</span>
+      <span id="hw-bw" class="hw-spec text-muted">
         <span
           data-tooltip="GB/s — Memory bandwidth. How fast data moves to the processor. Higher = faster inference"
           data-tooltip-pos="bottom"
           tabindex="0"
           aria-label="Bandwidth info"
-          class="inline-flex shrink-0 flex-col items-center gap-1"
+          class="hw-spec-label"
         >
-          <IconBandwidth class="h-4 w-4 text-muted" />
-          <span
-            class="-mt-px text-[8px] uppercase tracking-widest text-muted leading-none"
-            >BW</span
-          >
+          <IconBandwidth class="h-3.5 w-3.5" />
+          BW
         </span>
-        <select id="hw-bw-select" class="hw-editable-select"></select>
+        <select id="hw-bw-select" class="hw-editable-select" disabled>
+          <option value="">—</option>
+        </select>
       </span>
       <!-- System RAM -->
-      <span id="hw-sysram" class="hidden inline-flex items-center gap-1.5">
-        <span class="text-edge/40">|</span>
+      <span id="hw-sysram" class="hw-spec text-muted">
         <span
           data-tooltip="System RAM — used for CPU offloading when model doesn't fit in VRAM. More RAM = bigger models via offloading (slower)"
           data-tooltip-pos="bottom"
           tabindex="0"
           aria-label="System RAM info"
-          class="inline-flex shrink-0 flex-col items-center gap-1"
+          class="hw-spec-label"
         >
-          <IconRam class="h-4 w-4 text-muted" />
-          <span
-            class="-mt-px text-[8px] uppercase tracking-widest text-muted leading-none"
-            >RAM</span
-          >
+          <IconRam class="h-3.5 w-3.5" />
+          RAM
         </span>
-        <select id="hw-sysram-select" class="hw-editable-select"></select>
+        <select id="hw-sysram-select" class="hw-editable-select" disabled>
+          <option value="">—</option>
+        </select>
       </span>
       <!-- GPU Cores -->
-      <span id="hw-gpu-cores" class="hidden inline-flex items-center gap-1.5">
-        <span class="text-edge/40">|</span>
+      <span id="hw-gpu-cores" class="hw-spec text-muted">
         <span
           data-tooltip="GPU cores — more cores allow faster parallel computation for model inference"
           data-tooltip-pos="bottom"
           tabindex="0"
           aria-label="GPU cores info"
-          class="inline-flex shrink-0 flex-col items-center gap-1"
+          class="hw-spec-label"
         >
-          <IconCpu class="h-4 w-4 text-muted" />
-          <span
-            class="-mt-px text-[8px] uppercase tracking-widest text-muted leading-none"
-            >CORES</span
-          >
+          <IconCpu class="h-3.5 w-3.5" />
+          Cores
         </span>
-        <span id="hw-gpu-cores-text" class="text-secondary"></span>
+        <span id="hw-gpu-cores-text" class="hw-spec-value">—</span>
       </span>
     </div>
-    <p
-      id="hw-notice"
-      class="mt-1.5 flex items-center justify-center gap-2 text-center text-xs text-muted invisible"
-    >
-      <span>Estimates based on browser APIs. Actual specs may vary.</span>
-      <span
-        id="hw-webgpu-badge"
-        class="inline-flex items-center gap-1 rounded-full border px-1.5 py-px text-[10px] font-medium"
-        data-tooltip-pos="bottom"
-        tabindex="0"></span>
-    </p>
   </section>
 
-  <!-- Summary counters — grade distribution -->
-  <div id="summary-bar" class="mb-8 invisible">
+  <!-- Summary — one sentence + quiet grade breakdown -->
+  <div id="summary-bar" class:list={["mb-9 invisible", { hidden: mode === "recs" }]}>
+    <p
+      class="text-center text-[15px] leading-relaxed text-secondary"
+      aria-live="polite"
+    >
+      <span id="summary-fit" class="font-medium text-primary">0</span>
+      {" "}of{" "}
+      <span id="summary-total" class="font-medium text-primary">0</span>
+      {" "}models fit comfortably
+      <span id="summary-extra" class="text-muted"></span>
+    </p>
+    <div class="grade-meter mx-auto mt-3 max-w-md" aria-hidden="true">
+      <span id="meter-s" class="bg-can-run"></span>
+      <span id="meter-a" class="bg-grade-a"></span>
+      <span id="meter-b" class="bg-grade-b"></span>
+      <span id="meter-c" class="bg-maybe"></span>
+      <span id="meter-d" class="bg-grade-d"></span>
+      <span id="meter-f" class="bg-cannot-run"></span>
+    </div>
     <div
-      class="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 font-mono text-xs sm:text-[13px] sm:gap-x-4"
+      class="mt-3.5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 font-mono text-[11px] sm:text-xs"
     >
       <span
-        class="flex items-center gap-1.5"
+        data-grade-chip="S"
+        class="grade-chip"
         style="color: var(--color-can-run)"
         data-tooltip="Grade S — Plenty of VRAM, fast inference"
         tabindex="0"
         role="group"
         aria-label="Grade S: Runs great"
       >
-        <span id="count-s" class="font-bold text-sm sm:text-base">0</span>
-        <span class="font-medium uppercase tracking-wide">Runs great</span>
+        <span class="opacity-70">S</span>
+        <span id="count-s" class="font-medium tabular-nums">0</span>
       </span>
-      <span class="h-3 w-px bg-edge/40"></span>
       <span
-        class="flex items-center gap-1.5"
+        data-grade-chip="A"
+        class="grade-chip"
         style="color: var(--color-grade-a)"
         data-tooltip="Grade A — Runs smoothly with good headroom"
         tabindex="0"
         role="group"
         aria-label="Grade A: Runs well"
       >
-        <span id="count-a" class="font-bold text-sm sm:text-base">0</span>
-        <span class="font-medium uppercase tracking-wide">Runs well</span>
+        <span class="opacity-70">A</span>
+        <span id="count-a" class="font-medium tabular-nums">0</span>
       </span>
-      <span class="h-3 w-px bg-edge/40"></span>
       <span
-        class="flex items-center gap-1.5"
+        data-grade-chip="B"
+        class="grade-chip"
         style="color: var(--color-grade-b)"
         data-tooltip="Grade B — Decent performance, uses most memory"
         tabindex="0"
         role="group"
         aria-label="Grade B: Decent"
       >
-        <span id="count-b" class="font-bold text-sm sm:text-base">0</span>
-        <span class="font-medium uppercase tracking-wide">Decent</span>
+        <span class="opacity-70">B</span>
+        <span id="count-b" class="font-medium tabular-nums">0</span>
       </span>
-      <span class="h-3 w-px bg-edge/40"></span>
       <span
-        class="flex items-center gap-1.5"
+        data-grade-chip="C"
+        class="grade-chip"
         style="color: var(--color-maybe)"
         data-tooltip="Grade C — Tight fit, slower inference speeds"
         tabindex="0"
         role="group"
         aria-label="Grade C: Tight fit"
       >
-        <span id="count-c" class="font-bold text-sm sm:text-base">0</span>
-        <span class="font-medium uppercase tracking-wide">Tight fit</span>
+        <span class="opacity-70">C</span>
+        <span id="count-c" class="font-medium tabular-nums">0</span>
       </span>
-      <span class="h-3 w-px bg-edge/40"></span>
       <span
-        class="flex items-center gap-1.5"
+        data-grade-chip="D"
+        class="grade-chip"
         style="color: var(--color-grade-d)"
         data-tooltip="Grade D — Barely fits, very slow inference"
         tabindex="0"
         role="group"
         aria-label="Grade D: Barely runs"
       >
-        <span id="count-d" class="font-bold text-sm sm:text-base">0</span>
-        <span class="font-medium uppercase tracking-wide">Barely runs</span>
+        <span class="opacity-70">D</span>
+        <span id="count-d" class="font-medium tabular-nums">0</span>
       </span>
-      <span class="h-3 w-px bg-edge/40"></span>
       <span
-        class="flex items-center gap-1.5"
+        data-grade-chip="F"
+        class="grade-chip"
         style="color: var(--color-cannot-run)"
         data-tooltip="Grade F — Not enough memory to run this model"
         tabindex="0"
         role="group"
         aria-label="Grade F: Too heavy"
       >
-        <span id="count-f" class="font-bold text-sm sm:text-base">0</span>
-        <span class="font-medium uppercase tracking-wide">Too heavy</span>
+        <span class="opacity-70">F</span>
+        <span id="count-f" class="font-medium tabular-nums">0</span>
       </span>
     </div>
   </div>
 
-  <!-- Search + Filters bar (single line) -->
-  <div class="mb-6 flex flex-wrap items-center gap-2">
-    <!-- Search -->
-    <div class="relative flex-1 min-w-[180px] max-w-xs">
-      <IconSearch
-        class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted"
-      />
-      <input
-        id="search-input"
-        type="text"
-        placeholder="Search models..."
-        class="filter-select w-full !pl-8 pr-8"
-        autocomplete="off"
-      />
-      <kbd
-        class="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 rounded border border-edge/60 bg-surface-raised px-1.5 py-0.5 font-mono text-xs leading-none text-secondary shadow-[0_1px_0_0_var(--color-edge)] sm:inline-block"
-        >/</kbd
-      >
-    </div>
-
-    <span class="hidden h-4 w-px bg-edge/40 sm:block"></span>
-
-    <!-- Status filter -->
-    <select id="filter-status" class="filter-select">
-      <option value="all">All grades</option>
-      <option value="featured">Popular</option>
-      <option value="can-run">Can run (S/A/B)</option>
-      <option value="tight">Tight fit (C/D)</option>
-      <option value="cannot-run">Too heavy (F)</option>
-    </select>
-
-    <!-- Use case filter -->
-    <select id="filter-use" class="filter-select">
-      <option value="all">All tasks</option>
-      <option value="chat">Chat</option>
-      <option value="code">Code</option>
-      <option value="reasoning">Reasoning</option>
-      <option value="vision">Vision</option>
-    </select>
-
-    <!-- Provider filter -->
-    <select id="filter-provider" class="filter-select">
-      <option value="all">All providers</option>
-      {providers.map((p) => <option value={p}>{p}</option>)}
-    </select>
-
-    <!-- License filter -->
-    <select id="filter-license" class="filter-select">
-      <option value="all">All licenses</option>
-      <option value="commercial">Commercial use</option>
-      <option value="non-commercial">Non-commercial</option>
-      {LICENSE_LIST.map((l) => <option value={l}>{l}</option>)}
-    </select>
-
-    <!-- Sort -->
-    <select id="sort-select" class="filter-select">
-      <option value="score">Sort: Score</option>
-      <option value="params-asc">Sort: Params ↑</option>
-      <option value="params-desc">Sort: Params ↓</option>
-      <option value="release">Sort: Newest</option>
-      <option value="context">Sort: Context</option>
-      <option value="toks">Sort: Speed</option>
-      <option value="vram">Sort: VRAM ↑</option>
-      <option value="downloads">Sort: Popularity</option>
-    </select>
-
-    <span class="hidden h-4 w-px bg-edge/40 sm:block"></span>
-
-    <!-- View mode toggle -->
-    <button
-      id="view-toggle"
-      class="filter-select hidden items-center gap-1.5 cursor-pointer sm:inline-flex"
-      title="Toggle view mode"
+  <!-- Mode switch — Best picks vs Browse all (own URLs) -->
+  <div id="view-mode-tabs" class="mb-8 flex justify-center">
+    <nav
+      class="inline-flex rounded-full border border-edge/70 bg-surface-card p-1 font-mono text-[13px]"
+      aria-label="Catalog view"
     >
-      <IconGrid id="view-icon-simple" class="hidden h-3 w-3" />
-      <IconGridDots id="view-icon-advanced" class="hidden h-3 w-3" />
-      <IconList id="view-icon-list" class="h-3 w-3" />
-      <span id="view-label" class="text-xs">List</span>
-    </button>
+      <a
+        href={recsHref}
+        data-mode-btn="recs"
+        aria-current={mode === "recs" ? "page" : undefined}
+        class:list={[
+          "mode-tab rounded-full px-4 py-1.5 text-muted no-underline",
+          { "mode-tab-active": mode === "recs" },
+        ]}
+      >
+        Best picks
+      </a>
+      <a
+        href="/models"
+        data-mode-btn="browse"
+        aria-current={mode === "browse" ? "page" : undefined}
+        class:list={[
+          "mode-tab rounded-full px-4 py-1.5 text-muted no-underline",
+          { "mode-tab-active": mode === "browse" },
+        ]}
+      >
+        Browse all
+      </a>
+    </nav>
   </div>
+
+  <!-- Recommendations — skeletons reserve the list height before detection -->
+  <section
+    id="recommendations"
+    class:list={["mb-10", { hidden: mode !== "recs" }]}
+    aria-busy={mode === "recs" ? "true" : undefined}
+  >
+    <p class="rec-device-line mb-7 text-center text-sm text-secondary">
+      Top open models for{" "}
+      <span id="rec-device-name" class="font-medium text-primary">your device</span>
+    </p>
+    <div class="grid gap-12">
+      {
+        REC_CATEGORIES.map((cat) => (
+          <div class="rec-group" data-rec-group={cat.key}>
+            <div class="rec-head">
+              <h3>
+                <span class="rec-head-icon" aria-hidden="true">
+                  <cat.Icon class="h-4 w-4" />
+                </span>
+                {cat.title}
+              </h3>
+              <p>{cat.subtitle}</p>
+            </div>
+            <div class="rec-list" data-rec-cards>
+              {REC_SKELETON_ROWS.map(() => (
+                <div class="rec-card rec-skel" aria-hidden="true">
+                  <span class="rec-grade"><span class="rec-skel-bar rec-skel-grade" /></span>
+                  <span class="rec-name"><span class="rec-skel-bar rec-skel-name" /></span>
+                  <span class="rec-provider"><span class="rec-skel-bar rec-skel-sm" /></span>
+                  <span class="rec-params"><span class="rec-skel-bar rec-skel-sm" /></span>
+                  <span class="rec-vram"><span class="rec-skel-bar rec-skel-sm" /></span>
+                  <span class="rec-aa"><span class="rec-skel-bar rec-skel-sm" /></span>
+                  <span class="rec-speed"><span class="rec-skel-bar rec-skel-sm" /></span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))
+      }
+    </div>
+    <div id="rec-empty" class="hidden py-14 text-center">
+      <p class="font-pixel text-lg text-muted/60">
+        This device is very constrained
+      </p>
+      <p class="mt-2 font-mono text-sm text-muted/50">
+        Nothing runs comfortably yet. Switch to <a
+          href="/models"
+          class="text-accent underline decoration-edge underline-offset-2 hover:text-primary"
+          >Browse all</a
+        > to see the lightest options.
+      </p>
+    </div>
+  </section>
+
+  <!-- Browse all — full filterable catalog -->
+  <div id="browse-section" class:list={[{ hidden: mode !== "browse" }]}>
+    <div class="filter-bar">
+      <div class="filter-top">
+        <label class="filter-search">
+          <span class="sr-only">Search models</span>
+          <IconSearch class="filter-search-icon" />
+          <input
+            id="search-input"
+            type="search"
+            placeholder="Search models..."
+            class="filter-search-input"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <kbd>/</kbd>
+        </label>
+
+        <button
+          id="view-toggle"
+          class="filter-view"
+          type="button"
+          title="Toggle view mode"
+        >
+          <IconGrid id="view-icon-simple" class="hidden h-4 w-4" />
+          <IconGridDots id="view-icon-advanced" class="hidden h-4 w-4" />
+          <IconList id="view-icon-list" class="h-4 w-4" />
+          <span id="view-label" class="sr-only">List</span>
+        </button>
+      </div>
+
+      <div class="filter-row">
+        <select id="filter-status" class="filter-select">
+          <option value="all">Grade</option>
+          <option value="featured">Popular</option>
+          <option value="can-run">Can run (S/A/B)</option>
+          <option value="tight">Tight fit (C/D)</option>
+          <option value="cannot-run">Too heavy (F)</option>
+        </select>
+
+        <select id="filter-use" class="filter-select">
+          <option value="all">Task</option>
+          {USE_CATEGORIES.map((cat) => (
+            <option value={cat.key}>{cat.label}</option>
+          ))}
+          <option value="code">Coding</option>
+        </select>
+
+        <select id="filter-provider" class="filter-select">
+          <option value="all">Lab</option>
+          {providers.map((p) => <option value={p}>{p}</option>)}
+        </select>
+
+        <select id="filter-license" class="filter-select">
+          <option value="all">License</option>
+          <option value="commercial">Commercial use</option>
+          <option value="non-commercial">Non-commercial</option>
+          {LICENSE_LIST.map((l) => <option value={l}>{l}</option>)}
+        </select>
+
+        <select
+          id="sort-select"
+          class="filter-select filter-sort"
+          aria-label="Sort models"
+        >
+          <option value="score">Sort by Score (DESC)</option>
+          <option value="aa">Sort by AA (DESC)</option>
+          <option value="params-asc">Sort by Params (ASC)</option>
+          <option value="params-desc">Sort by Params (DESC)</option>
+          <option value="release">Sort by Newest (DESC)</option>
+          <option value="context">Sort by Context (DESC)</option>
+          <option value="toks">Sort by Speed (DESC)</option>
+          <option value="vram">Sort by VRAM (ASC)</option>
+          <option value="downloads">Sort by Popularity (DESC)</option>
+        </select>
+      </div>
+    </div>
 
   <!-- Popular models -->
   <div id="models-grid" class="grid grid-cols-1 list-view">
@@ -359,26 +508,67 @@ function timeAgo(dateStr: string | null): string {
             data-arch={model.architecture}
             data-uses={model.useCase.join(",")}
             data-provider={model.provider}
+            data-company-slug={getCompanyByProvider(model.provider)?.slug}
             data-context={model.contextLength}
             data-release={model.releaseDate || ""}
+            data-thinking={model.thinking ? "true" : "false"}
+            data-tools={model.tools ? "true" : "false"}
             data-featured="true"
+            data-lineage={model.lineage || ""}
+            data-superseded={isCurrentInLineage(model, models) ? "false" : "true"}
+            data-successor-id={getLineageSuccessor(model, models)?.id || ""}
             data-license={model.license || ""}
             data-commercial={
               isCommercialLicense(model.license) ? "true" : "false"
             }
             data-downloads={hfStatsTyped[model.id]?.downloads || 0}
+            data-aa={getAaBenchmark(model.id)?.intelligence ?? ""}
             class="model-card list-mode group relative flex h-full flex-col rounded-lg border border-edge/60 bg-surface-card transition-colors hover:bg-surface-hover"
           >
             <div data-card-body class="flex flex-col p-4 pb-3">
               <div data-card-top class="min-w-0">
                 <div class="flex items-center justify-between gap-2">
                   <div class="flex items-center gap-2 min-w-0">
+                    {
+                      getCompanyByProvider(model.provider) && (
+                        <span
+                          data-company-link={getCompanyHref(model.provider)}
+                          data-company-preview={model.provider}
+                          class="cursor-pointer"
+                          title={`View all ${model.provider} models`}
+                        >
+                          <CompanyLogo
+                            company={getCompanyByProvider(model.provider)!}
+                            class="size-5"
+                          />
+                        </span>
+                      )
+                    }
                     <h3
                       class="truncate font-pixel text-base text-primary"
                       style={`view-transition-name: ${getModelTitleTransitionName(model.id)};`}
                     >
                       {model.name}
                     </h3>
+                    {model.license && (
+                      <span
+                        data-license-icon
+                        data-license-link={`/license/${getLicenseSlug(model.license)}`}
+                        data-tooltip={licenseTooltip(model.license)}
+                        tabindex="0"
+                        aria-label={licenseTooltip(model.license)}
+                        class:list={[
+                          "hidden size-6 shrink-0 items-center justify-center cursor-pointer",
+                          licenseIconClass(model.license),
+                        ]}
+                      >
+                        {getLicenseTier(model.license) === "open" ? (
+                          <IconUnlock class="size-3.5" aria-hidden="true" />
+                        ) : (
+                          <IconLock class="size-3.5" aria-hidden="true" />
+                        )}
+                      </span>
+                    )}
                     <span
                       data-badges
                       class="inline-flex items-center gap-1 shrink-0"
@@ -413,6 +603,22 @@ function timeAgo(dateStr: string | null): string {
                           title="Vision"
                         >
                           <IconVision class="h-3 w-3" />
+                        </span>
+                      )}
+                      {model.useCase.includes("image") && (
+                        <span
+                          class="shrink-0 rounded border border-rose-400/30 bg-rose-400/10 p-0.5 text-rose-400 h-5 w-5 inline-flex items-center justify-center"
+                          title="Image generation"
+                        >
+                          <IconVision class="h-3 w-3" />
+                        </span>
+                      )}
+                      {model.useCase.includes("video") && (
+                        <span
+                          class="shrink-0 rounded border border-orange-400/30 bg-orange-400/10 p-0.5 text-orange-400 h-5 w-5 inline-flex items-center justify-center"
+                          title="Video generation"
+                        >
+                          <IconVideo class="h-3 w-3" />
                         </span>
                       )}
                       <span
@@ -462,7 +668,13 @@ function timeAgo(dateStr: string | null): string {
                   data-card-provider
                   class="mt-0.5 font-mono text-[13px] text-muted"
                 >
-                  {model.provider} · {model.params}
+                  <span
+                    data-company-link={getCompanyHref(model.provider)}
+                    class="cursor-pointer transition-colors hover:text-accent hover:underline hover:decoration-accent/30 hover:underline-offset-2"
+                  >
+                    {model.provider}
+                  </span>{" "}
+                  · {model.params}
                   {model.license && ` · ${model.license}`}
                 </p>
                 <p
@@ -472,28 +684,84 @@ function timeAgo(dateStr: string | null): string {
                   {model.description}
                 </p>
               </div>
+              {
+                (() => {
+                  const { label, Icon } = getModelModality(model.useCase)
+                  return (
+                    <span
+                      data-model-type
+                      class="hidden items-center gap-1 font-mono text-[11px] text-muted"
+                    >
+                      <Icon class="size-3 shrink-0" aria-hidden="true" />
+                      {label}
+                    </span>
+                  )
+                })()
+              }
               <div
                 data-card-stats
                 class="mt-3 flex items-center gap-3 font-mono text-[13px]"
               >
+                {(() => {
+                  const aa = getAaBenchmark(model.id)
+                  if (!aa) return null
+                  return (
+                    <>
+                      <span
+                        data-aa-score
+                        class="inline-flex items-center gap-1 text-muted"
+                        data-tooltip={aaTooltip(aa.preliminary)}
+                        tabindex="0"
+                        aria-label={`Artificial Analysis score ${aa.intelligence}${aa.preliminary ? ", preliminary" : ""}`}
+                      >
+                        <span class="text-secondary">
+                          {aa.intelligence}
+                          {aa.preliminary && (
+                            <abbr
+                              title="Preliminary score"
+                              class="text-muted no-underline"
+                            >
+                              *
+                            </abbr>
+                          )}
+                        </span>{" "}
+                        AA
+                      </span>
+                      <span data-aa-sep class="text-edge/40">
+                        ·
+                      </span>
+                    </>
+                  )
+                })()}
                 <span
                   data-vram
-                  class="inline-flex items-center gap-1 text-muted"
+                  class="inline-flex items-center gap-1.5 text-muted"
                 >
-                  <span data-vram-val class="text-secondary">
-                    {
-                      (
-                        model.quants.find((q) => q.name === "Q4_K_M") ||
-                        model.quants[0]
-                      ).vramGB
-                    }
-                  </span>{" "}
-                  GB{" "}
+                  <span data-vram-size>
+                    <span data-vram-val class="text-secondary">
+                      {
+                        (
+                          model.quants.find((q) => q.name === "Q4_K_M") ||
+                          model.quants[0]
+                        ).vramGB
+                      }
+                    </span>
+                    <span data-vram-unit>GB</span>
+                  </span>
                   <span
                     data-mem-pct-pill
                     class="hidden rounded-full px-1.5 py-px text-[11px] font-medium"
                     data-mem-pct
                   />
+                  <span
+                    data-mem-meter
+                    hidden
+                    role="meter"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                  >
+                    <span data-mem-meter-fill></span>
+                  </span>
                 </span>
                 <span data-ctx-sep class="text-edge/40">
                   ·
@@ -554,9 +822,9 @@ function timeAgo(dateStr: string | null): string {
                   </div>
                 </div>
                 <div class="mt-2 flex flex-wrap gap-1">
-                  {model.useCase.map((tag) => (
+                  {getModelUseCategories(model.useCase, model.paramsBillions).map((cat) => (
                     <span class="rounded border border-edge/40 px-1.5 py-0.5 text-[11px] text-muted">
-                      {tag}
+                      {cat.label}
                     </span>
                   ))}
                 </div>
@@ -604,25 +872,64 @@ function timeAgo(dateStr: string | null): string {
             data-arch={model.architecture}
             data-uses={model.useCase.join(",")}
             data-provider={model.provider}
+            data-company-slug={getCompanyByProvider(model.provider)?.slug}
             data-context={model.contextLength}
             data-release={model.releaseDate || ""}
+            data-lineage={model.lineage || ""}
+            data-superseded={isCurrentInLineage(model, models) ? "false" : "true"}
+            data-successor-id={getLineageSuccessor(model, models)?.id || ""}
             data-license={model.license || ""}
             data-commercial={
               isCommercialLicense(model.license) ? "true" : "false"
             }
             data-downloads={hfStatsTyped[model.id]?.downloads || 0}
+            data-aa={getAaBenchmark(model.id)?.intelligence ?? ""}
             class="model-card list-mode group relative flex h-full flex-col rounded-lg border border-edge/60 bg-surface-card transition-colors hover:bg-surface-hover"
           >
             <div data-card-body class="flex flex-col p-4 pb-3">
               <div data-card-top class="min-w-0">
                 <div class="flex items-center justify-between gap-2">
                   <div class="flex items-center gap-2 min-w-0">
+                    {
+                      getCompanyByProvider(model.provider) && (
+                        <span
+                          data-company-link={getCompanyHref(model.provider)}
+                          data-company-preview={model.provider}
+                          class="cursor-pointer"
+                          title={`View all ${model.provider} models`}
+                        >
+                          <CompanyLogo
+                            company={getCompanyByProvider(model.provider)!}
+                            class="size-5"
+                          />
+                        </span>
+                      )
+                    }
                     <h3
                       class="truncate font-pixel text-base text-primary"
                       style={`view-transition-name: ${getModelTitleTransitionName(model.id)};`}
                     >
                       {model.name}
                     </h3>
+                    {model.license && (
+                      <span
+                        data-license-icon
+                        data-license-link={`/license/${getLicenseSlug(model.license)}`}
+                        data-tooltip={licenseTooltip(model.license)}
+                        tabindex="0"
+                        aria-label={licenseTooltip(model.license)}
+                        class:list={[
+                          "hidden size-6 shrink-0 items-center justify-center cursor-pointer",
+                          licenseIconClass(model.license),
+                        ]}
+                      >
+                        {getLicenseTier(model.license) === "open" ? (
+                          <IconUnlock class="size-3.5" aria-hidden="true" />
+                        ) : (
+                          <IconLock class="size-3.5" aria-hidden="true" />
+                        )}
+                      </span>
+                    )}
                     <span
                       data-badges
                       class="inline-flex items-center gap-1 shrink-0"
@@ -657,6 +964,22 @@ function timeAgo(dateStr: string | null): string {
                           title="Vision"
                         >
                           <IconVision class="h-3 w-3" />
+                        </span>
+                      )}
+                      {model.useCase.includes("image") && (
+                        <span
+                          class="shrink-0 rounded border border-rose-400/30 bg-rose-400/10 p-0.5 text-rose-400 h-5 w-5 inline-flex items-center justify-center"
+                          title="Image generation"
+                        >
+                          <IconVision class="h-3 w-3" />
+                        </span>
+                      )}
+                      {model.useCase.includes("video") && (
+                        <span
+                          class="shrink-0 rounded border border-orange-400/30 bg-orange-400/10 p-0.5 text-orange-400 h-5 w-5 inline-flex items-center justify-center"
+                          title="Video generation"
+                        >
+                          <IconVideo class="h-3 w-3" />
                         </span>
                       )}
                       {model.license &&
@@ -700,7 +1023,13 @@ function timeAgo(dateStr: string | null): string {
                   data-card-provider
                   class="mt-0.5 font-mono text-[13px] text-muted"
                 >
-                  {model.provider} · {model.params}
+                  <span
+                    data-company-link={getCompanyHref(model.provider)}
+                    class="cursor-pointer transition-colors hover:text-accent hover:underline hover:decoration-accent/30 hover:underline-offset-2"
+                  >
+                    {model.provider}
+                  </span>{" "}
+                  · {model.params}
                   {model.license && ` · ${model.license}`}
                 </p>
                 <p
@@ -710,28 +1039,84 @@ function timeAgo(dateStr: string | null): string {
                   {model.description}
                 </p>
               </div>
+              {
+                (() => {
+                  const { label, Icon } = getModelModality(model.useCase)
+                  return (
+                    <span
+                      data-model-type
+                      class="hidden items-center gap-1 font-mono text-[11px] text-muted"
+                    >
+                      <Icon class="size-3 shrink-0" aria-hidden="true" />
+                      {label}
+                    </span>
+                  )
+                })()
+              }
               <div
                 data-card-stats
                 class="mt-3 flex items-center gap-3 font-mono text-[13px]"
               >
+                {(() => {
+                  const aa = getAaBenchmark(model.id)
+                  if (!aa) return null
+                  return (
+                    <>
+                      <span
+                        data-aa-score
+                        class="inline-flex items-center gap-1 text-muted"
+                        data-tooltip={aaTooltip(aa.preliminary)}
+                        tabindex="0"
+                        aria-label={`Artificial Analysis score ${aa.intelligence}${aa.preliminary ? ", preliminary" : ""}`}
+                      >
+                        <span class="text-secondary">
+                          {aa.intelligence}
+                          {aa.preliminary && (
+                            <abbr
+                              title="Preliminary score"
+                              class="text-muted no-underline"
+                            >
+                              *
+                            </abbr>
+                          )}
+                        </span>{" "}
+                        AA
+                      </span>
+                      <span data-aa-sep class="text-edge/40">
+                        ·
+                      </span>
+                    </>
+                  )
+                })()}
                 <span
                   data-vram
-                  class="inline-flex items-center gap-1 text-muted"
+                  class="inline-flex items-center gap-1.5 text-muted"
                 >
-                  <span data-vram-val class="text-secondary">
-                    {
-                      (
-                        model.quants.find((q) => q.name === "Q4_K_M") ||
-                        model.quants[0]
-                      ).vramGB
-                    }
-                  </span>{" "}
-                  GB{" "}
+                  <span data-vram-size>
+                    <span data-vram-val class="text-secondary">
+                      {
+                        (
+                          model.quants.find((q) => q.name === "Q4_K_M") ||
+                          model.quants[0]
+                        ).vramGB
+                      }
+                    </span>
+                    <span data-vram-unit>GB</span>
+                  </span>
                   <span
                     data-mem-pct-pill
                     class="hidden rounded-full px-1.5 py-px text-[11px] font-medium"
                     data-mem-pct
                   />
+                  <span
+                    data-mem-meter
+                    hidden
+                    role="meter"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                  >
+                    <span data-mem-meter-fill></span>
+                  </span>
                 </span>
                 <span data-ctx-sep class="text-edge/40">
                   ·
@@ -792,9 +1177,9 @@ function timeAgo(dateStr: string | null): string {
                   </div>
                 </div>
                 <div class="mt-2 flex flex-wrap gap-1">
-                  {model.useCase.map((tag) => (
+                  {getModelUseCategories(model.useCase, model.paramsBillions).map((cat) => (
                     <span class="rounded border border-edge/40 px-1.5 py-0.5 text-[11px] text-muted">
-                      {tag}
+                      {cat.label}
                     </span>
                   ))}
                 </div>
@@ -834,9 +1219,17 @@ function timeAgo(dateStr: string | null): string {
       Reset filters
     </button>
   </div>
+  </div>
+  <!-- /browse-section -->
+
+  <slot name="prefooter" />
 
   <Footer class="mt-20">
     <p class="text-[13px] text-muted/70">
+      Estimates based on browser APIs. Actual specs may vary.
+      <span aria-hidden="true">·</span>
+      <span id="hw-webgpu-status">WebGPU</span>
+      <span aria-hidden="true">·</span>
       Data sourced from <a
         href="https://github.com/ggerganov/llama.cpp"
         target="_blank"
@@ -886,6 +1279,38 @@ function timeAgo(dateStr: string | null): string {
     appendDeviceOptgroups,
   } from "@/lib/hardware-ui"
   import { deviceKeyToSlug, slugToDeviceKey } from "@/lib/device-slugs"
+  import {
+    matchesUseCategory,
+    normalizeUseFilter,
+  } from "@/lib/use-categories"
+  import { getCategoryPath } from "@/lib/seo-pages"
+  import {
+    getCompanyByProvider as resolveCompany,
+    getCompanyHref as resolveCompanyHref,
+  } from "@/data/companies"
+  import logoAi2 from "@/icons/companies/ai2.svg?url"
+  import logoDeepSeek from "@/icons/companies/deepseek.svg?url"
+  import logoGoogle from "@/icons/companies/google.svg?url"
+  import logoHuggingFace from "@/icons/companies/huggingface.svg?url"
+  import logoKimi from "@/icons/companies/kimi.svg?url"
+  import logoLiquid from "@/icons/companies/liquid.svg?url"
+  import logoLongCat from "@/icons/companies/longcat.svg?url"
+  import logoMeta from "@/icons/companies/meta.svg?url"
+  import logoBfl from "@/icons/companies/bfl.svg?url"
+  import logoLtx from "@/icons/companies/ltx.svg?url"
+  import logoMiniMax from "@/icons/companies/minimax.svg?url"
+  import logoMicrosoft from "@/icons/companies/microsoft.svg?url"
+  import logoMistral from "@/icons/companies/mistral.svg?url"
+  import logoNvidia from "@/icons/companies/nvidia.svg?url"
+  import logoOpenAI from "@/icons/companies/openai.svg?url"
+  import logoLiquidSvg from "@/icons/companies/liquid.svg?raw"
+  import logoOpenAISvg from "@/icons/companies/openai.svg?raw"
+  import logoZaiSvg from "@/icons/companies/zai.svg?raw"
+  import logoOrnith from "@/icons/companies/ornith.svg?url"
+  import logoQwen from "@/icons/companies/qwen.svg?url"
+  import logoTencent from "@/icons/companies/tencent.svg?url"
+  import logoZai from "@/icons/companies/zai.svg?url"
+  import logoInternScienceSvg from "@/icons/companies/internscience.svg?raw"
 
   const GRADES: Record<Grade, GradeInfo> = {
     S: { letter: "S", label: "Runs great", color: "var(--color-can-run)" },
@@ -905,6 +1330,51 @@ function timeAgo(dateStr: string | null): string {
     unknown: "var(--color-muted)",
   }
 
+  const COMPANY_LOGOS: Record<string, string> = {
+    ai2: logoAi2,
+    deepseek: logoDeepSeek,
+    google: logoGoogle,
+    huggingface: logoHuggingFace,
+    kimi: logoKimi,
+    liquid: logoLiquid,
+    longcat: logoLongCat,
+    meta: logoMeta,
+    bfl: logoBfl,
+    ltx: logoLtx,
+    minimax: logoMiniMax,
+    microsoft: logoMicrosoft,
+    mistral: logoMistral,
+    nvidia: logoNvidia,
+    openai: logoOpenAI,
+    ornith: logoOrnith,
+    qwen: logoQwen,
+    tencent: logoTencent,
+    zai: logoZai,
+  }
+
+  const COMPANY_LOGO_INLINE: Record<string, string> = {
+    liquid: logoLiquidSvg,
+    openai: logoOpenAISvg,
+    zai: logoZaiSvg,
+    internscience: logoInternScienceSvg,
+  }
+
+  function companyLogoMark(company: { logo?: string; name: string }): string {
+    const inline = company.logo ? COMPANY_LOGO_INLINE[company.logo] : ""
+    const url = company.logo ? COMPANY_LOGOS[company.logo] : ""
+    const initials =
+      company.name.match(/[A-Z]/g)?.slice(0, 2).join("") ||
+      company.name.slice(0, 2).toUpperCase()
+    if (inline) {
+      return inline.replace(
+        /<svg\b/,
+        '<svg aria-hidden="true" style="width:62%;height:62%"',
+      )
+    }
+    if (url) return `<img src="${url}" alt="" style="width:62%;height:62%" />`
+    return `<span class="font-pixel text-[8px] text-accent">${initials}</span>`
+  }
+
   const $ = <T extends Element = HTMLElement>(s: string) =>
     document.querySelector<T>(s)
   const $$ = <T extends Element = HTMLElement>(s: string) => [
@@ -922,6 +1392,7 @@ function timeAgo(dateStr: string | null): string {
       params.set("provider", activeProviderFilter)
     if (activeLicenseFilter !== "all")
       params.set("license", activeLicenseFilter)
+    if (showPreviousVersions) params.set("previous", "1")
     if (currentSort !== "score") params.set("sort", currentSort)
     return params
   }
@@ -943,6 +1414,7 @@ function timeAgo(dateStr: string | null): string {
 
   function syncFiltersToURL() {
     const params = buildFilterQueryString()
+    if (window.location.pathname.startsWith("/models/")) params.delete("use")
     const qs = params.toString() ? `?${params.toString()}` : ""
     const path = window.location.pathname
     history.replaceState({}, "", `${path}${qs}`)
@@ -979,9 +1451,10 @@ function timeAgo(dateStr: string | null): string {
 
     searchQuery = params.get("q") || ""
     activeStatusFilter = params.get("status") || "all"
-    activeUseFilter = params.get("use") || "all"
+    activeUseFilter = normalizeUseFilter(params.get("use"))
     activeProviderFilter = params.get("provider") || "all"
     activeLicenseFilter = params.get("license") || "all"
+    showPreviousVersions = params.get("previous") === "1"
     const sortParam = params.get("sort")
     if (sortParam) currentSort = sortParam
 
@@ -990,6 +1463,7 @@ function timeAgo(dateStr: string | null): string {
     const useSelect = $<HTMLSelectElement>("#filter-use")
     const providerSelect = $<HTMLSelectElement>("#filter-provider")
     const licenseSelect = $<HTMLSelectElement>("#filter-license")
+    const previousToggle = $<HTMLInputElement>("#filter-previous")
     const sortSelect = $<HTMLSelectElement>("#sort-select")
 
     if (searchInput) searchInput.value = searchQuery
@@ -997,6 +1471,7 @@ function timeAgo(dateStr: string | null): string {
     if (useSelect) useSelect.value = activeUseFilter
     if (providerSelect) providerSelect.value = activeProviderFilter
     if (licenseSelect) licenseSelect.value = activeLicenseFilter
+    if (previousToggle) previousToggle.checked = showPreviousVersions
     if (sortSelect) sortSelect.value = currentSort
 
     if (restoredFromSession) {
@@ -1010,6 +1485,16 @@ function timeAgo(dateStr: string | null): string {
 
   let detectedHW: HardwareInfo
   let currentHW: HardwareInfo
+  // Device pages preview a GPU without overwriting the home default.
+  let pageOverrides: HardwareOverrides | null = null
+
+  function isDevicePage(): boolean {
+    return Boolean(document.getElementById("results")?.dataset.deviceKey)
+  }
+
+  function activeOverrides(): HardwareOverrides {
+    return pageOverrides ?? getHardwareOverrides()
+  }
 
   function populateDeviceSelect(
     select: HTMLSelectElement,
@@ -1036,10 +1521,11 @@ function timeAgo(dateStr: string | null): string {
   }
 
   function updateHardwarePanel(hw: HardwareInfo) {
-    const overrides = getHardwareOverrides()
+    const overrides = activeOverrides()
 
     const deviceSelect = $<HTMLSelectElement>("#hw-device-select")
-    if (deviceSelect) {
+    const deviceLocked = isDevicePage()
+    if (deviceSelect && !deviceLocked) {
       populateDeviceSelect(
         deviceSelect,
         getDisplayName(detectedHW),
@@ -1071,10 +1557,17 @@ function timeAgo(dateStr: string | null): string {
       "[data-tooltip]",
     ) as HTMLElement | null
     if (sysramContainer && sysramSelect) {
+      sysramContainer.classList.remove("hidden")
+      sysramContainer.classList.replace("text-muted", "text-secondary")
       if (hw.isMobile) {
-        sysramContainer.classList.add("hidden")
+        sysramSelect.innerHTML = ""
+        const opt = document.createElement("option")
+        opt.value = ""
+        opt.textContent = "—"
+        sysramSelect.appendChild(opt)
+        sysramSelect.disabled = true
+        sysramSelect.classList.add("opacity-50", "cursor-not-allowed")
       } else if (hw.isAppleSilicon) {
-        sysramContainer.classList.remove("hidden")
         sysramSelect.innerHTML = ""
         const opt = document.createElement("option")
         opt.value = ""
@@ -1090,7 +1583,6 @@ function timeAgo(dateStr: string | null): string {
           )
         }
       } else {
-        sysramContainer.classList.remove("hidden")
         sysramSelect.disabled = false
         sysramSelect.classList.remove("opacity-50", "cursor-not-allowed")
         const raw = detectedHW.deviceMemoryRaw
@@ -1132,48 +1624,44 @@ function timeAgo(dateStr: string | null): string {
     }
 
     const effectiveBw = hw.memoryBandwidth
-    if (effectiveBw) {
-      $("#hw-bw")!.classList.remove("hidden")
-      const bwSelect = $<HTMLSelectElement>("#hw-bw-select")
-      if (bwSelect) {
-        populateSelect(
-          bwSelect,
-          BW_OPTIONS,
-          detectedHW.memoryBandwidth,
-          overrides.memoryBandwidth ?? effectiveBw,
-          (v) => `~${v} GB/s`,
-        )
-      }
-    } else {
-      $("#hw-bw")!.classList.add("hidden")
+    const bwSelect = $<HTMLSelectElement>("#hw-bw-select")
+    const bwEl = $("#hw-bw")
+    bwEl?.classList.remove("hidden")
+    if (effectiveBw && bwSelect) {
+      bwEl?.classList.replace("text-muted", "text-secondary")
+      populateSelect(
+        bwSelect,
+        BW_OPTIONS,
+        detectedHW.memoryBandwidth,
+        overrides.memoryBandwidth ?? effectiveBw,
+        (v) => `~${v} GB/s`,
+      )
+    } else if (bwSelect) {
+      bwSelect.innerHTML = ""
+      const opt = document.createElement("option")
+      opt.value = ""
+      opt.textContent = "—"
+      bwSelect.appendChild(opt)
+      bwSelect.disabled = true
     }
 
-    if (hw.gpuCores) {
-      $("#hw-gpu-cores")!.classList.remove("hidden")
-      $("#hw-gpu-cores-text")!.textContent = `${hw.gpuCores.toLocaleString()}`
-    } else {
-      $("#hw-gpu-cores")!.classList.add("hidden")
+    const coresEl = $("#hw-gpu-cores")
+    const coresText = $("#hw-gpu-cores-text")
+    coresEl?.classList.remove("hidden")
+    if (hw.gpuCores && coresText) {
+      coresEl?.classList.replace("text-muted", "text-secondary")
+      coresText.textContent = `${hw.gpuCores.toLocaleString()}`
+    } else if (coresText) {
+      coresText.textContent = "—"
     }
 
-    $("#hw-notice")!.classList.remove("invisible")
+    $("#hw-panel")?.setAttribute("aria-busy", "false")
 
-    const webgpuBadge = $("#hw-webgpu-badge")!
-    if (hw.webgpu) {
-      webgpuBadge.className =
-        "inline-flex items-center gap-1 rounded-full border border-accent/30 bg-accent/10 px-1.5 py-px text-[10px] font-medium text-accent"
-      webgpuBadge.setAttribute(
-        "data-tooltip",
-        "Your browser supports WebGPU — enables more accurate GPU detection and in-browser inference",
-      )
-      webgpuBadge.innerHTML = `<svg class="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>WebGPU</span>`
-    } else {
-      webgpuBadge.className =
-        "inline-flex items-center gap-1 rounded-full border border-red-500/30 bg-red-500/10 px-1.5 py-px text-[10px] font-medium text-red-400"
-      webgpuBadge.setAttribute(
-        "data-tooltip",
-        "Your browser does not support WebGPU — hardware detection may be less accurate. Try Chrome or Edge for better results",
-      )
-      webgpuBadge.innerHTML = `<svg class="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>WebGPU</span>`
+    const webgpuStatus = $("#hw-webgpu-status")
+    if (webgpuStatus) {
+      webgpuStatus.textContent = hw.webgpu
+        ? "WebGPU available"
+        : "WebGPU not available"
     }
   }
 
@@ -1193,7 +1681,11 @@ function timeAgo(dateStr: string | null): string {
       currentHW = { ...detectedHW }
       updateHardwarePanel(currentHW)
       updateAllCards(currentHW)
-      history.pushState({}, "", `/${qs}`)
+      history.pushState(
+        {},
+        "",
+        `${isBrowsePath() ? window.location.pathname : "/"}${qs}`,
+      )
       return
     }
 
@@ -1209,7 +1701,13 @@ function timeAgo(dateStr: string | null): string {
     updateAllCards(currentHW)
 
     const slug = deviceKeyToSlug(deviceKey)
-    history.pushState({}, "", `/device/${slug}${qs}`)
+    history.pushState(
+      {},
+      "",
+      isBrowsePath()
+        ? `${window.location.pathname}${qs}`
+        : `/device/${slug}${qs}`,
+    )
   }
 
   function setupHardwareEditing() {
@@ -1223,20 +1721,34 @@ function timeAgo(dateStr: string | null): string {
     })
 
     function handleFieldChange() {
-      const overrides = getHardwareOverrides()
+      const overrides = { ...activeOverrides() }
+      const lockedKey = document.getElementById("results")?.dataset.deviceKey
       if (ramSelect?.value) overrides.ramGB = Number(ramSelect.value)
       if (sysramSelect?.value) overrides.systemRAM = Number(sysramSelect.value)
       if (bwSelect?.value) overrides.memoryBandwidth = Number(bwSelect.value)
       if (!overrides.device || overrides.device === "auto") {
-        overrides.device = "custom"
-        const ds = $<HTMLSelectElement>("#hw-device-select")
-        if (ds) {
-          ds.value = "custom"
-          fitSelectWidth(ds)
+        if (lockedKey) {
+          overrides.device = lockedKey
+        } else {
+          overrides.device = "custom"
+          const ds = $<HTMLSelectElement>("#hw-device-select")
+          if (ds) {
+            ds.value = "custom"
+            fitSelectWidth(ds)
+          }
         }
       }
-      saveHardwareOverrides(overrides)
+      if (isDevicePage()) {
+        pageOverrides = overrides
+      } else {
+        saveHardwareOverrides(overrides)
+      }
       currentHW = applyOverrides(detectedHW, overrides)
+      if (currentHW.isAppleSilicon && sysramSelect) {
+        const opt = sysramSelect.options[0]
+        if (opt) opt.textContent = `${currentHW.totalUsableRAM ?? "—"} GB`
+        fitSelectWidth(sysramSelect)
+      }
       updateAllCards(currentHW)
     }
 
@@ -1285,7 +1797,10 @@ function timeAgo(dateStr: string | null): string {
 
     const scoreNumEl = card.querySelector<HTMLElement>("[data-score-num]")
     if (scoreNumEl) {
-      scoreNumEl.textContent = `${score}/100`
+      const den = document.createElement("span")
+      den.dataset.scoreDen = ""
+      den.textContent = "/100"
+      scoreNumEl.replaceChildren(document.createTextNode(String(score)), den)
       scoreNumEl.style.color = gradeInfo.color
     }
 
@@ -1314,6 +1829,46 @@ function timeAgo(dateStr: string | null): string {
         }
       }
     }
+
+    const memMeter = card.querySelector<HTMLElement>("[data-mem-meter]")
+    const memFill = card.querySelector<HTMLElement>("[data-mem-meter-fill]")
+    const vramEl = card.querySelector<HTMLElement>("[data-vram]")
+    if (memMeter && memFill) {
+      if (memPct !== null) {
+        memMeter.hidden = false
+        const level =
+          status === "can-run-slow"
+            ? "offload"
+            : memPct > 100
+              ? "over"
+              : memPct > 75
+                ? "tight"
+                : "ok"
+        const hint =
+          status === "can-run-slow"
+            ? `${memPct}% of VRAM — overflow to system RAM`
+            : memPct > 100
+              ? `${memPct}% of VRAM — does not fit`
+              : `${memPct}% of VRAM`
+        memMeter.dataset.level = level
+        memMeter.style.setProperty(
+          "--mem-fill",
+          String(Math.min(memPct, 100) / 100),
+        )
+        memMeter.setAttribute("aria-valuenow", String(Math.min(memPct, 100)))
+        memMeter.setAttribute("aria-label", hint)
+        if (vramEl) {
+          vramEl.dataset.tooltip = hint
+          vramEl.tabIndex = 0
+        }
+      } else {
+        memMeter.hidden = true
+        if (vramEl) {
+          delete vramEl.dataset.tooltip
+          vramEl.removeAttribute("tabindex")
+        }
+      }
+    }
     const memDetail = card.querySelector<HTMLElement>("[data-mem-pct-detail]")
     if (memDetail) {
       if (memPct !== null) {
@@ -1333,9 +1888,16 @@ function timeAgo(dateStr: string | null): string {
 
     const tokEl = card.querySelector<HTMLElement>("[data-tok-speed]")
     if (tokEl) {
+      const shown = toks !== null && status !== "cannot-run" ? toks : 0
+      tokEl.textContent = `~${shown} tok/s`
+
       if (toks !== null && status !== "cannot-run") {
-        tokEl.textContent = `~${toks} tok/s`
         tokEl.dataset.tok = String(toks)
+        tokEl.tabIndex = 0
+        tokEl.setAttribute(
+          "aria-label",
+          `Approximately ${toks} tokens per second. Hover or focus to preview the perceived generation speed`,
+        )
         if (toks >= 60) tokEl.className = "font-mono text-[13px] text-can-run"
         else if (toks >= 30)
           tokEl.className = "font-mono text-[13px] text-can-run/70"
@@ -1345,8 +1907,9 @@ function timeAgo(dateStr: string | null): string {
           tokEl.className = "font-mono text-[13px] text-maybe/70"
         else tokEl.className = "font-mono text-[13px] text-cannot-run"
       } else {
-        tokEl.textContent = "0 tok/s"
         delete tokEl.dataset.tok
+        tokEl.removeAttribute("tabindex")
+        tokEl.removeAttribute("aria-label")
         tokEl.className = "font-mono text-[13px] text-cannot-run/70"
       }
     }
@@ -1363,7 +1926,7 @@ function timeAgo(dateStr: string | null): string {
     })
 
     const vramVal = card.querySelector<HTMLElement>("[data-vram-val]")
-    if (vramVal) vramVal.textContent = String(vram)
+    if (vramVal) vramVal.textContent = Number(vram).toFixed(1)
 
     card.dataset.status = status
     card.dataset.score = String(score)
@@ -1377,6 +1940,7 @@ function timeAgo(dateStr: string | null): string {
     })
     updateSummary()
     sortAndAnimateCards()
+    if (recMode === "recs") buildRecommendations()
   }
 
   function updateSummary() {
@@ -1392,10 +1956,32 @@ function timeAgo(dateStr: string | null): string {
       const g = c.dataset.grade || "?"
       if (g in counts) counts[g]++
     })
+    const total = Object.values(counts).reduce((sum, n) => sum + n, 0)
+    const fit = counts.S + counts.A + counts.B
+    const tight = counts.C + counts.D
     for (const [grade, count] of Object.entries(counts)) {
-      $("#count-" + grade.toLowerCase())!.textContent = String(count)
+      const key = grade.toLowerCase()
+      $("#count-" + key)!.textContent = String(count)
+      $(`[data-grade-chip="${grade}"]`)?.classList.toggle("is-zero", count === 0)
+      const meter = $("#meter-" + key)
+      if (meter) meter.style.width = total ? `${(count / total) * 100}%` : "0%"
     }
-    $("#summary-bar")!.classList.remove("invisible")
+    const fitEl = $("#summary-fit")
+    const totalEl = $("#summary-total")
+    const extraEl = $("#summary-extra")
+    if (fitEl) fitEl.textContent = String(fit)
+    if (totalEl) totalEl.textContent = String(total)
+    if (extraEl) {
+      const parts: string[] = []
+      if (tight) parts.push(`${tight} tight`)
+      if (counts.F) parts.push(`${counts.F} too heavy`)
+      extraEl.textContent = parts.length ? ` · ${parts.join(" · ")}` : ""
+    }
+    const bar = $("#summary-bar")
+    if (bar) {
+      bar.classList.toggle("hidden", recMode === "recs")
+      if (recMode !== "recs") bar.classList.remove("invisible")
+    }
   }
 
   let currentSort = "score"
@@ -1414,6 +2000,17 @@ function timeAgo(dateStr: string | null): string {
       const cardB = b.querySelector<HTMLElement>("[data-model-id]")!
 
       switch (currentSort) {
+        case "aa": {
+          const aaA = Number.parseInt(cardA.dataset.aa || "", 10)
+          const aaB = Number.parseInt(cardB.dataset.aa || "", 10)
+          const nA = Number.isFinite(aaA) ? aaA : -1
+          const nB = Number.isFinite(aaB) ? aaB : -1
+          if (nA !== nB) return nB - nA
+          return (
+            parseFloat(cardA.dataset.params || "0") -
+            parseFloat(cardB.dataset.params || "0")
+          )
+        }
         case "params-asc":
           return (
             parseFloat(cardA.dataset.params || "0") -
@@ -1492,12 +2089,237 @@ function timeAgo(dateStr: string | null): string {
     }
   }
 
+  // ── Recommendations ────────────────────────────────────────
+  //
+  // Instead of listing every model, we surface the best picks per use case
+  // for the detected device. Ranking is quality-first (editorial pick order,
+  // model capability, recency, popularity) but gated by whether the model
+  // actually runs comfortably — so we never recommend something too heavy.
+
+  const REC_CAT_KEYS = ["text", "image", "video", "small"] as const
+  type RecCat = (typeof REC_CAT_KEYS)[number]
+
+  // Curated top-of-class open models per category (best first), refreshed from
+  // current mid-2026 recommendations. Only IDs present in the catalog are used.
+  const EDITORIAL: Record<RecCat, string[]> = {
+    text: [
+      "qwen3.6-35b-a3b", "qwen3.8-27b", "minimax-m3", "kimi-k3", "agents-a1", "longcat-2.0",
+      "gemma4-26b-a4b-it", "gpt-oss-20b", "gemma4-31b-it", "mistral-small-4-119b", "hy3",
+      "glm-4.5-air", "qwen3-32b", "devstral-small-2-24b", "glm-5.3", "glm-5.2", "qwen3-coder-480b",
+      "deepseek-r1-14b", "phi-4-14b", "qwen3-14b", "qwen3-8b", "qwen3.5-9b",
+      "qwen2.5-coder-7b", "deepseek-r1-32b",
+    ],
+    image: [
+      "flux2-dev", "qwen-image-2512", "hunyuan-image-3-instruct", "z-image-turbo",
+      "flux2-klein-9b", "flux2-klein-4b", "hunyuan-image-3",
+    ],
+    video: [
+      "minimax-h3", "ltx-2.3", "wan2.2-t2v-a14b", "hunyuan-video-1.5",
+      "wan2.2-ti2v-5b", "wan2.1-t2v-1.3b",
+    ],
+    small: [
+      "ministral-3-3b", "qwen3.5-4b", "gemma3-4b", "qwen3.5-2b", "smollm3-3b",
+      "phi-4-mini-reasoning", "qwen3-1.7b", "llama3.2-3b", "gemma3-1b",
+      "qwen3.5-0.8b", "qwen3-0.6b", "llama3.2-1b",
+    ],
+  }
+
+  interface RecModel {
+    id: string
+    name: string
+    href: string
+    uses: string[]
+    params: number
+    provider: string
+    arch: string
+    release: string
+    downloads: number
+    featured: boolean
+    thinking: boolean
+    tools: boolean
+    vision: boolean
+    grade: string
+    status: string
+    score: number
+    toks: number
+    vram: string
+    aa: number | null
+  }
+
+  function collectRecModels(): RecModel[] {
+    return $$("#models-grid > a, #models-grid-rest > a")
+      .map((link): RecModel | null => {
+        const c = link.querySelector<HTMLElement>("[data-model-id]")
+        if (!c) return null
+        if (c.dataset.superseded === "true") return null
+        const tokEl = c.querySelector<HTMLElement>("[data-tok-speed]")
+        const uses = (c.dataset.uses || "").split(",").filter(Boolean)
+        return {
+          id: c.dataset.modelId || "",
+          name: c.dataset.modelName || "",
+          href: link.getAttribute("href") || "#",
+          uses,
+          params: parseFloat(c.dataset.params || "0"),
+          provider: c.dataset.provider || "",
+          arch: c.dataset.arch || "dense",
+          release: c.dataset.release || "",
+          downloads: parseInt(c.dataset.downloads || "0"),
+          featured: c.dataset.featured === "true",
+          thinking: c.dataset.thinking === "true",
+          tools: c.dataset.tools === "true",
+          vision: uses.includes("vision"),
+          grade: c.dataset.grade || "?",
+          status: c.dataset.status || "unknown",
+          score: parseInt(c.dataset.score || "0"),
+          toks: tokEl?.dataset.tok ? parseInt(tokEl.dataset.tok) : 0,
+          vram: c.querySelector("[data-vram-val]")?.textContent?.trim() || "",
+          aa: c.dataset.aa ? parseInt(c.dataset.aa) : null,
+        }
+      })
+      .filter((m): m is RecModel => m !== null)
+  }
+
+  function monthsSince(release: string): number {
+    if (!release) return 48
+    const [y, m] = release.split("-").map(Number)
+    if (!y) return 48
+    const now = new Date()
+    return (now.getFullYear() - y) * 12 + (now.getMonth() + 1 - (m || 1))
+  }
+
+  function qualityScore(m: RecModel, cat: RecCat): number {
+    const idx = EDITORIAL[cat].indexOf(m.id)
+    const editorial = idx === -1 ? 0 : Math.max(6, 30 - idx * 3)
+    const params = Math.min(20, Math.log2(m.params + 1) * 3.2)
+    const recency = Math.max(0, 15 - monthsSince(m.release) * 0.4)
+    const pop = Math.max(0, Math.min(10, (Math.log10(m.downloads + 1) - 3) * 3))
+    const feat = m.featured ? 8 : 0
+    return editorial + params + recency + pop + feat
+  }
+
+  function recScore(
+    m: RecModel,
+    cat: RecCat,
+    usage: Record<string, number>,
+  ): number {
+    const fitFactor = m.status === "can-run" ? 1 : 0.6
+    const speedFactor =
+      m.toks >= 30 ? 1 : m.toks >= 15 ? 0.9 : m.toks >= 8 ? 0.78 : m.toks >= 4 ? 0.6 : 0.45
+    const reusePenalty = (usage[m.id] || 0) * 10
+    return qualityScore(m, cat) * fitFactor * speedFactor + m.score * 0.15 - reusePenalty
+  }
+
+  function tokClass(t: number): string {
+    if (t >= 60) return "text-can-run"
+    if (t >= 30) return "text-can-run/70"
+    if (t >= 15) return "text-maybe"
+    if (t >= 5) return "text-maybe/70"
+    return "text-cannot-run"
+  }
+
+  function recCardHTML(m: RecModel): string {
+    const gi = GRADES[m.grade as Grade] || GRADES["?"]
+    const toksLabel = m.toks > 0 ? `~${m.toks} tok/s` : "slow"
+    const company = resolveCompany(m.provider)
+    const companyHref = resolveCompanyHref(m.provider)
+    const companyLogoHTML =
+      company
+        ? `<span ${companyHref ? `data-company-link="${companyHref}"` : ""} data-company-preview="${m.provider}" class="rec-logo">${companyLogoMark(company)}</span>`
+        : ""
+    const vram = m.vram ? `${m.vram} GB` : ""
+    const aa = m.aa != null ? `${m.aa} AA` : ""
+    return `<a href="${m.href}" class="rec-card">
+      <span class="rec-grade" style="color:${gi.color}">${gi.letter}</span>
+      <span class="rec-name">${companyLogoHTML}<span class="rec-name-text">${m.name}</span></span>
+      <span class="rec-provider"><span ${companyHref ? `data-company-link="${companyHref}"` : ""}>${m.provider}</span></span>
+      <span class="rec-params">${m.params}B</span>
+      <span class="rec-vram">${vram}</span>
+      <span class="rec-aa">${aa}</span>
+      <span
+        class="rec-speed ${tokClass(m.toks)}"
+        ${m.toks > 0 ? `data-tok-speed data-tok="${m.toks}" tabindex="0" aria-label="${toksLabel}. Hover or focus to preview the perceived generation speed"` : ""}
+      >${toksLabel}</span>
+    </a>`
+  }
+
+  function buildRecommendations() {
+    // Keep SSR skeletons in place until hardware is known — hiding groups
+    // here would collapse the page and cause a layout jump.
+    if (!currentHW) return
+
+    const cards = collectRecModels()
+    const usage: Record<string, number> = {}
+
+    for (const key of REC_CAT_KEYS) {
+      const pool = cards.filter((m) => {
+        if (m.status !== "can-run" && m.status !== "tight") return false
+        return matchesUseCategory(m.uses, m.params, key)
+      })
+      pool.sort((a, b) => recScore(b, key, usage) - recScore(a, key, usage))
+      const picks = pool.slice(0, 3)
+
+      const group = $(`[data-rec-group="${key}"]`)
+      const container = group?.querySelector<HTMLElement>("[data-rec-cards]")
+      if (!group || !container) continue
+
+      group.classList.remove("hidden")
+      if (picks.length === 0) {
+        container.innerHTML = `<p class="rec-none">No models fit this device</p>`
+        continue
+      }
+      container.innerHTML = picks.map(recCardHTML).join("")
+      picks.forEach((p) => {
+        usage[p.id] = (usage[p.id] || 0) + 1
+      })
+    }
+
+    const empty = $("#rec-empty")
+    if (empty) empty.classList.add("hidden")
+    $("#recommendations")?.setAttribute("aria-busy", "false")
+
+    const nameEl = $("#rec-device-name")
+    if (nameEl && currentHW) {
+      // Follow the device chosen in the hardware panel so the header matches
+      // any manual override; fall back to the auto-detected name.
+      const sel = $<HTMLSelectElement>("#hw-device-select")
+      const val = sel?.value
+      nameEl.textContent =
+        sel && val && val !== "auto" && val !== "custom"
+          ? sel.options[sel.selectedIndex]?.text || getDisplayName(currentHW)
+          : getDisplayName(currentHW)
+    }
+  }
+
+  // ── Mode: Best picks vs Browse all ─────────────────────────
+
+  type RecMode = "recs" | "browse"
+  let recMode: RecMode = "recs"
+
+  function isBrowsePath() {
+    const path = window.location.pathname
+    return path === "/models" || path.startsWith("/models/")
+  }
+
+  function applyRecMode() {
+    const recs = $("#recommendations")
+    const browse = $("#browse-section")
+    const isRecs = recMode === "recs"
+    recs?.classList.toggle("hidden", !isRecs)
+    browse?.classList.toggle("hidden", isRecs)
+    $$("[data-mode-btn]").forEach((btn) => {
+      btn.classList.toggle("mode-tab-active", btn.dataset.modeBtn === recMode)
+    })
+    $("#summary-bar")?.classList.toggle("hidden", isRecs)
+    if (isRecs && currentHW) buildRecommendations()
+  }
+
   // ── Filters ────────────────────────────────────────────────
 
   let activeStatusFilter = "all"
   let activeUseFilter = "all"
   let activeProviderFilter = "all"
   let activeLicenseFilter = "all"
+  let showPreviousVersions = false
   let searchQuery = ""
 
   function applyFilters() {
@@ -1509,7 +2331,7 @@ function timeAgo(dateStr: string | null): string {
       const card = link.querySelector<HTMLElement>("[data-model-id]")
       if (!card) return
       const grade = card.dataset.grade || "?"
-      const uses = card.dataset.uses || ""
+      const uses = (card.dataset.uses || "").split(",").filter(Boolean)
       const provider = card.dataset.provider || ""
       const name = (card.dataset.modelName || "").toLowerCase()
       const isFeatured = card.dataset.featured === "true"
@@ -1518,6 +2340,12 @@ function timeAgo(dateStr: string | null): string {
       let show = true
 
       if (query && !name.includes(query)) show = false
+      if (
+        !showPreviousVersions &&
+        !query &&
+        card.dataset.superseded === "true"
+      )
+        show = false
       if (activeStatusFilter === "featured") {
         if (!isFeatured) show = false
       } else if (activeStatusFilter === "can-run") {
@@ -1527,7 +2355,10 @@ function timeAgo(dateStr: string | null): string {
       } else if (activeStatusFilter === "cannot-run") {
         if (grade !== "F") show = false
       }
-      if (activeUseFilter !== "all" && !uses.includes(activeUseFilter))
+      if (
+        activeUseFilter !== "all" &&
+        !matchesUseCategory(uses, parseFloat(card.dataset.params || "0"), activeUseFilter)
+      )
         show = false
       if (activeProviderFilter !== "all" && provider !== activeProviderFilter)
         show = false
@@ -1571,18 +2402,26 @@ function timeAgo(dateStr: string | null): string {
     const useSelect = $<HTMLSelectElement>("#filter-use")
     const providerSelect = $<HTMLSelectElement>("#filter-provider")
     const licenseSelect = $<HTMLSelectElement>("#filter-license")
+    const previousToggle = $<HTMLInputElement>("#filter-previous")
 
     searchQuery = ""
     activeStatusFilter = "all"
     activeUseFilter = "all"
     activeProviderFilter = "all"
     activeLicenseFilter = "all"
+    showPreviousVersions = false
 
     if (searchInput) searchInput.value = ""
     if (statusSelect) statusSelect.value = "all"
     if (useSelect) useSelect.value = "all"
     if (providerSelect) providerSelect.value = "all"
     if (licenseSelect) licenseSelect.value = "all"
+    if (previousToggle) previousToggle.checked = false
+
+    if (window.location.pathname.startsWith("/models/")) {
+      window.location.assign("/models")
+      return
+    }
 
     try {
       sessionStorage.removeItem(FILTERS_SESSION_KEY)
@@ -1598,6 +2437,7 @@ function timeAgo(dateStr: string | null): string {
     const useSelect = $<HTMLSelectElement>("#filter-use")
     const providerSelect = $<HTMLSelectElement>("#filter-provider")
     const licenseSelect = $<HTMLSelectElement>("#filter-license")
+    const previousToggle = $<HTMLInputElement>("#filter-previous")
     const resetBtn = $("#reset-filters")
 
     statusSelect?.addEventListener("change", () => {
@@ -1607,7 +2447,15 @@ function timeAgo(dateStr: string | null): string {
     })
 
     useSelect?.addEventListener("change", () => {
-      activeUseFilter = useSelect.value
+      const next = useSelect.value
+      if (isBrowsePath()) {
+        const params = buildFilterQueryString()
+        params.delete("use")
+        const qs = params.toString() ? `?${params.toString()}` : ""
+        window.location.assign(`${getCategoryPath(next)}${qs}`)
+        return
+      }
+      activeUseFilter = next
       applyFilters()
       syncFiltersToURL()
     })
@@ -1620,6 +2468,12 @@ function timeAgo(dateStr: string | null): string {
 
     licenseSelect?.addEventListener("change", () => {
       activeLicenseFilter = licenseSelect.value
+      applyFilters()
+      syncFiltersToURL()
+    })
+
+    previousToggle?.addEventListener("change", () => {
+      showPreviousVersions = previousToggle.checked
       applyFilters()
       syncFiltersToURL()
     })
@@ -1654,6 +2508,132 @@ function timeAgo(dateStr: string | null): string {
     })
   }
 
+  function setupCompanyLinks() {
+    document.addEventListener("click", (e) => {
+      const companyLink = (e.target as Element).closest<HTMLElement>(
+        "[data-company-link]",
+      )
+      if (!companyLink?.dataset.companyLink) return
+      e.preventDefault()
+      e.stopPropagation()
+      window.location.href = companyLink.dataset.companyLink
+    })
+  }
+
+  let companyPreviewWired = false
+
+  function setupCompanyPreview() {
+    if (companyPreviewWired) return
+    if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return
+    companyPreviewWired = true
+
+    let popup: HTMLElement | null = null
+    let activeTrigger: HTMLElement | null = null
+
+    function ensurePopup() {
+      if (popup) return
+      popup = document.createElement("div")
+      popup.className = "company-preview"
+      popup.setAttribute("role", "tooltip")
+      popup.innerHTML = `
+        <div class="company-preview-top">
+          <span class="company-preview-logo"></span>
+          <span class="company-preview-heading">
+            <strong class="company-preview-name"></strong>
+            <span class="company-preview-brand"></span>
+          </span>
+          <span class="company-preview-count"></span>
+        </div>
+        <p class="company-preview-description"></p>
+        <span class="company-preview-link">View all models <span aria-hidden="true">→</span></span>
+      `
+      document.body.appendChild(popup)
+    }
+
+    function position(trigger: HTMLElement) {
+      if (!popup) return
+      const margin = 10
+      const rect = trigger.getBoundingClientRect()
+      popup.style.left = "0px"
+      popup.style.top = "0px"
+      const popupRect = popup.getBoundingClientRect()
+      let left = rect.left + rect.width / 2 - popupRect.width / 2
+      left = Math.max(
+        margin,
+        Math.min(left, window.innerWidth - popupRect.width - margin),
+      )
+      let top = rect.top - popupRect.height - margin
+      popup.classList.toggle("company-preview-bottom", top < margin)
+      if (top < margin) top = rect.bottom + margin
+      popup.style.left = `${left}px`
+      popup.style.top = `${top}px`
+    }
+
+    function show(trigger: HTMLElement) {
+      if (activeTrigger === trigger) return
+      const provider = trigger.dataset.companyPreview
+      if (!provider) return
+      const company = resolveCompany(provider)
+      if (!company) return
+
+      ensurePopup()
+      if (!popup) return
+      activeTrigger = trigger
+
+      const count = document.querySelectorAll(
+        `[data-company-slug="${company.slug}"]`,
+      ).length
+      const name = popup.querySelector<HTMLElement>(".company-preview-name")
+      const brand = popup.querySelector<HTMLElement>(".company-preview-brand")
+      const countEl = popup.querySelector<HTMLElement>(".company-preview-count")
+      const description = popup.querySelector<HTMLElement>(
+        ".company-preview-description",
+      )
+      const logo = popup.querySelector<HTMLElement>(".company-preview-logo")
+
+      if (name) name.textContent = company.name
+      if (brand) brand.textContent = company.brand
+      if (countEl)
+        countEl.textContent = `${count} ${count === 1 ? "model" : "models"}`
+      if (description) description.textContent = company.description
+      if (logo) {
+        logo.innerHTML = companyLogoMark(company)
+      }
+
+      popup.classList.add("visible")
+      position(trigger)
+      requestAnimationFrame(() => {
+        if (activeTrigger === trigger) position(trigger)
+      })
+    }
+
+    function hide() {
+      activeTrigger = null
+      popup?.classList.remove("visible")
+    }
+
+    document.addEventListener("mouseover", (event) => {
+      const trigger = (event.target as Element).closest<HTMLElement>(
+        "[data-company-preview]",
+      )
+      if (trigger) show(trigger)
+    })
+
+    document.addEventListener("mouseout", (event) => {
+      const trigger = (event.target as Element).closest<HTMLElement>(
+        "[data-company-preview]",
+      )
+      if (!trigger) return
+      const related = event.relatedTarget as Element | null
+      if (!trigger.contains(related)) hide()
+    })
+
+    window.addEventListener("scroll", hide, { passive: true })
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") hide()
+    })
+  }
+
   // ── Init ───────────────────────────────────────────────────
 
   async function init() {
@@ -1668,11 +2648,11 @@ function timeAgo(dateStr: string | null): string {
         const prev = getHardwareOverrides()
         if (prev.systemRAM !== undefined)
           deviceOverrides.systemRAM = prev.systemRAM
-        saveHardwareOverrides(deviceOverrides)
+        pageOverrides = deviceOverrides
       }
     }
 
-    currentHW = applyOverrides(detectedHW)
+    currentHW = applyOverrides(detectedHW, pageOverrides ?? undefined)
     updateHardwarePanel(currentHW)
     updateAllCards(currentHW)
     applyFilters()
@@ -1866,15 +2846,18 @@ function timeAgo(dateStr: string | null): string {
         if (key && detectedHW) {
           const deviceOverrides = getDeviceOverrides(key)
           if (deviceOverrides) {
-            saveHardwareOverrides(deviceOverrides)
+            const prev = getHardwareOverrides()
+            if (prev.systemRAM !== undefined)
+              deviceOverrides.systemRAM = prev.systemRAM
+            pageOverrides = deviceOverrides
             currentHW = applyOverrides(detectedHW, deviceOverrides)
             updateHardwarePanel(currentHW)
             updateAllCards(currentHW)
           }
         }
-      } else if (detectedHW) {
-        saveHardwareOverrides({})
-        currentHW = { ...detectedHW }
+      } else if (path === "/" && detectedHW) {
+        pageOverrides = null
+        currentHW = applyOverrides(detectedHW)
         updateHardwarePanel(currentHW)
         updateAllCards(currentHW)
       }
@@ -1888,20 +2871,40 @@ function timeAgo(dateStr: string | null): string {
   function setupSpeedPreview() {
     if (speedPreviewWired) return
     if (typeof window === "undefined") return
-    if (!window.matchMedia("(hover: hover)").matches) return
     speedPreviewWired = true
 
-    const CHARS_PER_TOKEN = 4
-    const SAMPLE =
-      "Sure! Running this model locally feels roughly like this. Each token streams in real time so you can preview the perceived chat experience before installing."
+    // Chat-shaped skeleton: each bar is one token. Lines stay short so a
+    // fast model floods the bubble and a slow one crawls across the first line.
+    const SKELETON_LINES = [
+      [4.8, 2.2, 3.6, 1.6, 5.2, 2.8, 3.1, 2.0, 4.0],
+      [3.4, 1.8, 4.6, 2.4, 1.5, 3.9, 2.7, 5.0, 1.7, 3.2],
+      [2.6, 4.2, 1.6, 3.5, 2.3, 4.8, 1.9, 3.0, 2.8, 3.7],
+      [3.8, 2.1, 4.4, 1.7, 2.9, 3.3, 4.1, 1.8],
+      [4.0, 2.4, 3.2, 1.6, 5.0],
+    ]
+    const SELECTOR = "[data-tok-speed][data-tok]"
+    const SHOW_DELAY_MS = 180
+    const INSTANT_WINDOW_MS = 380
+    const REPLAY_PAUSE_MS = 900
+
+    const canHover = window.matchMedia("(hover: hover)").matches
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches
 
     let popup: HTMLElement | null = null
-    let textEl: HTMLElement | null = null
+    let msgEl: HTMLElement | null = null
+    let caretEl: HTMLElement | null = null
+    let wordEls: HTMLElement[] = []
     let rateEl: HTMLElement | null = null
     let tierEl: HTMLElement | null = null
-    let caretEl: HTMLElement | null = null
+    let metaEl: HTMLElement | null = null
     let rafId: number | null = null
+    let replayTimeoutId: number | null = null
+    let showTimeoutId: number | null = null
     let activeTrigger: HTMLElement | null = null
+    let lastVisible = -1
+    let lastHiddenAt = -Infinity
 
     function tierFor(t: number): { label: string; color: string } {
       if (t >= 60) return { label: "Instant", color: "var(--color-can-run)" }
@@ -1911,57 +2914,175 @@ function timeAgo(dateStr: string | null): string {
       return { label: "Painful", color: "var(--color-cannot-run)" }
     }
 
+    function formatSeconds(seconds: number): string {
+      if (seconds < 10) return `${seconds.toFixed(1)}s`
+      return `${Math.round(seconds)}s`
+    }
+
+    function wordMarkup(width: number): string {
+      return `<span class="speed-preview-word" style="width:${width}ch"></span>`
+    }
+
     function ensurePopup() {
-      if (popup) return
+      if (popup?.isConnected) return
       popup = document.createElement("div")
       popup.className = "speed-preview"
+      popup.id = "speed-preview-tooltip"
       popup.setAttribute("role", "tooltip")
-      popup.setAttribute("aria-live", "polite")
+      const lines = SKELETON_LINES.map(
+        (line) =>
+          `<div class="speed-preview-line">${line.map(wordMarkup).join("")}</div>`,
+      ).join("")
       popup.innerHTML = `
         <div class="speed-preview-head">
           <span class="speed-preview-rate"></span>
           <span class="speed-preview-tier"></span>
         </div>
-        <div class="speed-preview-body">
-          <span class="speed-preview-text"></span><span class="speed-preview-caret">▍</span>
+        <div class="speed-preview-msg" aria-hidden="true">
+          ${lines}
+          <span class="speed-preview-caret" hidden></span>
         </div>
+        <div class="speed-preview-meta"></div>
       `
       document.body.appendChild(popup)
-      textEl = popup.querySelector(".speed-preview-text")
+      msgEl = popup.querySelector(".speed-preview-msg")
+      caretEl = popup.querySelector(".speed-preview-caret")
+      wordEls = Array.from(popup.querySelectorAll(".speed-preview-word"))
       rateEl = popup.querySelector(".speed-preview-rate")
       tierEl = popup.querySelector(".speed-preview-tier")
-      caretEl = popup.querySelector(".speed-preview-caret")
+      metaEl = popup.querySelector(".speed-preview-meta")
     }
 
     function position(trigger: HTMLElement) {
       if (!popup) return
-      const margin = 8
+      const margin = 10
       const rect = trigger.getBoundingClientRect()
       popup.style.left = "0px"
       popup.style.top = "0px"
       const popRect = popup.getBoundingClientRect()
       let left = rect.left + rect.width / 2 - popRect.width / 2
-      left = Math.max(margin, Math.min(left, window.innerWidth - popRect.width - margin))
+      left = Math.max(
+        margin,
+        Math.min(left, window.innerWidth - popRect.width - margin),
+      )
       let top = rect.top - popRect.height - margin
-      if (top < margin) top = rect.bottom + margin
+      const below = top < margin
+      if (below) top = rect.bottom + margin
+      popup.dataset.placement = below ? "bottom" : "top"
       popup.style.left = `${left}px`
       popup.style.top = `${top}px`
     }
 
-    function show(trigger: HTMLElement) {
+    function placeCaret(visible: number) {
+      if (!caretEl || !msgEl || wordEls.length === 0) return
+      const total = wordEls.length
+      if (visible >= total) {
+        caretEl.hidden = true
+        return
+      }
+      const atStart = visible <= 0
+      const anchor = atStart ? wordEls[0] : wordEls[visible - 1]
+      const msgRect = msgEl.getBoundingClientRect()
+      const wordRect = anchor.getBoundingClientRect()
+      const x = atStart
+        ? wordRect.left - msgRect.left - 3
+        : wordRect.right - msgRect.left + 3
+      const y = wordRect.top - msgRect.top + (wordRect.height - 11) / 2
+      caretEl.hidden = false
+      caretEl.style.transform = `translate3d(${x}px, ${y}px, 0)`
+    }
+
+    function paintWords(visible: number) {
+      const total = wordEls.length
+      for (let i = 0; i < total; i++) {
+        wordEls[i].classList.toggle("is-on", i < visible)
+      }
+      placeCaret(visible)
+      lastVisible = visible
+    }
+
+    function resetWords() {
+      lastVisible = -1
+      paintWords(0)
+    }
+
+    function setMeta(visible: number, elapsedSec: number) {
+      if (!metaEl) return
+      metaEl.textContent = `${visible} tokens · ${formatSeconds(elapsedSec)}`
+    }
+
+    function stopAnimation() {
+      if (rafId) {
+        cancelAnimationFrame(rafId)
+        rafId = null
+      }
+      if (replayTimeoutId !== null) {
+        window.clearTimeout(replayTimeoutId)
+        replayTimeoutId = null
+      }
+    }
+
+    function startAnimation(trigger: HTMLElement, tok: number) {
+      stopAnimation()
+      resetWords()
+      if (!metaEl) return
+
+      const total = wordEls.length
+      const wordsPerSec = Math.max(0.5, tok)
+
+      if (reduceMotion) {
+        paintWords(total)
+        setMeta(total, total / wordsPerSec)
+        return
+      }
+
+      setMeta(0, 0)
+      const start = performance.now()
+      const animate = (now: number) => {
+        if (activeTrigger !== trigger) return
+        const elapsed = now - start
+        const visible = Math.min(
+          total,
+          Math.floor((elapsed / 1000) * wordsPerSec),
+        )
+        if (visible !== lastVisible) {
+          paintWords(visible)
+          setMeta(visible, elapsed / 1000)
+        }
+        if (visible < total) {
+          rafId = requestAnimationFrame(animate)
+          return
+        }
+        rafId = null
+        setMeta(total, total / wordsPerSec)
+        replayTimeoutId = window.setTimeout(() => {
+          replayTimeoutId = null
+          if (activeTrigger === trigger) startAnimation(trigger, tok)
+        }, REPLAY_PAUSE_MS)
+      }
+      rafId = requestAnimationFrame(animate)
+    }
+
+    function reveal(trigger: HTMLElement) {
       const tok = parseFloat(trigger.dataset.tok || "")
       if (!Number.isFinite(tok) || tok <= 0) return
+      if (activeTrigger === trigger && popup?.classList.contains("visible")) {
+        return
+      }
+
       activeTrigger = trigger
       ensurePopup()
-      if (!popup || !textEl || !rateEl || !tierEl || !caretEl) return
+      if (!popup || !msgEl || !rateEl || !tierEl || !metaEl) return
+      trigger.setAttribute("aria-describedby", popup.id)
 
       const t = tierFor(tok)
+      const instant = performance.now() - lastHiddenAt < INSTANT_WINDOW_MS
+      popup.toggleAttribute("data-instant", instant)
       rateEl.textContent = `≈ ${tok} tok/s`
       rateEl.style.color = t.color
       tierEl.textContent = t.label
       tierEl.style.color = t.color
-      caretEl.style.color = t.color
-      textEl.textContent = ""
+      msgEl.style.setProperty("--speed-accent", t.color)
 
       popup.classList.add("visible")
       position(trigger)
@@ -1969,70 +3090,81 @@ function timeAgo(dateStr: string | null): string {
         if (activeTrigger === trigger) position(trigger)
       })
 
-      if (rafId) cancelAnimationFrame(rafId)
-      const charsPerSec = Math.max(1, tok * CHARS_PER_TOKEN)
-      const start = performance.now()
-      const animate = (now: number) => {
-        if (activeTrigger !== trigger || !textEl) return
-        const elapsed = now - start
-        const chars = Math.min(
-          SAMPLE.length,
-          Math.floor((elapsed / 1000) * charsPerSec),
-        )
-        textEl.textContent = SAMPLE.slice(0, chars)
-        if (chars < SAMPLE.length) {
-          rafId = requestAnimationFrame(animate)
-        } else {
-          rafId = null
-          if (caretEl) caretEl.style.opacity = "0"
-        }
+      startAnimation(trigger, tok)
+    }
+
+    function scheduleShow(trigger: HTMLElement) {
+      if (showTimeoutId !== null) {
+        window.clearTimeout(showTimeoutId)
+        showTimeoutId = null
       }
-      caretEl.style.opacity = ""
-      rafId = requestAnimationFrame(animate)
+      const delay =
+        performance.now() - lastHiddenAt < INSTANT_WINDOW_MS ? 0 : SHOW_DELAY_MS
+      if (delay === 0) {
+        reveal(trigger)
+        return
+      }
+      showTimeoutId = window.setTimeout(() => {
+        showTimeoutId = null
+        reveal(trigger)
+      }, delay)
     }
 
     function hide() {
-      if (rafId) {
-        cancelAnimationFrame(rafId)
-        rafId = null
+      if (showTimeoutId !== null) {
+        window.clearTimeout(showTimeoutId)
+        showTimeoutId = null
       }
+      stopAnimation()
+      if (activeTrigger) lastHiddenAt = performance.now()
       activeTrigger = null
-      if (popup) popup.classList.remove("visible")
+      document
+        .querySelectorAll('[aria-describedby="speed-preview-tooltip"]')
+        .forEach((trigger) => trigger.removeAttribute("aria-describedby"))
+      if (popup) {
+        popup.classList.remove("visible")
+        popup.removeAttribute("data-instant")
+      }
     }
 
-    document.addEventListener("mouseover", (e) => {
-      const trigger = (e.target as Element).closest<HTMLElement>(
-        "[data-tok-speed][data-tok]",
-      )
-      if (trigger) show(trigger)
-    })
+    function triggerFrom(target: EventTarget | null): HTMLElement | null {
+      return (target as Element | null)?.closest<HTMLElement>(SELECTOR) ?? null
+    }
 
-    document.addEventListener("mouseout", (e) => {
-      const trigger = (e.target as Element).closest<HTMLElement>(
-        "[data-tok-speed][data-tok]",
-      )
-      if (!trigger) return
-      const related = e.relatedTarget as Element | null
-      if (!trigger.contains(related)) hide()
-    })
+    if (canHover) {
+      document.addEventListener("mouseover", (e) => {
+        const trigger = triggerFrom(e.target)
+        if (trigger) scheduleShow(trigger)
+      })
+
+      document.addEventListener("mouseout", (e) => {
+        const trigger = triggerFrom(e.target)
+        if (!trigger) return
+        const related = e.relatedTarget as Node | null
+        if (!trigger.contains(related)) hide()
+      })
+    }
 
     document.addEventListener("focusin", (e) => {
-      const trigger = (e.target as Element).closest<HTMLElement>(
-        "[data-tok-speed][data-tok]",
-      )
-      if (trigger) show(trigger)
+      const trigger = triggerFrom(e.target)
+      if (trigger) reveal(trigger)
     })
 
     document.addEventListener("focusout", (e) => {
-      const trigger = (e.target as Element).closest<HTMLElement>(
-        "[data-tok-speed][data-tok]",
-      )
-      if (trigger) hide()
+      const trigger = triggerFrom(e.target)
+      if (!trigger) return
+      const next = e.relatedTarget as Node | null
+      if (!trigger.contains(next)) hide()
     })
 
     window.addEventListener("scroll", () => hide(), { passive: true })
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") hide()
+    })
+    document.addEventListener("astro:before-swap", () => {
+      hide()
+      popup?.remove()
+      popup = null
     })
   }
 
@@ -2045,11 +3177,51 @@ function timeAgo(dateStr: string | null): string {
     activeUseFilter = "all"
     activeProviderFilter = "all"
     activeLicenseFilter = "all"
+    showPreviousVersions = false
     searchQuery = ""
     currentSort = "score"
     viewMode = (localStorage.getItem("viewMode") as ViewMode) || "list"
+    const resultsEl = document.getElementById("results")
+    const pageMode = resultsEl?.dataset.mode
+    recMode = pageMode === "browse" ? "browse" : "recs"
+    const pageUse = resultsEl?.dataset.useFilter
+    if (pageUse && pageUse !== "all") activeUseFilter = pageUse
+
+    const params = new URLSearchParams(window.location.search)
+    const path = window.location.pathname
+    const useParam = normalizeUseFilter(params.get("use"))
+    if (
+      useParam !== "all" &&
+      (path === "/" || path === "/models")
+    ) {
+      params.delete("use")
+      const qs = params.toString() ? `?${params.toString()}` : ""
+      window.location.replace(`${getCategoryPath(useParam)}${qs}`)
+      return
+    }
+
+    // Old /?q= bookmarks used to flip the homepage into Browse all.
+    if (path === "/" && window.location.search) {
+      const filterKeys = [
+        "q",
+        "status",
+        "provider",
+        "license",
+        "previous",
+        "sort",
+      ]
+      if (filterKeys.some((key) => params.has(key))) {
+        window.location.replace(`/models${window.location.search}`)
+        return
+      }
+    }
 
     readFiltersFromURL()
+    if (pageUse && pageUse !== "all") {
+      activeUseFilter = pageUse
+      const useSelect = $<HTMLSelectElement>("#filter-use")
+      if (useSelect) useSelect.value = pageUse
+    }
 
     setupQuantButtons()
     setupFilters()
@@ -2059,9 +3231,13 @@ function timeAgo(dateStr: string | null): string {
     setupKeyboardNav()
     setupHardwareEditing()
     setupLicenseLinks()
+    setupCompanyLinks()
+    setupCompanyPreview()
     setupPopstate()
     setupSpeedPreview()
     applyViewMode()
+    applyFilters()
+    applyRecMode()
     init()
   })
 </script>
@@ -2098,42 +3274,462 @@ function timeAgo(dateStr: string | null): string {
     opacity: 0.55;
   }
 
-  .filter-select {
-    border: 1px solid var(--color-edge);
-    background-color: var(--color-surface-card);
-    color: var(--color-secondary);
-    font-family: var(--font-mono);
-    font-size: 11px;
-    line-height: 1.4;
-    padding: 6px 10px;
-    border-radius: 6px;
-    outline: none;
-    transition: border-color 0.15s;
-    cursor: pointer;
+  .mode-tab {
+    transition:
+      color 160ms var(--ease-out),
+      background-color 160ms var(--ease-out);
   }
 
-  @media (min-width: 640px) {
-    .filter-select {
-      font-size: 13px;
-      padding: 7px 12px;
+  .mode-tab:hover {
+    color: var(--color-secondary);
+  }
+
+  .mode-tab-active {
+    background-color: var(--color-surface-raised);
+    color: var(--color-primary);
+  }
+
+  .hw-spec-panel {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    justify-items: start;
+    gap: 0.35rem 0.25rem;
+    max-width: 46rem;
+    margin-inline: auto;
+  }
+
+  .hw-spec {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3rem;
+    min-width: 0;
+    width: 100%;
+    min-height: 3.35rem;
+    padding: 0.35rem 0.95rem;
+  }
+
+  .hw-spec-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+    line-height: 1;
+  }
+
+  .hw-spec-value {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.625rem;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-primary);
+  }
+
+  .hw-spec :global(.hw-editable-select) {
+    max-width: 100%;
+    min-height: 1.625rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 639px) {
+    .hw-spec-panel {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .hw-spec {
+      padding-inline: 0.75rem;
     }
   }
 
-  .filter-select:focus {
-    border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+  .grade-meter {
+    display: flex;
+    height: 3px;
+    overflow: hidden;
+    border-radius: 99px;
+    background: var(--color-edge-subtle);
   }
 
-  .filter-select:hover {
-    border-color: var(--color-edge-subtle);
-    background-color: var(--color-surface-hover);
+  .grade-meter > span {
+    width: 0;
+    height: 100%;
+    min-width: 0;
+    transition: width 400ms var(--ease-out);
   }
 
-  select.filter-select {
+  .grade-chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.35rem;
+  }
+
+  .grade-chip.is-zero {
+    display: none;
+  }
+
+  .rec-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.35rem 1.25rem;
+    padding-bottom: 0.85rem;
+    border-bottom: 1px solid var(--color-edge);
+  }
+
+  .rec-head h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-size: 1.125rem;
+    font-weight: 500;
+    letter-spacing: -0.025em;
+    color: var(--color-primary);
+    line-height: 1.25;
+  }
+
+  .rec-head-icon {
+    display: inline-flex;
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+    color: var(--color-muted);
+  }
+
+  .rec-head p {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-muted);
+  }
+
+  .rec-device-line {
+    min-height: 1.25rem;
+  }
+
+  .rec-list {
+    --rec-row: 3.35rem;
+    display: flex;
+    flex-direction: column;
+    min-height: calc(3 * var(--rec-row));
+  }
+
+  .rec-list :global(.rec-card) {
+    display: grid;
+    grid-template-columns: 1.5rem minmax(0, 1.6fr) minmax(5rem, 0.7fr) 3.25rem 5.25rem 3.5rem 6.25rem;
+    align-items: center;
+    column-gap: 1rem;
+    min-height: var(--rec-row);
+    box-sizing: border-box;
+    padding: 0.95rem 0.15rem;
+    border-bottom: 1px solid var(--color-edge-subtle);
+    text-decoration: none;
+    animation: fadeIn 280ms var(--ease-out) both;
+    transition:
+      background-color 160ms var(--ease-out),
+      transform 160ms var(--ease-out);
+  }
+
+  .rec-list :global(.rec-skel) {
+    animation: none;
+    pointer-events: none;
+  }
+
+  .rec-list :global(.rec-skel-bar) {
+    display: block;
+    height: 0.7rem;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--color-edge) 70%, transparent);
+    animation: rec-skel-pulse 1.2s var(--ease-out) infinite;
+  }
+
+  @keyframes rec-skel-pulse {
+    50% {
+      opacity: 0.55;
+    }
+  }
+
+  .rec-list :global(.rec-skel-grade) {
+    width: 0.7rem;
+  }
+
+  .rec-list :global(.rec-skel-name) {
+    width: min(14rem, 70%);
+  }
+
+  .rec-list :global(.rec-skel-sm) {
+    width: 3.25rem;
+    margin-left: auto;
+  }
+
+  .rec-list :global(.rec-none) {
+    display: flex;
+    align-items: center;
+    min-height: calc(3 * var(--rec-row));
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--color-muted);
+  }
+
+  .rec-list :global(.rec-card:last-child) {
+    border-bottom: 0;
+  }
+
+  .rec-list :global(.rec-card:nth-child(2)) {
+    animation-delay: 40ms;
+  }
+
+  .rec-list :global(.rec-card:nth-child(3)) {
+    animation-delay: 80ms;
+  }
+
+  .rec-list :global(.rec-grade) {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+
+  .rec-list :global(.rec-name) {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.55rem;
+  }
+
+  .rec-list :global(.rec-logo) {
+    display: inline-flex;
+    width: 1.05rem;
+    height: 1.05rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-primary);
+  }
+
+  .rec-list :global(.rec-logo svg),
+  .rec-list :global(.rec-logo img) {
+    width: 100%;
+    height: 100%;
+  }
+
+  .rec-list :global(.rec-name-text) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--color-primary);
+    transition: color 160ms var(--ease-out);
+  }
+
+  .rec-list :global(.rec-provider),
+  .rec-list :global(.rec-params),
+  .rec-list :global(.rec-vram),
+  .rec-list :global(.rec-aa) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--color-muted);
+  }
+
+  .rec-list :global(.rec-provider) {
+    color: var(--color-secondary);
+  }
+
+  .rec-list :global(.rec-speed) {
+    justify-self: end;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .rec-list :global(.rec-card:hover .rec-name-text) {
+      color: var(--color-accent);
+    }
+  }
+
+  .rec-list :global(.rec-card:active) {
+    transform: scale(0.995);
+  }
+
+  @media (max-width: 899px) {
+    .rec-list :global(.rec-card) {
+      grid-template-columns: 1.5rem minmax(0, 1fr) 5.25rem 6.25rem;
+    }
+
+    .rec-list :global(.rec-provider),
+    .rec-list :global(.rec-params),
+    .rec-list :global(.rec-aa) {
+      display: none;
+    }
+  }
+
+  @media (max-width: 519px) {
+    .rec-list :global(.rec-card) {
+      grid-template-columns: 1.5rem minmax(0, 1fr) auto;
+      column-gap: 0.75rem;
+      padding-block: 0.85rem;
+    }
+
+    .rec-list :global(.rec-vram) {
+      display: none;
+    }
+  }
+
+  .filter-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .filter-top,
+  .filter-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .filter-top {
+    flex-wrap: nowrap;
+  }
+
+  .filter-row {
+    flex-wrap: wrap;
+  }
+
+  .filter-search {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .filter-search-icon {
+    position: absolute;
+    top: 50%;
+    left: 0.85rem;
+    width: 1rem;
+    height: 1rem;
+    transform: translateY(-50%);
+    pointer-events: none;
+    color: var(--color-muted);
+  }
+
+  .filter-search-input,
+  .filter-select,
+  .filter-view {
+    box-sizing: border-box;
+    height: 2.25rem;
+    margin: 0;
+    border: 1px solid var(--color-edge);
+    border-radius: 8px;
+    background-color: var(--color-surface-card);
+    color: var(--color-secondary);
+    outline: none;
+    transition:
+      border-color 160ms var(--ease-out),
+      color 160ms var(--ease-out);
+  }
+
+  .filter-search-input {
+    display: block;
+    width: 100%;
+    padding: 0 2.4rem 0 2.25rem;
+    color: var(--color-primary);
+    font-family: var(--font-sans);
+    font-size: 0.9375rem;
+    line-height: 2.25rem;
+  }
+
+  .filter-search-input::placeholder {
+    color: var(--color-muted);
+  }
+
+  .filter-search kbd {
+    pointer-events: none;
+    position: absolute;
+    top: 50%;
+    right: 0.65rem;
+    display: none;
+    transform: translateY(-50%);
+    border: 1px solid var(--color-edge);
+    border-radius: 5px;
+    padding: 0.12rem 0.38rem;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 1;
+    color: var(--color-muted);
+  }
+
+  .filter-select,
+  .filter-view {
+    flex: 0 0 auto;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 2.1rem;
+    cursor: pointer;
+  }
+
+  .filter-select {
+    padding-block: 0;
+    padding-inline: 0.75rem 1.65rem;
     appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2356565f' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236e6e78' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    background-position: right 6px center;
-    padding-right: 22px;
+    background-position: right 0.5rem center;
+  }
+
+  .filter-view {
+    display: none;
+    width: 2.25rem;
+    padding: 0;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-muted);
+  }
+
+  .filter-sort {
+    margin-left: auto;
+  }
+
+  .filter-search-input:hover,
+  .filter-search-input:focus,
+  .filter-select:hover,
+  .filter-select:focus,
+  .filter-view:hover,
+  .filter-view:focus-visible {
+    border-color: color-mix(in srgb, var(--color-accent) 38%, var(--color-edge));
+    color: var(--color-primary);
+  }
+
+  @media (min-width: 640px) {
+    .filter-search kbd {
+      display: inline-block;
+    }
+
+    .filter-view {
+      display: inline-flex;
+    }
   }
 
   select.filter-select option {
@@ -2143,7 +3739,7 @@ function timeAgo(dateStr: string | null): string {
     line-height: 1.6;
   }
 
-  /* List mode — compact single-row cards */
+  /* List mode — one quiet row: name, memory, speed, score */
   .model-card.list-mode {
     flex-direction: row;
     align-items: center;
@@ -2155,83 +3751,210 @@ function timeAgo(dateStr: string | null): string {
 
   .model-card.list-mode [data-description],
   .model-card.list-mode [data-advanced],
-  .model-card.list-mode [data-card-provider] {
+  .model-card.list-mode [data-card-provider],
+  .model-card.list-mode [data-badges],
+  .model-card.list-mode [data-time-ago],
+  .model-card.list-mode [data-aa-score],
+  .model-card.list-mode [data-aa-sep],
+  .model-card.list-mode [data-ctx],
+  .model-card.list-mode [data-ctx-sep],
+  .model-card.list-mode [data-tok-sep],
+  .model-card.list-mode [data-status-label],
+  .model-card.list-mode [data-score-den] {
     display: none !important;
   }
 
   .model-card.list-mode [data-card-body] {
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 4.5rem 6.75rem 7.25rem;
     align-items: center;
-    gap: 2rem;
-    padding: 0.625rem 1rem;
+    column-gap: 1.25rem;
+    padding: 0.7rem 1.25rem;
     flex: 1;
     min-width: 0;
   }
 
-  .model-card.list-mode [data-card-top] {
-    flex: 1;
-    min-width: 5rem;
+  .model-card.list-mode [data-model-type] {
+    display: inline-flex !important;
+    justify-self: start;
+    letter-spacing: 0.01em;
   }
 
-  .model-card.list-mode [data-time-ago] {
-    min-width: 5.5rem;
-    text-align: right;
+  .model-card.list-mode [data-license-icon] {
+    display: inline-flex !important;
+  }
+
+  .model-card.list-mode [data-license-icon]:focus {
+    outline: none;
+  }
+
+  .model-card.list-mode [data-license-icon]:focus-visible {
+    border-radius: 4px;
+    outline: 2px solid color-mix(in srgb, var(--color-accent) 70%, transparent);
+    outline-offset: 2px;
+  }
+
+  .model-card.list-mode [data-card-top] {
+    min-width: 0;
+  }
+
+  .model-card.list-mode [data-card-top] > div {
+    justify-content: flex-start;
+  }
+
+  .model-card.list-mode h3 {
+    font-size: 0.9375rem;
   }
 
   .model-card.list-mode [data-card-stats] {
+    display: contents;
+  }
+
+  .model-card.list-mode [data-vram],
+  .model-card.list-mode [data-tok-speed] {
+    box-sizing: border-box;
     margin-top: 0;
+    justify-self: stretch;
+    width: 100%;
+    min-width: 0;
     white-space: nowrap;
-    flex-shrink: 0;
-    justify-content: flex-end;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .model-card.list-mode [data-vram] {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.3rem;
+    line-height: 1.15;
+  }
+
+  .model-card.list-mode [data-vram][data-tooltip] {
+    cursor: help;
+  }
+
+  .model-card.list-mode [data-vram]:focus {
+    outline: none;
+  }
+
+  .model-card.list-mode [data-vram]:focus-visible {
+    border-radius: 2px;
+    outline: 2px solid color-mix(in srgb, var(--color-accent) 70%, transparent);
+    outline-offset: 2px;
+  }
+
+  .model-card.list-mode [data-vram-size] {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.3em;
+  }
+
+  .model-card.list-mode [data-tok-speed] {
+    display: block;
+    text-align: right;
+  }
+
+  .model-card.list-mode [data-mem-pct-pill] {
+    display: none !important;
+  }
+
+  .model-card.list-mode [data-mem-meter]:not([hidden]) {
+    display: block;
+    width: 100%;
+  }
+
+  [data-mem-meter] {
+    display: none;
+    height: 3px;
+    overflow: hidden;
+    border-radius: 99px;
+    background: color-mix(in srgb, var(--color-edge) 90%, transparent);
+  }
+
+  [data-mem-meter-fill] {
+    display: block;
+    height: 100%;
+    width: 100%;
+    transform: scaleX(var(--mem-fill, 0));
+    transform-origin: left center;
+    border-radius: inherit;
+    background: var(--color-can-run);
+    transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  [data-mem-meter][data-level="tight"] [data-mem-meter-fill] {
+    background: var(--color-maybe);
+  }
+
+  [data-mem-meter][data-level="over"] [data-mem-meter-fill] {
+    background: var(--color-cannot-run);
+  }
+
+  [data-mem-meter][data-level="offload"] [data-mem-meter-fill] {
+    background: var(--color-offload);
+  }
+
+  [data-mem-meter]:focus {
+    outline: none;
+  }
+
+  [data-mem-meter]:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--color-accent) 70%, transparent);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-mem-meter-fill],
+    .grade-meter > span,
+    .rec-list :global(.rec-card),
+    .rec-list :global(.rec-skel-bar),
+    .mode-tab {
+      transition: none;
+      animation: none;
+    }
   }
 
   .model-card.list-mode [data-card-footer] {
     margin-top: 0;
-    padding: 0 1rem 0 0;
-    gap: 0.5rem;
-    flex-shrink: 0;
+    padding: 0 1.25rem 0 0;
+    min-width: 2.5rem;
+    justify-content: flex-end;
   }
 
-  @media (max-width: 1023px) {
-    .model-card.list-mode [data-status-label] {
-      display: none !important;
-    }
+  .model-card.list-mode [data-score-num] {
+    font-size: 0.875rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
   }
 
-  @media (max-width: 767px) {
-    .model-card.list-mode [data-time-ago] {
-      display: none !important;
-    }
-
-    .model-card.list-mode [data-badges] {
+  @media (max-width: 639px) {
+    .model-card.list-mode [data-tok-speed] {
       display: none !important;
     }
 
     .model-card.list-mode [data-card-body] {
-      gap: 0.75rem;
+      grid-template-columns: minmax(0, 1fr) 4.5rem 6.5rem;
+      column-gap: 1rem;
+      padding: 0.625rem 1rem;
     }
-  }
 
-  @media (max-width: 579px) {
-    .model-card.list-mode [data-vram],
-    .model-card.list-mode [data-tok-sep] {
-      display: none !important;
+    .model-card.list-mode [data-card-footer] {
+      padding-right: 1rem;
     }
   }
 
   @media (max-width: 479px) {
-    .model-card.list-mode [data-ctx],
-    .model-card.list-mode [data-ctx-sep] {
+    .model-card.list-mode [data-vram] {
       display: none !important;
     }
 
     .model-card.list-mode [data-card-body] {
-      gap: 0.5rem;
-      padding: 0.5rem 0.75rem;
+      grid-template-columns: minmax(0, 1fr) 4.5rem;
+      padding: 0.6rem 0.875rem;
     }
 
     .model-card.list-mode [data-card-footer] {
-      padding-right: 0.5rem;
+      padding-right: 0.75rem;
     }
   }
 
@@ -2246,18 +3969,167 @@ function timeAgo(dateStr: string | null): string {
 
   /* ── Tok/s Hover Preview ─────────────────────────── */
 
+  [data-aa-score] {
+    cursor: help;
+    border-bottom: 1px dotted color-mix(in srgb, currentColor 42%, transparent);
+  }
+
   [data-tok-speed][data-tok] {
     cursor: help;
+    border-bottom: 1px dotted color-mix(in srgb, currentColor 42%, transparent);
+  }
+
+  .model-card.list-mode [data-tok-speed][data-tok] {
+    border-bottom-color: transparent;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .model-card.list-mode [data-tok-speed][data-tok]:hover {
+      border-bottom-color: color-mix(in srgb, currentColor 42%, transparent);
+    }
+  }
+
+  [data-tok-speed][data-tok]:focus {
+    outline: none;
+  }
+
+  [data-tok-speed][data-tok]:focus-visible {
+    border-radius: 2px;
+    outline: 2px solid color-mix(in srgb, var(--color-accent) 70%, transparent);
+    outline-offset: 2px;
+  }
+</style>
+
+<!--
+  The speed-preview popup is created with document.createElement and appended
+  to <body>, so it lives outside this component's scoped-style boundary.
+  These rules must be global to reach it.
+-->
+<style is:global>
+  .company-preview {
+    position: fixed;
+    width: min(320px, calc(100vw - 20px));
+    padding: 14px;
+    border: 1px solid var(--color-edge);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--color-surface-card) 95%, transparent);
+    color: var(--color-secondary);
+    box-shadow: 0 12px 36px rgb(0 0 0 / 0.38);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+    transform-origin: bottom center;
+    transition:
+      opacity 160ms cubic-bezier(0.16, 1, 0.3, 1),
+      transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 9998;
+  }
+
+  .company-preview.company-preview-bottom {
+    transform: translateY(-4px) scale(0.98);
+    transform-origin: top center;
+  }
+
+  .company-preview.visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  .company-preview-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .company-preview-logo {
+    display: inline-flex;
+    width: 44px;
+    height: 44px;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--color-edge);
+    border-radius: 10px;
+    background: var(--color-surface-raised);
+    color: var(--color-primary);
+  }
+
+  .company-preview-logo img,
+  .company-preview-logo svg {
+    width: 62%;
+    height: 62%;
+  }
+
+  .company-preview-logo .font-pixel {
+    font-size: 15px;
+    letter-spacing: -0.04em;
+  }
+
+  .company-preview-heading {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    flex-direction: column;
+  }
+
+  .company-preview-name {
+    overflow: hidden;
+    color: var(--color-primary);
+    font-family: var(--font-pixel);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .company-preview-brand {
+    margin-top: 2px;
+    color: var(--color-muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+
+  .company-preview-count {
+    flex: none;
+    padding: 3px 7px;
+    border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-accent) 9%, transparent);
+    color: var(--color-accent);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 1.4;
+  }
+
+  .company-preview-description {
+    margin-top: 11px;
+    color: var(--color-secondary);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .company-preview-link {
+    display: block;
+    margin-top: 10px;
+    padding-top: 9px;
+    border-top: 1px solid color-mix(in srgb, var(--color-edge) 65%, transparent);
+    color: var(--color-accent);
+    font-family: var(--font-mono);
+    font-size: 11px;
   }
 
   .speed-preview {
     position: fixed;
-    width: min(280px, calc(100vw - 16px));
-    padding: 10px 12px;
-    border-radius: 10px;
-    background: color-mix(in srgb, var(--color-surface-card) 94%, transparent);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    width: min(292px, calc(100vw - 20px));
+    padding: 12px 13px 11px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--color-surface-card) 95%, transparent);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--color-edge);
     color: var(--color-secondary);
     font-family: var(--font-sans);
@@ -2265,17 +4137,27 @@ function timeAgo(dateStr: string | null): string {
     line-height: 1.45;
     pointer-events: none;
     opacity: 0;
-    transform: translateY(4px);
+    transform: translateY(4px) scale(0.97);
+    transform-origin: bottom center;
     transition:
-      opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1),
-      transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+      opacity 160ms cubic-bezier(0.23, 1, 0.32, 1),
+      transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
     z-index: 9998;
-    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 12px 36px rgb(0 0 0 / 0.38);
+  }
+
+  .speed-preview[data-placement="bottom"] {
+    transform: translateY(-4px) scale(0.97);
+    transform-origin: top center;
   }
 
   .speed-preview.visible {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
+  }
+
+  .speed-preview[data-instant] {
+    transition-duration: 0ms;
   }
 
   .speed-preview-head {
@@ -2285,9 +4167,7 @@ function timeAgo(dateStr: string | null): string {
     gap: 0.5rem;
     font-family: var(--font-mono);
     font-size: 11px;
-    margin-bottom: 8px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid color-mix(in srgb, var(--color-edge) 60%, transparent);
+    margin-bottom: 9px;
   }
 
   .speed-preview-rate {
@@ -2297,34 +4177,106 @@ function timeAgo(dateStr: string | null): string {
   .speed-preview-tier {
     font-size: 10px;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     opacity: 0.85;
   }
 
-  .speed-preview-body {
-    font-family: var(--font-mono);
-    font-size: 11.5px;
-    line-height: 1.55;
-    color: var(--color-primary);
-    min-height: 4.7em;
-    word-break: break-word;
+  .speed-preview-msg {
+    --speed-accent: var(--color-accent);
+    --speed-line: 9px;
+    --speed-gap: 7px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--speed-gap);
+    height: calc(5 * var(--speed-line) + 4 * var(--speed-gap) + 22px);
+    padding: 11px 12px;
+    border: 1px solid color-mix(in srgb, var(--color-edge) 80%, transparent);
+    border-radius: 10px 10px 10px 4px;
+    background: color-mix(in srgb, var(--color-surface-raised) 88%, transparent);
+    overflow: hidden;
+  }
+
+  .speed-preview-line {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 6px;
+    height: var(--speed-line);
+    overflow: hidden;
+  }
+
+  .speed-preview-word {
+    height: var(--speed-line);
+    flex: none;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--color-edge) 62%, transparent);
+  }
+
+  .speed-preview-word:not(.is-on) {
+    background-image: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--color-edge) 48%, transparent) 0%,
+      color-mix(in srgb, var(--color-edge) 82%, var(--color-primary)) 46%,
+      color-mix(in srgb, var(--color-edge) 48%, transparent) 100%
+    );
+    background-size: 220% 100%;
+    animation: speed-skeleton-shimmer 1.5s linear infinite;
+  }
+
+  .speed-preview-word.is-on {
+    background: color-mix(in srgb, var(--speed-accent) 72%, var(--color-primary));
+    animation: none;
   }
 
   .speed-preview-caret {
-    display: inline-block;
-    margin-left: 1px;
-    color: var(--color-accent);
-    animation: speed-caret-blink 0.9s steps(2, end) infinite;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1.5px;
+    height: 11px;
+    border-radius: 1px;
+    background: var(--speed-accent);
+    box-shadow: 0 0 7px color-mix(in srgb, var(--speed-accent) 55%, transparent);
+    animation: speed-caret-blink 0.7s steps(2, end) infinite;
+    will-change: transform;
+  }
+
+  .speed-preview-meta {
+    margin-top: 8px;
+    min-height: 1.4em;
+    color: var(--color-muted);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.01em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  @keyframes speed-skeleton-shimmer {
+    from {
+      background-position: 120% 0;
+    }
+    to {
+      background-position: -120% 0;
+    }
   }
 
   @keyframes speed-caret-blink {
-    50% { opacity: 0; }
+    50% {
+      opacity: 0;
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .company-preview {
+      transition-duration: 0.01ms !important;
+    }
+
     .speed-preview {
       transition-duration: 0.01ms !important;
     }
+
+    .speed-preview-word:not(.is-on),
     .speed-preview-caret {
       animation: none;
     }

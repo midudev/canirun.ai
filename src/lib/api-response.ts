@@ -1,3 +1,5 @@
+// ── Shared JSON/CORS helpers for the public API ────────────
+
 const CORS_HEADERS = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "GET, POST, OPTIONS",
@@ -20,7 +22,7 @@ export function preflight(): Response {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
 }
 
-const MAX_BODY_BYTES = 16 * 1024;
+export const MAX_BODY_BYTES = 16 * 1024;
 
 export async function readJsonBody(
   request: Request,
@@ -29,7 +31,6 @@ export async function readJsonBody(
   if (contentLength > MAX_BODY_BYTES) {
     return { ok: false, response: json({ error: "payload_too_large" }, 413) };
   }
-
   try {
     return { ok: true, value: await request.json() };
   } catch {

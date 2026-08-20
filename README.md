@@ -4,9 +4,10 @@
 
 # CanIRun.ai
 
-**Find out which AI models your hardware can run locally — in seconds.**
+**The best AI models for your machine — recommended in seconds.**
 
-Your browser detects your CPU, RAM and GPU automatically.\
+Your browser detects your CPU, RAM and GPU automatically, then we recommend the
+top open models to run locally for each use case: coding, chat, reasoning and vision.\
 No installs, no benchmarks, no guesswork.
 
 [**canirun.ai**](https://canirun.ai) · [Report Bug](https://github.com/midudev/canirun.ai/issues) · [Request Model](https://github.com/midudev/canirun.ai/issues)
@@ -19,12 +20,12 @@ No installs, no benchmarks, no guesswork.
 
 Cloud AI APIs are expensive, rate-limited, and send your data to third parties. Running models locally gives you **privacy, speed, and zero cost per token** — but only if your hardware is up to the job.
 
-CanIRun.ai answers that question instantly. Open the site, let it detect your hardware, and see a personalized compatibility report for **68+ open-weight models** with grades from S to F.
+CanIRun.ai answers that question instantly. Open the site, let it detect your hardware, and get a curated set of **best-pick recommendations** grouped by use case (general, coding, reasoning, vision and lightweight) — the top open models that actually run well on *your* device. Prefer to explore? Switch to **Browse all** for the full compatibility report across **55+ open-weight models** with grades from S to F.
 
 ## How It Works
 
 ```
-Browser APIs → Hardware Detection → Model Matching → Personalized Grades
+Browser APIs → Hardware Detection → Per-Use-Case Ranking → Best-Pick Recommendations
 ```
 
 1. **Hardware detection** runs entirely client-side using WebGL, WebGPU, `navigator.deviceMemory` and a lightweight CPU micro-benchmark.
@@ -44,8 +45,9 @@ Browser APIs → Hardware Detection → Model Matching → Personalized Grades
 
 ## Features
 
+- **Best-pick recommendations** — the top open models for your device, grouped by use case (general, coding, reasoning, vision, lightweight), quality-ranked but gated by what actually runs well
 - **Zero-install hardware detection** — CPU cores, RAM, GPU model, VRAM and memory bandwidth identified from the browser
-- **68+ AI models** — from TinyLlama 1.1B to Llama 4 Maverick 128E and Qwen3 Coder 480B
+- **55+ curated open models** — from Qwen 3 0.6B up to GLM-5.2 753B and Kimi K2.6 1T, pruned to the ones worth running (no stale duplicates)
 - **7 quantization levels per model** — Q2_K, Q3_K_M, Q4_K_M, Q5_K_M, Q6_K, Q8_0, F16 with computed VRAM sizes
 - **S–F grading system** — instant letter grade based on your hardware vs. model requirements
 - **Tokens/second estimates** — approximate inference speed from memory bandwidth data
@@ -60,48 +62,89 @@ Browser APIs → Hardware Detection → Model Matching → Personalized Grades
 
 ## Model Catalog
 
-Models from **Meta, Google, Alibaba, DeepSeek, Mistral AI, Microsoft, NVIDIA, Liquid AI** and the community:
+Models from **Meta, Google, Alibaba, DeepSeek, Mistral AI, Microsoft, NVIDIA, Liquid AI, Z.ai, Moonshot AI, OpenAI** and the community:
 
 | Family | Models |
 |---|---|
-| Llama | 3.1 8B, 3.1 405B, 3.2 1B/3B/11B-Vision, 3.3 70B, 4 Scout, 4 Maverick |
-| Qwen | 2.5 7B–72B, 2.5 Coder, 3 1.7B–235B, 3.5 0.8B–397B, 3 Coder 480B |
-| Gemma | 2 2B/9B/27B, 3 1B/4B/12B/27B |
-| DeepSeek | R1 1.5B–32B, V3.1, V3.2 |
-| Mistral | 7B, Nemo 12B, Small 24B, Mixtral 8x7B/8x22B, Devstral |
-| Phi | 3.5 Mini, 4 14B, 4 Mini Reasoning |
-| Others | Nemotron, GLM-4, OLMo 2, SmolLM3, LFM2, EXAONE, Kimi K2, GPT-OSS |
+| Llama | 3.1 8B, 3.2 1B/3B, 3.3 70B, 4 Scout/Maverick |
+| Qwen | 2.5 Coder 1.5B/7B, 3 0.6B–235B, 3 Coder 30B/480B, 3-VL 4B/8B/30B-A3B, 3.5 0.8B–397B, 3.6 27B/35B-A3B |
+| Gemma | 3 1B/4B/12B/27B, 4 E2B/E4B/26B-A4B/31B |
+| DeepSeek | R1 1.5B–32B/671B, V3.2, V4 Flash |
+| Mistral | Ministral 8B, Nemo 12B, Small 3.1 24B, Devstral Small 2 |
+| GLM | 4 9B, 4.5 Air, 4.6, 5.2 |
+| Others | Phi-4, Nemotron, OLMo 2, SmolLM3, LFM2, Kimi K2.6, GPT-OSS |
 
 ## API
 
-CanIRun.ai exposes the compatibility engine as a CORS-enabled JSON API:
+The same compatibility engine that powers the site is exposed as a small JSON API,
+so you can integrate CanIRun.ai into dashboards, PC configurators, CLI tools or
+custom assistants. All endpoints are CORS-enabled and return `application/json`.
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/models` | List models; accepts `provider` and `useCase` filters |
-| `GET` | `/api/models/:id` | Get complete metadata for one model |
-| `POST` | `/api/compatibility` | Evaluate one model against a hardware profile |
-| `POST` | `/api/recommend` | Recommend compatible models for a hardware profile |
+| `GET` | `/api/models` | List the model catalog. Optional `?provider=` and `?useCase=` filters. |
+| `GET` | `/api/models/:id` | Full metadata for one model (accepts fuzzy ids, e.g. `llama-3.1-8b`). |
+| `POST` | `/api/compatibility` | Check one hardware profile against one model. |
+| `POST` | `/api/recommend` | Rank the best compatible models for a hardware profile. |
 
-Example:
+**Hardware profile** — all `POST` endpoints accept a `hardware` object. Provide a GPU
+name and we enrich VRAM/bandwidth from the internal database, or pass explicit values:
+
+```jsonc
+{
+  "hardware": {
+    "cpu": { "name": "AMD Ryzen 7 5800X", "cores": 8, "threads": 16 },
+    "ramGb": 32,
+    "gpu": { "name": "NVIDIA RTX 3060", "vramGb": 12, "memoryBandwidthGbps": 360 }
+  }
+}
+```
+
+Apple Silicon (`"gpu": { "name": "Apple M3 Max" }`) is detected automatically and
+treated as unified memory. Omit `gpu` for a CPU / integrated-GPU profile.
+
+### `POST /api/compatibility`
 
 ```bash
 curl -X POST https://canirun.ai/api/compatibility \
   -H 'content-type: application/json' \
-  -d '{
-    "hardware": {
-      "ramGb": 32,
-      "gpu": { "name": "NVIDIA RTX 3060" }
-    },
-    "modelId": "llama3.1-8b",
-    "quantization": "Q4_K_M"
-  }'
+  -d '{ "hardware": { "ramGb": 32, "gpu": { "name": "NVIDIA RTX 3060" } },
+        "modelId": "llama-3.1-8b", "quantization": "Q4_K_M" }'
 ```
 
-GPU names are enriched from the internal hardware database. You can also pass
-`vramGb` and `memoryBandwidthGbps` explicitly. For Apple Silicon, provide the
-chip name and total unified memory through `ramGb`. Omitting `quantization`
-selects the highest-quality option that fits the supplied hardware.
+```jsonc
+{
+  "compatible": true,
+  "status": "comfortable",          // comfortable | tight | cpu-offload | insufficient | unknown
+  "grade": "A",                     // S–F
+  "score": 82,
+  "modelId": "llama3.1-8b",
+  "quantization": "Q4_K_M",
+  "recommendedQuantization": "Q8_0",
+  "estimated": {
+    "tokensPerSecond": 55,
+    "modelSizeGb": 3.9,
+    "vramRequiredGb": 4.6,
+    "ramRequiredGb": 7.5,
+    "memoryHeadroomGb": 7.4
+  },
+  "notes": ["The model should fit comfortably in GPU memory.", "..."]
+}
+```
+
+`quantization` is optional — when omitted, the best-fitting quant is used.
+
+### `POST /api/recommend`
+
+```bash
+curl -X POST https://canirun.ai/api/recommend \
+  -H 'content-type: application/json' \
+  -d '{ "hardware": { "ramGb": 64, "gpu": { "name": "RTX 4090", "vramGb": 24 } },
+        "useCase": "code", "limit": 5 }'
+```
+
+Returns a ranked `recommendations` array (each with quant, grade, status and
+estimated tokens/second). `useCase` and `limit` (1–25, default 5) are optional.
 
 ## Tech Stack
 
@@ -161,6 +204,7 @@ src/
 │   ├── index.astro         # Home — model grid with filters & search
 │   ├── tier.astro          # Tier list — S–F ranking with image export
 │   ├── model/[id].astro    # Model detail — quants, compatibility, install
+│   ├── api/                # JSON API — models, compatibility, recommend
 │   └── og/                 # Dynamic OG image endpoints
 ├── components/
 │   └── NavHeader.astro     # Site navigation

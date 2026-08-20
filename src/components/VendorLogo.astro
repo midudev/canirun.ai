@@ -1,0 +1,71 @@
+---
+import type { DeviceVendor } from "@/lib/devices"
+import LogoAmd from "@/icons/vendors/amd.svg"
+import LogoApple from "@/icons/vendors/apple.svg"
+import LogoArm from "@/icons/vendors/arm.svg"
+import LogoGoogle from "@/icons/companies/google.svg"
+import LogoIntel from "@/icons/vendors/intel.svg"
+import LogoNvidia from "@/icons/companies/nvidia.svg"
+import LogoQualcomm from "@/icons/vendors/qualcomm.svg"
+import LogoRaspberry from "@/icons/vendors/raspberry.svg"
+import LogoSamsung from "@/icons/vendors/samsung.svg"
+
+interface Props {
+  vendor: DeviceVendor
+  class?: string
+  decorative?: boolean
+}
+
+const {
+  vendor,
+  class: className = "size-8",
+  decorative = true,
+} = Astro.props
+
+const LOGOS: Record<DeviceVendor, typeof LogoApple> = {
+  apple: LogoApple,
+  nvidia: LogoNvidia,
+  amd: LogoAmd,
+  intel: LogoIntel,
+  qualcomm: LogoQualcomm,
+  arm: LogoArm,
+  samsung: LogoSamsung,
+  google: LogoGoogle,
+  raspberry: LogoRaspberry,
+}
+
+const LABELS: Record<DeviceVendor, string> = {
+  apple: "Apple",
+  nvidia: "NVIDIA",
+  amd: "AMD",
+  intel: "Intel",
+  qualcomm: "Qualcomm",
+  arm: "Arm",
+  samsung: "Samsung",
+  google: "Google",
+  raspberry: "Raspberry Pi",
+}
+
+const Logo = LOGOS[vendor]
+const label = LABELS[vendor]
+const monochrome = vendor === "apple" || vendor === "amd" || vendor === "arm"
+const wide = vendor === "amd" || vendor === "intel" || vendor === "arm" || vendor === "samsung"
+---
+
+<span
+  class:list={[
+    "inline-flex shrink-0 items-center justify-center rounded-md border border-edge/70 bg-surface-raised text-primary",
+    className,
+    wide && "!w-auto aspect-[7/4]",
+  ]}
+  aria-hidden={decorative ? "true" : undefined}
+  role={decorative ? undefined : "img"}
+  aria-label={decorative ? undefined : `${label} logo`}
+>
+  <Logo
+    class:list={[
+      wide ? "h-auto w-[86%]" : "size-[62%]",
+      monochrome && "fill-current",
+    ]}
+  />
+</span>

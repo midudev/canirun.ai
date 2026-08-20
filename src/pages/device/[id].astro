@@ -2,6 +2,8 @@
 import Layout from "@/layouts/Layout.astro";
 import NavHeader from "@/components/NavHeader.astro";
 import ModelListContent from "@/components/ModelListContent.astro";
+import VendorLogo from "@/components/VendorLogo.astro";
+import { getDeviceListing } from "@/lib/devices";
 import { getAllDeviceSlugs } from "@/lib/device-slugs";
 import IconArrowLeft from "@/icons/arrow-left.svg";
 
@@ -13,40 +15,64 @@ export function getStaticPaths() {
 }
 
 const { deviceKey, deviceName } = Astro.props;
+const device = getDeviceListing(deviceKey);
 ---
 
 <Layout
-  title={`${deviceName} — Can it run AI? | CanIRun.ai`}
-  description={`Find out which AI models you can run locally on ${deviceName}. VRAM requirements, performance estimates, and compatibility.`}
+  title={`Best local AI models for ${deviceName} | CanIRun.ai`}
+  description={`Which open LLMs, image and video models can ${deviceName} run locally? VRAM, speed estimates and compatibility grades.`}
 >
   <Fragment slot="head">
     <script type="application/ld+json" set:html={JSON.stringify({
       "@context": "https://schema.org",
-      "@type": "WebApplication",
-      "name": `CanIRun.ai — ${deviceName}`,
-      "url": `https://canirun.ai/device/${Astro.params.id}`,
-      "description": `Find out which AI models your ${deviceName} can run locally.`,
-      "applicationCategory": "DeveloperApplication",
-      "operatingSystem": "Web Browser",
-      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-      "creator": { "@type": "Person", "name": "midudev", "url": "https://midu.dev" }
+      "@graph": [
+        {
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "Home", item: "https://canirun.ai" },
+            { "@type": "ListItem", position: 2, name: "Devices", item: "https://canirun.ai/devices" },
+            { "@type": "ListItem", position: 3, name: deviceName, item: `https://canirun.ai/device/${Astro.params.id}` },
+          ],
+        },
+        {
+          "@type": "WebApplication",
+          name: `Local AI models for ${deviceName}`,
+          url: `https://canirun.ai/device/${Astro.params.id}`,
+          description: `Which open AI models can ${deviceName} run locally?`,
+          applicationCategory: "DeveloperApplication",
+          operatingSystem: "Web Browser",
+          offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+          creator: { "@type": "Person", name: "midudev", url: "https://midu.dev" },
+        },
+      ],
     })}></script>
   </Fragment>
   <NavHeader />
   <ModelListContent deviceKey={deviceKey}>
-    <header slot="header" class="mb-10 text-center">
+    <header slot="header" class="page-hero">
       <a
-        href="/"
-        class="mb-4 inline-flex items-center gap-1.5 font-mono text-[13px] text-muted transition-colors hover:text-primary"
+        href="/devices"
+        class="mb-5 inline-flex items-center gap-1.5 font-mono text-[13px] text-muted transition-colors hover:text-primary"
       >
         <IconArrowLeft class="h-3 w-3" />
         all devices
       </a>
-      <h1 class="font-pixel text-3xl tracking-tight text-accent sm:text-4xl">
-        {deviceName}
+      {
+        device && (
+          <div class="mb-5 flex justify-center">
+            <VendorLogo
+              vendor={device.vendor}
+              class="size-16 rounded-2xl"
+              decorative={false}
+            />
+          </div>
+        )
+      }
+      <h1 class="page-hero-title">
+        Local AI models for {deviceName}
       </h1>
-      <p class="mt-2 text-base text-muted">
-        Which AI models can your {deviceName} run locally?
+      <p class="page-hero-lede">
+        Open LLMs, coding, image and video models graded for {deviceName}.
       </p>
     </header>
   </ModelListContent>

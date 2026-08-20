@@ -1,0 +1,26 @@
+---
+import type { SeoFaq } from "@/lib/seo-pages"
+
+interface Props {
+  title?: string
+  faqs: SeoFaq[]
+}
+
+const { title = "Common questions", faqs } = Astro.props
+---
+
+<section class="mt-14" aria-labelledby="seo-faq-title">
+  <h2 id="seo-faq-title" class="font-pixel text-lg text-primary">{title}</h2>
+  <dl class="mt-6 space-y-6">
+    {
+      faqs.map((faq) => (
+        <div>
+          <dt class="font-medium text-primary">{faq.question}</dt>
+          <dd class="mt-1.5 max-w-3xl text-sm leading-relaxed text-secondary">
+            {faq.answer}
+          </dd>
+        </div>
+      ))
+    }
+  </dl>
+</section>

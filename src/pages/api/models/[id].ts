@@ -12,5 +12,6 @@ export const GET: APIRoute = ({ params }) => {
 
   const model = findModel(id);
   if (!model) return json({ error: "model_not_found", modelId: id }, 404);
+
   return json(serializeModel(model), 200, "public, max-age=3600");
 };

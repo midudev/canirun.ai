@@ -1,4 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /og/
 
 Sitemap: https://canirun.ai/sitemap-index.xml
