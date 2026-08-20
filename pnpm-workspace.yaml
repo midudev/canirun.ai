@@ -9,5 +9,5 @@ allowBuilds:
   sharp: true
 
 minimumReleaseAgeExclude:
-  - astro@6.3.5
-  - tsx@4.22.2
+  - astro@7.2.3
+  - tsx@4.23.12
