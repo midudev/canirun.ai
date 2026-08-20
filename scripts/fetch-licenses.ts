@@ -75,6 +75,7 @@ const MODEL_HF_REPOS: Record<string, string> = {
   "deepseek-r1-32b": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
   "exaone-4-32b": "LGAI-EXAONE/EXAONE-4.0-32B",
   "olmo2-32b": "allenai/OLMo-2-0325-32B-Instruct",
+  "muse-glimmer-30b": "meta-models/Muse-Glimmer-30B",
   "command-r-35b": "CohereForAI/c4ai-command-r-v01",
   "qwen3.5-35b-a3b": "lmstudio-community/Qwen3.5-35B-A3B-GGUF",
   "mixtral-8x7b": "mistralai/Mixtral-8x7B-Instruct-v0.1",
@@ -93,6 +94,18 @@ const MODEL_HF_REPOS: Record<string, string> = {
   "deepseek-v3.1": "deepseek-ai/DeepSeek-V3-0324",
   "deepseek-v3.2": "deepseek-ai/DeepSeek-V3.2",
   "kimi-k2": "moonshotai/Kimi-K2-Instruct",
+  "flux2-klein-4b": "black-forest-labs/FLUX.2-klein-4B",
+  "flux2-klein-9b": "black-forest-labs/FLUX.2-klein-9B",
+  "flux2-dev": "black-forest-labs/FLUX.2-dev",
+  "z-image-turbo": "Tongyi-MAI/Z-Image-Turbo",
+  "qwen-image-2512": "Qwen/Qwen-Image-2512",
+  "hunyuan-image-3": "tencent/HunyuanImage-3.0",
+  "hunyuan-image-3-instruct": "tencent/HunyuanImage-3.0-Instruct",
+  "wan2.1-t2v-1.3b": "Wan-AI/Wan2.1-T2V-1.3B",
+  "wan2.2-ti2v-5b": "Wan-AI/Wan2.2-TI2V-5B",
+  "wan2.2-t2v-a14b": "Wan-AI/Wan2.2-T2V-A14B",
+  "hunyuan-video-1.5": "tencent/HunyuanVideo-1.5",
+  "ltx-2.3": "Lightricks/LTX-2.3",
 };
 
 const LICENSE_DISPLAY: Record<string, string> = {

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Browser compatibility checks for local AI models in CanIRun.ai",
   "type": "module",
-  "packageManager": "pnpm@11.1.3",
+  "packageManager": "pnpm@11.22.0",
   "sideEffects": false,
   "homepage": "https://canirun.ai",
   "repository": {
@@ -55,7 +55,7 @@
     "access": "public"
   },
   "devDependencies": {
-    "@webgpu/types": "0.1.70",
+    "@webgpu/types": "0.1.72",
     "typescript": "6.0.3"
   }
 }

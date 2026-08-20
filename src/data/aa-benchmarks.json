@@ -1,0 +1,190 @@
+{
+  "source": "Artificial Analysis",
+  "index": "Intelligence Index",
+  "version": "v4.1.1",
+  "retrievedAt": "2026-08-20",
+  "sourceUrl": "https://artificialanalysis.ai/leaderboards/models",
+  "models": {
+    "kimi-k3": {
+      "intelligence": 60,
+      "aaName": "Kimi K3 (max)",
+      "aaUrl": "https://artificialanalysis.ai/models/kimi-k3"
+    },
+    "qwen3.8-2.4t-a95b": {
+      "intelligence": 58,
+      "aaName": "Qwen3.8 2.4T A95B",
+      "aaUrl": "https://artificialanalysis.ai/models/qwen3-8-2-4t-a95b"
+    },
+    "glm-5.2": {
+      "intelligence": 53,
+      "aaName": "GLM-5.2 (max)",
+      "aaUrl": "https://artificialanalysis.ai/models/glm-5-2"
+    },
+    "qwen3.8-27b": {
+      "intelligence": 52,
+      "aaName": "Qwen3.8 27B",
+      "aaUrl": "https://artificialanalysis.ai/models/qwen3-8-27b"
+    },
+    "minimax-m3": {
+      "intelligence": 45,
+      "aaName": "MiniMax-M3",
+      "aaUrl": "https://artificialanalysis.ai/models/minimax-m3"
+    },
+    "hy3": {
+      "intelligence": 42,
+      "aaName": "Hy3",
+      "aaUrl": "https://artificialanalysis.ai/models/hy3"
+    },
+    "qwen3.6-27b": {
+      "intelligence": 38,
+      "aaName": "Qwen3.6 27B",
+      "aaUrl": "https://artificialanalysis.ai/models/qwen3-6-27b"
+    },
+    "muse-glimmer-30b": {
+      "intelligence": 35,
+      "aaName": "Muse Glimmer (high)",
+      "aaUrl": "https://artificialanalysis.ai/models/muse-glimmer"
+    },
+    "longcat-2.0": {
+      "intelligence": 34,
+      "aaName": "LongCat 2.0",
+      "aaUrl": "https://artificialanalysis.ai/models/longcat-2-0"
+    },
+    "qwen3.5-397b-a17b": {
+      "intelligence": 34,
+      "aaName": "Qwen3.5 397B A17B",
+      "aaUrl": "https://artificialanalysis.ai/models/qwen3-5-397b-a17b"
+    },
+    "qwen3.5-122b-a10b": {
+      "intelligence": 33,
+      "aaName": "Qwen3.5 122B A10B",
+      "aaUrl": "https://artificialanalysis.ai/models/qwen3-5-122b-a10b"
+    },
+    "qwen3.6-35b-a3b": {
+      "intelligence": 32,
+      "aaName": "Qwen3.6 35B A3B",
+      "aaUrl": "https://artificialanalysis.ai/models/qwen3-6-35b-a3b"
+    },
+    "gemma4-31b-it": {
+      "intelligence": 30,
+      "aaName": "Gemma 4 31B",
+      "aaUrl": "https://artificialanalysis.ai/models/gemma-4-31b"
+    },
+    "gemma4-26b-a4b-it": {
+      "intelligence": 26,
+      "aaName": "Gemma 4 26B A4B",
+      "aaUrl": "https://artificialanalysis.ai/models/gemma-4-26b-a4b"
+    },
+    "gpt-oss-120b": {
+      "intelligence": 24,
+      "aaName": "gpt-oss-120b (high)",
+      "aaUrl": "https://artificialanalysis.ai/models/gpt-oss-120b"
+    },
+    "qwen3.5-9b": {
+      "intelligence": 22,
+      "aaName": "Qwen3.5 9B",
+      "aaUrl": "https://artificialanalysis.ai/models/qwen3-5-9b"
+    },
+    "gemma4-12b-it": {
+      "intelligence": 22,
+      "aaName": "Gemma 4 12B",
+      "aaUrl": "https://artificialanalysis.ai/models/gemma-4-12b",
+      "preliminary": true
+    },
+    "mistral-small-4-119b": {
+      "intelligence": 20,
+      "aaName": "Mistral Small 4",
+      "aaUrl": "https://artificialanalysis.ai/models/mistral-small-4"
+    },
+    "qwen3.5-4b": {
+      "intelligence": 20,
+      "aaName": "Qwen3.5 4B",
+      "aaUrl": "https://artificialanalysis.ai/models/qwen3-5-4b",
+      "preliminary": true
+    },
+    "gpt-oss-20b": {
+      "intelligence": 15,
+      "aaName": "gpt-oss-20b (high)",
+      "aaUrl": "https://artificialanalysis.ai/models/gpt-oss-20b"
+    },
+    "nemotron-nano-30b": {
+      "intelligence": 15,
+      "aaName": "NVIDIA Nemotron 3 Nano 30B A3B (Reasoning)",
+      "aaUrl": "https://artificialanalysis.ai/models/nvidia-nemotron-3-nano-30b-a3b-reasoning"
+    },
+    "llama4-maverick-17b-128e": {
+      "intelligence": 14,
+      "aaName": "Llama 4 Maverick",
+      "aaUrl": "https://artificialanalysis.ai/models/llama-4-maverick"
+    },
+    "diffusiongemma-26b-a4b-it": {
+      "intelligence": 13,
+      "aaName": "DiffusionGemma 26B A4B",
+      "aaUrl": "https://artificialanalysis.ai/models/diffusiongemma-26b-a4b",
+      "preliminary": true
+    },
+    "gemma4-e4b-it": {
+      "intelligence": 12,
+      "aaName": "Gemma 4 E4B",
+      "aaUrl": "https://artificialanalysis.ai/models/gemma-4-e4b",
+      "preliminary": true
+    },
+    "ministral-3-14b": {
+      "intelligence": 11,
+      "aaName": "Ministral 3 14B",
+      "aaUrl": "https://artificialanalysis.ai/models/ministral-3-14b"
+    },
+    "llama4-scout-17b": {
+      "intelligence": 10,
+      "aaName": "Llama 4 Scout",
+      "aaUrl": "https://artificialanalysis.ai/models/llama-4-scout"
+    },
+    "gemma4-e2b-it": {
+      "intelligence": 10,
+      "aaName": "Gemma 4 E2B",
+      "aaUrl": "https://artificialanalysis.ai/models/gemma-4-e2b",
+      "preliminary": true
+    },
+    "llama3.3-70b": {
+      "intelligence": 9,
+      "aaName": "Llama 3.3 70B",
+      "aaUrl": "https://artificialanalysis.ai/models/llama-3-3-70b",
+      "preliminary": true
+    },
+    "nemotron-nano-9b": {
+      "intelligence": 9,
+      "aaName": "NVIDIA Nemotron Nano 9B V2",
+      "aaUrl": "https://artificialanalysis.ai/models/nvidia-nemotron-nano-9b-v2-reasoning",
+      "preliminary": true
+    },
+    "ministral-3-3b": {
+      "intelligence": 7,
+      "aaName": "Ministral 3 3B",
+      "aaUrl": "https://artificialanalysis.ai/models/ministral-3-3b"
+    },
+    "qwen3.5-2b": {
+      "intelligence": 7,
+      "aaName": "Qwen3.5 2B",
+      "aaUrl": "https://artificialanalysis.ai/models/qwen3-5-2b",
+      "preliminary": true
+    },
+    "qwen3.5-0.8b": {
+      "intelligence": 5,
+      "aaName": "Qwen3.5 0.8B",
+      "aaUrl": "https://artificialanalysis.ai/models/qwen3-5-0-8b",
+      "preliminary": true
+    },
+    "lfm2-24b": {
+      "intelligence": 5,
+      "aaName": "LFM2 24B A2B",
+      "aaUrl": "https://artificialanalysis.ai/models/lfm2-24b-a2b",
+      "preliminary": true
+    },
+    "phi-4-14b": {
+      "intelligence": 5,
+      "aaName": "Phi-4",
+      "aaUrl": "https://artificialanalysis.ai/models/phi-4",
+      "preliminary": true
+    }
+  }
+}

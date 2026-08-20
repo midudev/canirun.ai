@@ -152,15 +152,22 @@ describe("getGPUCategory", () => {
 
   describe("NVIDIA datacenter", () => {
     it.each([
+      ["B200", "NVIDIA Datacenter"],
+      ["H200", "NVIDIA Datacenter"],
       ["A100", "NVIDIA Datacenter"],
+      ["A100 40GB", "NVIDIA Datacenter"],
       ["H100", "NVIDIA Datacenter"],
       ["GH200", "NVIDIA Datacenter"],
       ["DGX Spark", "NVIDIA Datacenter"],
       ["L40S", "NVIDIA Datacenter"],
+      ["L20", "NVIDIA Datacenter"],
       ["L4", "NVIDIA Datacenter"],
+      ["A10", "NVIDIA Datacenter"],
+      ["A10G", "NVIDIA Datacenter"],
       ["T4", "NVIDIA Datacenter"],
       ["Tesla P40", "NVIDIA Datacenter"],
       ["Tesla V100", "NVIDIA Datacenter"],
+      ["Tesla V100 32GB", "NVIDIA Datacenter"],
     ])("%s → %s", (name, expected) => {
       expect(getGPUCategory(name)).toBe(expected);
     });
@@ -681,6 +688,21 @@ describe("evaluateModelComplete", () => {
 
     expect(offloadEstimate.status).toBe("can-run-slow");
     expect(offloadEstimate.toksPerSec!).toBeLessThan(gpuEstimate.toksPerSec!);
+  });
+
+  it("uses total VRAM for MoE fit and active parameters for speed", () => {
+    const hw = makeHW({
+      isAppleSilicon: true,
+      totalUsableRAM: 24,
+      memoryBandwidth: 273,
+    });
+    const denseEstimate = evaluateModelComplete(17, hw, 30);
+    const moeEstimate = evaluateModelComplete(17, hw, 30, {
+      activeParamsBillions: 3.3,
+    });
+    expect(moeEstimate.status).toBe(denseEstimate.status);
+    expect(moeEstimate.memPct).toBe(denseEstimate.memPct);
+    expect(moeEstimate.toksPerSec!).toBeGreaterThan(denseEstimate.toksPerSec! * 3);
   });
 });
 

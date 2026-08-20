@@ -134,14 +134,21 @@ export const GPU_DB: Record<string, { vram: number; bw: number; cores: number }>
 
   // Data center / AI / inference
   // Source: NVIDIA official product pages / docs
+  "B200": { vram: 192, bw: 8000, cores: 20480 },
+  "H200": { vram: 141, bw: 4800, cores: 16896 },
   "A100": { vram: 80, bw: 2039, cores: 6912 },
+  "A100 40GB": { vram: 40, bw: 1555, cores: 6912 },
   "H100": { vram: 80, bw: 3350, cores: 14592 },
   "GH200": { vram: 96, bw: 4000, cores: 16896 },
   "DGX Spark": { vram: 128, bw: 273, cores: 6144 },
   "L40S": { vram: 48, bw: 864, cores: 18176 },
+  "L20": { vram: 48, bw: 864, cores: 11776 },
   "L4": { vram: 24, bw: 300, cores: 7424 },
+  "A10": { vram: 24, bw: 600, cores: 9216 },
+  "A10G": { vram: 24, bw: 600, cores: 9216 },
   "T4": { vram: 16, bw: 300, cores: 2560 },
   "Tesla P40": { vram: 24, bw: 346, cores: 3840 },
+  "Tesla V100 32GB": { vram: 32, bw: 900, cores: 5120 },
   "Tesla V100": { vram: 16, bw: 900, cores: 5120 },
 
   // AMD desktop
@@ -424,6 +431,7 @@ export const MOBILE_GPU_DB: Record<string, { bw: number; ram?: number }> = {
 // bw = ancho de banda de memoria del sistema
 
 export const SBC_DB: Record<string, { ram: number; bw: number }> = {
+  "Raspberry Pi 5 (16 GB)": { ram: 16, bw: 32 },
   "Raspberry Pi 5 (8 GB)": { ram: 8, bw: 32 },
   "Raspberry Pi 5 (4 GB)": { ram: 4, bw: 32 },
   "Raspberry Pi 4 (8 GB)": { ram: 8, bw: 13 },
@@ -1502,7 +1510,7 @@ export function buildSelectOptions(presets: number[], detected: number | null): 
 export function getGPUCategory(name: string): string {
   // Pro/workstation cards must be checked BEFORE consumer series (e.g. "RTX 5000 Ada" vs "RTX 5090")
   if (name.includes("Ada") || name.startsWith("RTX PRO") || name.startsWith("RTX 6000") || name.startsWith("RTX 4500") || name.startsWith("RTX A") || name.startsWith("Quadro") || name.startsWith("NVIDIA T") || /^T\d{3,4}$/.test(name)) return "NVIDIA Pro";
-  if (/^tesla\b/i.test(name) || /^(a100|h100|gh200|dgx spark|l40s|t4)$/i.test(name) || /^L4$/i.test(name)) return "NVIDIA Datacenter";
+  if (/^tesla\b/i.test(name) || /^(b200|h200|h100|a100|a10g|a10|gh200|dgx spark|l40s|l20|t4)\b/i.test(name) || /^L4$/i.test(name)) return "NVIDIA Datacenter";
   if (name.startsWith("RTX 50")) return "NVIDIA RTX 50";
   if (name.startsWith("RTX 40")) return "NVIDIA RTX 40";
   if (name.startsWith("RTX 30")) return "NVIDIA RTX 30";

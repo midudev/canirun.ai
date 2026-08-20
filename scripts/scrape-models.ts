@@ -34,6 +34,7 @@ const TARGET_MODELS = [
   "meta-llama/Llama-3.3-70B-Instruct",
   "meta-llama/Llama-4-Scout-17B-16E-Instruct",
   "meta-llama/Llama-4-Maverick-17B-128E-Instruct",
+  "meta-models/Muse-Glimmer-30B",
   "meta-llama/CodeLlama-7b-Instruct-hf",
   "meta-llama/CodeLlama-13b-Instruct-hf",
   "meta-llama/CodeLlama-34b-Instruct-hf",
@@ -113,11 +114,15 @@ const TARGET_MODELS = [
   "deepseek-ai/DeepSeek-V3.2",
   // Cohere
   "CohereForAI/c4ai-command-r-v01",
+  "CohereLabs/North-Mini-Code-1.0",
   // Small / edge
   "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
   "stabilityai/stablelm-2-1_6b-chat",
   // IBM Granite
   "ibm-granite/granite-3.1-8b-instruct",
+  "ibm-granite/granite-4.1-3b",
+  "ibm-granite/granite-4.1-8b",
+  "ibm-granite/granite-4.1-30b",
   // NVIDIA
   "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
   "nvidia/NVIDIA-Nemotron-Nano-9B-v2",
@@ -134,6 +139,20 @@ const TARGET_MODELS = [
   "moonshotai/Kimi-K2-Instruct",
   "LGAI-EXAONE/EXAONE-4.0-32B",
   "LGAI-EXAONE/EXAONE-4.0-1.2B",
+  // Image generation
+  "black-forest-labs/FLUX.2-klein-4B",
+  "black-forest-labs/FLUX.2-klein-9B",
+  "black-forest-labs/FLUX.2-dev",
+  "Tongyi-MAI/Z-Image-Turbo",
+  "Qwen/Qwen-Image-2512",
+  "tencent/HunyuanImage-3.0",
+  "tencent/HunyuanImage-3.0-Instruct",
+  // Video generation
+  "Wan-AI/Wan2.1-T2V-1.3B",
+  "Wan-AI/Wan2.2-TI2V-5B",
+  "Wan-AI/Wan2.2-T2V-A14B",
+  "tencent/HunyuanVideo-1.5",
+  "Lightricks/LTX-2.3",
 ];
 
 // ── Quantization ──────────────────────────────────────────
@@ -242,6 +261,12 @@ function inferUseCase(repoId: string, pipelineTag?: string): string[] {
   if (pipelineTag === "image-text-to-text" || rid.includes("vision") || rid.includes("-vl-") || rid.includes("multimodal")) {
     tags.push("vision");
   }
+  if (pipelineTag === "text-to-image" || pipelineTag === "image-to-image") {
+    tags.push("image");
+  }
+  if (pipelineTag === "text-to-video" || pipelineTag === "image-to-video") {
+    tags.push("video");
+  }
   if (rid.includes("coder") || rid.includes("starcoder") || rid.includes("code")) {
     tags.push("code");
   }
@@ -265,6 +290,8 @@ function inferDescription(repoId: string, pipelineTag?: string): string {
   if (rid.includes("coder") || rid.includes("starcoder") || rid.includes("code")) return "Code generation and completion";
   if (rid.includes("r1") || rid.includes("reason")) return "Advanced reasoning, chain-of-thought";
   if (pipelineTag === "image-text-to-text" || rid.includes("vision") || rid.includes("-vl-")) return "Multimodal vision and text";
+  if (pipelineTag === "text-to-image" || pipelineTag === "image-to-image") return "Text-to-image generation";
+  if (pipelineTag === "text-to-video" || pipelineTag === "image-to-video") return "Text-to-video generation";
   if (rid.includes("instruct") || rid.includes("chat")) return "Instruction following, chat";
   if (rid.includes("tiny") || rid.includes("small") || rid.includes("mini")) return "Lightweight, edge deployment";
   return "General purpose text generation";
@@ -276,6 +303,7 @@ function extractProvider(repoId: string): string {
   const org = repoId.split("/")[0].toLowerCase();
   const map: Record<string, string> = {
     "meta-llama": "Meta",
+    "meta-models": "Meta",
     mistralai: "Mistral AI",
     qwen: "Alibaba",
     microsoft: "Microsoft",
@@ -283,6 +311,7 @@ function extractProvider(repoId: string): string {
     "deepseek-ai": "DeepSeek",
     bigcode: "BigCode",
     cohereforai: "Cohere",
+    coherelabs: "Cohere",
     tinyllama: "Community",
     stabilityai: "Stability AI",
     "nomic-ai": "Nomic",
@@ -304,6 +333,11 @@ function extractProvider(repoId: string): string {
     moonshotai: "Moonshot",
     "lgai-exaone": "LG AI",
     "zai-org": "Zhipu AI",
+    tencent: "Tencent",
+    "black-forest-labs": "Black Forest Labs",
+    "tongyi-mai": "Alibaba",
+    "wan-ai": "Alibaba",
+    lightricks: "Lightricks",
   };
   return map[org] || org;
 }
