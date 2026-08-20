@@ -105,9 +105,19 @@ class StickyFooterOutput extends Writable {
 
 const stickyOutput =
   process.stdout.isTTY ? new StickyFooterOutput(process.stdout) : null;
+let footerPaused = false;
 
 if (stickyOutput) {
   process.on("exit", () => stickyOutput.clearFooter());
+}
+
+export function pausePromptFooter(): void {
+  footerPaused = true;
+  stickyOutput?.clearFooter();
+}
+
+export function resumePromptFooter(): void {
+  footerPaused = false;
 }
 
 export const PromptLegend = {
@@ -123,6 +133,7 @@ type PromptLegendKey = keyof typeof PromptLegend;
 const promptLegendState: Record<PromptLegendKey, string> = { ...PromptLegend };
 
 export function setPromptFooter(text: string): void {
+  if (footerPaused) return;
   stickyOutput?.setFooter(text);
 }
 

@@ -1,19 +1,31 @@
 import * as p from "@clack/prompts";
 import { existsSync } from "node:fs";
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { join } from "node:path";
-import { RUNAI_MODEL_DIR, OLLAMA_MODEL_DIR } from "../config";
+import { OLLAMA_MODEL_DIR } from "../config";
 import { upsertInstalledModel } from "../db";
-import { ensureModelDir } from "../model-store";
+import { detectHardware } from "../hardware";
+import { installCatalogModel } from "../install";
+import { findModelByName } from "../recommend";
 import { getPromptOutput, usePromptLegend } from "../prompt-footer";
 import { hasFlag, listInstalledModelOptions } from "../cli-utils";
+import type { RecommendedModel } from "../types";
+
+interface OllamaModel {
+  name: string;
+  tag: string;
+  ollamaId: string;
+  equivalent: RecommendedModel | null;
+}
+
+interface ImportableOllamaModel extends OllamaModel {
+  equivalent: RecommendedModel;
+}
 
 export async function handleImport(args: string[]): Promise<void> {
   const asJson = hasFlag(args, "--json");
   const ollamaDir = OLLAMA_MODEL_DIR;
-  const blobsDir = join(ollamaDir, "blobs");
-
-  if (!existsSync(blobsDir)) {
+  if (!existsSync(ollamaDir)) {
     p.log.error(`Ollama model directory not found at ${ollamaDir}`);
     p.log.info("Set OLLAMA_MODELS env var if your Ollama data is in a different location.");
     return;
@@ -25,7 +37,8 @@ export async function handleImport(args: string[]): Promise<void> {
     return;
   }
 
-  const foundModels: Array<{ name: string; tag: string; blobPath: string | null; sizeBytes: number }> = [];
+  const hardware = await detectHardware();
+  const foundModels: OllamaModel[] = [];
 
   try {
     const families = await readdir(manifestsDir, { withFileTypes: true });
@@ -35,33 +48,13 @@ export async function handleImport(args: string[]): Promise<void> {
       const tags = await readdir(tagsDir, { withFileTypes: true });
       for (const tag of tags) {
         if (tag.isDirectory()) continue;
-        try {
-          const manifestContent = await readFile(join(tagsDir, tag.name), "utf-8");
-          const manifest = JSON.parse(manifestContent);
-          const layers = manifest.layers || [];
-          const modelLayer = layers.find((l: { mediaType: string }) =>
-            l.mediaType === "application/vnd.ollama.image.model",
-          );
-          if (!modelLayer?.digest) continue;
-
-          const digestHash = modelLayer.digest.replace("sha256:", "sha256-");
-          const blobPath = join(blobsDir, digestHash);
-          const exists = existsSync(blobPath);
-          let sizeBytes = 0;
-          if (exists) {
-            const blobStat = await stat(blobPath);
-            sizeBytes = blobStat.size;
-          }
-
-          foundModels.push({
-            name: family.name,
-            tag: tag.name,
-            blobPath: exists ? blobPath : null,
-            sizeBytes,
-          });
-        } catch {
-          // skip malformed manifests
-        }
+        const ollamaId = `${family.name}:${tag.name}`;
+        foundModels.push({
+          name: family.name,
+          tag: tag.name,
+          ollamaId,
+          equivalent: findModelByName(ollamaId, hardware),
+        });
       }
     }
   } catch (error) {
@@ -69,15 +62,24 @@ export async function handleImport(args: string[]): Promise<void> {
     return;
   }
 
-  const importable = foundModels.filter((m) => m.blobPath !== null);
+  const importable = foundModels.filter(
+    (model): model is ImportableOllamaModel =>
+      model.equivalent !== null,
+  );
 
   if (asJson) {
-    console.log(JSON.stringify({ found: foundModels, importable: importable.length }, null, 2));
+    console.log(JSON.stringify({
+      found: foundModels.map((model) => ({
+        ollamaId: model.ollamaId,
+        equivalent: model.equivalent?.id ?? null,
+      })),
+      importable: importable.length,
+    }, null, 2));
     return;
   }
 
   if (importable.length === 0) {
-    p.log.warn("No importable Ollama models found.");
+    p.log.warn("No Ollama models have a downloadable GGUF equivalent in the runai catalog.");
     return;
   }
 
@@ -85,24 +87,27 @@ export async function handleImport(args: string[]): Promise<void> {
 
   const alreadyInstalled = await listInstalledModelOptions();
   const alreadyIds = new Set(alreadyInstalled.map((m) => m.id.toLowerCase()));
-  const candidates = importable.filter((m) => !alreadyIds.has(`${m.name}-${m.tag}`.toLowerCase()));
+  const candidates = importable.filter((model) =>
+    !alreadyIds.has(model.equivalent.id.toLowerCase()),
+  );
 
   if (candidates.length === 0) {
-    p.log.info("All Ollama models are already imported.");
+    p.log.info("All matching Ollama models are already installed.");
     p.outro("Done.");
     return;
   }
 
   usePromptLegend("multiselect");
   const selected = await p.multiselect({
-    message: "Select Ollama models to import",
+    message: "Select Ollama models to redownload as GGUF",
     required: false,
     withGuide: true,
     output: getPromptOutput(),
-    options: candidates.map((m) => {
-      const sizeGB = Math.round((m.sizeBytes / (1024 ** 3)) * 100) / 100;
-      return { value: m, label: `${m.name}:${m.tag} (${sizeGB} GB)` };
-    }),
+    options: candidates.map((model) => ({
+      value: model,
+      label: `${model.ollamaId} → ${model.equivalent.name} [${model.equivalent.quant}]`,
+      hint: `${model.equivalent.diskNeededGB} GB download`,
+    })),
   });
 
   if (p.isCancel(selected) || selected.length === 0) {
@@ -110,34 +115,24 @@ export async function handleImport(args: string[]): Promise<void> {
     return;
   }
 
-  await ensureModelDir();
-
   for (const model of selected) {
-    if (!model.blobPath) continue;
-    const id = `${model.name}-${model.tag}`;
-    const targetPath = join(RUNAI_MODEL_DIR, `${id}.gguf`);
-
-    if (existsSync(targetPath)) {
-      p.log.info(`${id} already exists, skipping.`);
-      continue;
-    }
-
     const spinner = p.spinner();
-    spinner.start(`Importing ${model.name}:${model.tag}...`);
+    spinner.start(`Resolving ${model.ollamaId}...`);
 
     try {
-      await Bun.write(targetPath, Bun.file(model.blobPath));
+      spinner.stop(`Downloading ${model.equivalent.name} from Hugging Face`);
+      const installed = await installCatalogModel(model.equivalent);
       upsertInstalledModel({
-        id,
-        name: `${model.name}:${model.tag}`,
-        path: targetPath,
-        sourceUrl: null,
-        sourceRepo: `ollama/${model.name}`,
-        sourceFile: model.tag,
+        id: model.equivalent.id,
+        name: model.equivalent.name,
+        path: installed.path,
+        sourceUrl: installed.sourceUrl,
+        sourceRepo: installed.sourceRepo,
+        sourceFile: installed.sourceFile,
       });
-      spinner.stop(`Imported ${id}`);
+      p.log.success(`Installed ${model.equivalent.id}`);
     } catch (error) {
-      spinner.stop(`Failed to import ${id}: ${error instanceof Error ? error.message : String(error)}`);
+      spinner.stop(`Failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

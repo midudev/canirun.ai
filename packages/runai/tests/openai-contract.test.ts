@@ -5,6 +5,7 @@ import {
   createCompletionResponse,
   createCompletionSSEChunk,
   createSSEChunk,
+  extractInferenceParams,
   normalizeCompletionPrompt,
 } from "../src/openai";
 
@@ -28,9 +29,25 @@ describe("openai compatibility contract", () => {
   });
 
   test("createSSEChunk follows chat.completion.chunk shape", () => {
-    const chunk = createSSEChunk("local-model", "Hi");
+    const chunk = createSSEChunk("local-model", "Hi", false, "chatcmpl_stable", 123);
     expect(chunk.object).toBe("chat.completion.chunk");
+    expect(chunk.id).toBe("chatcmpl_stable");
+    expect(chunk.created).toBe(123);
     expect(chunk.choices[0]?.delta.content).toBe("Hi");
+  });
+
+  test("extractInferenceParams forwards supported OpenAI penalties", () => {
+    expect(extractInferenceParams({
+      messages: [{ role: "user", content: "Hi" }],
+      frequency_penalty: 0.2,
+      presence_penalty: 0.3,
+      repeat_penalty: 1.1,
+    }, 512)).toMatchObject({
+      maxTokens: 512,
+      frequencyPenalty: 0.2,
+      presencePenalty: 0.3,
+      repeatPenalty: 1.1,
+    });
   });
 
   test("normalizeCompletionPrompt accepts string and array", () => {

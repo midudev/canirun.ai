@@ -1,2 +1,17 @@
-#!/usr/bin/env bun
-import "../src/cli.ts";
+#!/usr/bin/env sh
+set -eu
+
+if ! command -v bun >/dev/null 2>&1; then
+  echo "runai requires Bun. Install it from https://bun.sh" >&2
+  exit 127
+fi
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+DIST_CLI="${SCRIPT_DIR}/../dist/cli.js"
+
+if [ ! -f "${DIST_CLI}" ]; then
+  echo "runai installation is incomplete: dist/cli.js was not found." >&2
+  exit 1
+fi
+
+exec bun "${DIST_CLI}" "$@"

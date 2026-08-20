@@ -48,10 +48,13 @@ function normalizeStop(stop: string | string[] | undefined): string[] {
   return stop;
 }
 
-export function extractInferenceParams(body: ChatCompletionRequest | CompletionRequest) {
+export function extractInferenceParams(
+  body: ChatCompletionRequest | CompletionRequest,
+  defaultMaxTokens = 2048,
+) {
   return {
     temperature: typeof body.temperature === "number" ? body.temperature : 0.7,
-    maxTokens: typeof body.max_tokens === "number" ? body.max_tokens : 2048,
+    maxTokens: typeof body.max_tokens === "number" ? body.max_tokens : defaultMaxTokens,
     topP: body.top_p,
     topK: body.top_k,
     seed: body.seed,
@@ -84,12 +87,17 @@ export function createChatResponse(model: string, content: string, promptTokens 
   };
 }
 
-export function createSSEChunk(model: string, delta: string, done = false) {
-  const now = Math.floor(Date.now() / 1000);
+export function createSSEChunk(
+  model: string,
+  delta: string,
+  done = false,
+  id = `chatcmpl_${crypto.randomUUID().replaceAll("-", "")}`,
+  created = Math.floor(Date.now() / 1000),
+) {
   return {
-    id: `chatcmpl_${crypto.randomUUID().replaceAll("-", "")}`,
+    id,
     object: "chat.completion.chunk",
-    created: now,
+    created,
     model,
     choices: [
       {
@@ -129,12 +137,17 @@ export function createCompletionResponse(model: string, text: string, promptToke
   };
 }
 
-export function createCompletionSSEChunk(model: string, text: string, done = false) {
-  const now = Math.floor(Date.now() / 1000);
+export function createCompletionSSEChunk(
+  model: string,
+  text: string,
+  done = false,
+  id = `cmpl_${crypto.randomUUID().replaceAll("-", "")}`,
+  created = Math.floor(Date.now() / 1000),
+) {
   return {
-    id: `cmpl_${crypto.randomUUID().replaceAll("-", "")}`,
+    id,
     object: "text_completion",
-    created: now,
+    created,
     model,
     choices: [
       {

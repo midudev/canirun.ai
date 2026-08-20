@@ -18,6 +18,14 @@ export interface CliHardwareInfo {
   cpuBenchmark: number | null;
   isMobile: boolean;
   deviceName: string | null;
+  /** True when Linux is running under Windows Subsystem for Linux. */
+  isWsl?: boolean;
+  /** CPU model reported by the host, independent from the selected accelerator. */
+  cpuName?: string | null;
+  /** Logical CPU count available to the current process. */
+  cpuCores?: number | null;
+  /** Accelerator API expected to be usable by the inference runtime. */
+  computeBackend?: "metal" | "cuda" | "rocm" | "vulkan" | "cpu" | "unknown";
 }
 
 export interface RecommendedModel {
@@ -26,6 +34,7 @@ export interface RecommendedModel {
   provider: string;
   ollamaId?: string;
   sourceUrl: string;
+  ggufRepo?: string;
   quant: string;
   score: number;
   grade: string;
@@ -34,6 +43,7 @@ export interface RecommendedModel {
   memoryNeededGB: number;
   diskNeededGB: number;
   paramsBillions: number;
+  activeParamsBillions?: number;
   downloaded: boolean;
 }
 

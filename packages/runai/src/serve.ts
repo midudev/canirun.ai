@@ -1,8 +1,18 @@
 import { basename } from "node:path";
-import { RUNAI_DEFAULT_MAX_TOKENS, RUNAI_DEFAULT_MODEL, RUNAI_DEFAULT_PORT, RUNAI_MAX_QUEUE } from "./config";
+import { RUNAI_DEFAULT_MAX_TOKENS, RUNAI_DEFAULT_MODEL, RUNAI_DEFAULT_PORT } from "./config";
 import { modelPathFromId } from "./model-store";
 import { isModelFilePresent, listInstalledModels } from "./db";
-import { runLlamaOnce, runLlamaStream, runLlamaChatOnce, runLlamaChatStream, generateEmbedding, unloadModel } from "./llamacpp";
+import {
+  EmbeddingModelIncompatibleError,
+  generateEmbedding,
+  getInferenceQueueSnapshot,
+  queueInference as withQueue,
+  runLlamaChatOnce,
+  runLlamaChatStream,
+  runLlamaOnce,
+  runLlamaStream,
+  unloadModel,
+} from "./llamacpp";
 import { closeDb } from "./db";
 import {
   createChatResponse,
@@ -137,33 +147,13 @@ function optionsResponse(): Response {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
 }
 
-let activeRequests = 0;
-let queuedRequests = 0;
-
-function canAcceptRequest(): boolean {
-  return queuedRequests < RUNAI_MAX_QUEUE;
-}
-
-async function withQueue<T>(fn: () => Promise<T>): Promise<T> {
-  if (!canAcceptRequest()) {
-    throw new Error("Server is overloaded. Try again later.");
-  }
-  queuedRequests += 1;
-  try {
-    activeRequests += 1;
-    return await fn();
-  } finally {
-    activeRequests -= 1;
-    queuedRequests -= 1;
-  }
-}
-
 export function startServer(options: ServeOptions): void {
   const modelPath = resolveModelPath(options.model);
   const modelLabel = stripGguf(basename(modelPath));
   const port = options.port || RUNAI_DEFAULT_PORT;
 
   const server = Bun.serve({
+    hostname: "127.0.0.1",
     port,
     routes: {
       "/v1/chat/completions": {
@@ -179,7 +169,7 @@ export function startServer(options: ServeOptions): void {
             return json({ error: { message: "messages is required", type: "invalid_request_error" } }, 400);
           }
 
-          const params = extractInferenceParams(body);
+          const params = extractInferenceParams(body, RUNAI_DEFAULT_MAX_TOKENS);
           let activeModel: ResolvedApiModel;
           try {
             activeModel = await resolveApiModel(body.model, modelPath);
@@ -224,16 +214,26 @@ export function startServer(options: ServeOptions): void {
             }
           }
 
+          if (!getInferenceQueueSnapshot().canAccept) {
+            return json({
+              error: {
+                message: "Server is overloaded. Try again later.",
+                type: "server_error",
+              },
+            }, 429);
+          }
           const stream = new ReadableStream({
             start: async (controller) => {
               const startedAt = performance.now();
               const chunks: string[] = [];
+              const completionId = `chatcmpl_${crypto.randomUUID().replaceAll("-", "")}`;
+              const created = Math.floor(Date.now() / 1000);
               try {
                 await withQueue(() => runLlamaChatStream(
                   { modelPath: activeModel.path, messages: body.messages, params },
                   (chunk) => {
                     chunks.push(chunk);
-                    const payload = createSSEChunk(activeModel.id, chunk);
+                    const payload = createSSEChunk(activeModel.id, chunk, false, completionId, created);
                     controller.enqueue(sharedEncoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
                   },
                 ));
@@ -247,7 +247,11 @@ export function startServer(options: ServeOptions): void {
                   temperature: params.temperature,
                   maxTokens: params.maxTokens,
                 });
-                controller.enqueue(sharedEncoder.encode(`data: ${JSON.stringify(createSSEChunk(activeModel.id, "", true))}\n\n`));
+                controller.enqueue(
+                  sharedEncoder.encode(
+                    `data: ${JSON.stringify(createSSEChunk(activeModel.id, "", true, completionId, created))}\n\n`,
+                  ),
+                );
                 controller.enqueue(sharedEncoder.encode("data: [DONE]\n\n"));
                 controller.close();
               } catch (error) {
@@ -290,7 +294,7 @@ export function startServer(options: ServeOptions): void {
             return json({ error: { message: "prompt is required", type: "invalid_request_error" } }, 400);
           }
 
-          const params = extractInferenceParams(body);
+          const params = extractInferenceParams(body, RUNAI_DEFAULT_MAX_TOKENS);
           let activeModel: ResolvedApiModel;
           try {
             activeModel = await resolveApiModel(body.model, modelPath);
@@ -314,6 +318,8 @@ export function startServer(options: ServeOptions): void {
                 seed: params.seed,
                 stop: params.stop,
                 repeatPenalty: params.repeatPenalty,
+                frequencyPenalty: params.frequencyPenalty,
+                presencePenalty: params.presencePenalty,
               }));
               sendInferenceTelemetry({
                 model: activeModel.id,
@@ -341,10 +347,20 @@ export function startServer(options: ServeOptions): void {
             }
           }
 
+          if (!getInferenceQueueSnapshot().canAccept) {
+            return json({
+              error: {
+                message: "Server is overloaded. Try again later.",
+                type: "server_error",
+              },
+            }, 429);
+          }
           const stream = new ReadableStream({
             start: async (controller) => {
               const startedAt = performance.now();
               const chunks: string[] = [];
+              const completionId = `cmpl_${crypto.randomUUID().replaceAll("-", "")}`;
+              const created = Math.floor(Date.now() / 1000);
               try {
                 await withQueue(() => runLlamaStream(
                   {
@@ -357,10 +373,18 @@ export function startServer(options: ServeOptions): void {
                     seed: params.seed,
                     stop: params.stop,
                     repeatPenalty: params.repeatPenalty,
+                    frequencyPenalty: params.frequencyPenalty,
+                    presencePenalty: params.presencePenalty,
                   },
                   (chunk) => {
                     chunks.push(chunk);
-                    const payload = createCompletionSSEChunk(activeModel.id, chunk);
+                    const payload = createCompletionSSEChunk(
+                      activeModel.id,
+                      chunk,
+                      false,
+                      completionId,
+                      created,
+                    );
                     controller.enqueue(sharedEncoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
                   },
                 ));
@@ -375,7 +399,11 @@ export function startServer(options: ServeOptions): void {
                   maxTokens: params.maxTokens,
                 });
                 controller.enqueue(
-                  sharedEncoder.encode(`data: ${JSON.stringify(createCompletionSSEChunk(activeModel.id, "", true))}\n\n`),
+                  sharedEncoder.encode(
+                    `data: ${JSON.stringify(
+                      createCompletionSSEChunk(activeModel.id, "", true, completionId, created),
+                    )}\n\n`,
+                  ),
                 );
                 controller.enqueue(sharedEncoder.encode("data: [DONE]\n\n"));
                 controller.close();
@@ -418,6 +446,17 @@ export function startServer(options: ServeOptions): void {
           if (!inputs || inputs.length === 0) {
             return json({ error: { message: "input is required", type: "invalid_request_error" } }, 400);
           }
+          if (body.encoding_format === "base64") {
+            return json(
+              {
+                error: {
+                  message: "encoding_format \"base64\" is not supported; use \"float\".",
+                  type: "invalid_request_error",
+                },
+              },
+              400,
+            );
+          }
 
           let activeModel: ResolvedApiModel;
           try {
@@ -430,19 +469,25 @@ export function startServer(options: ServeOptions): void {
           }
 
           try {
-            const results: Array<{ embedding: number[]; index: number }> = [];
-            let totalTokens = 0;
-            for (let i = 0; i < inputs.length; i++) {
-              const inputText = inputs[i]!;
-              const { embedding, tokenCount } = await withQueue(() => generateEmbedding(activeModel.path, inputText));
-              results.push({ embedding, index: i });
-              totalTokens += tokenCount;
-            }
+            const { results, totalTokens } = await withQueue(async () => {
+              const results: Array<{ embedding: number[]; index: number }> = [];
+              let totalTokens = 0;
+              for (let i = 0; i < inputs.length; i++) {
+                const inputText = inputs[i]!;
+                const { embedding, tokenCount } = await generateEmbedding(activeModel.path, inputText);
+                results.push({ embedding, index: i });
+                totalTokens += tokenCount;
+              }
+              return { results, totalTokens };
+            });
             return json(createEmbeddingResponse(activeModel.id, results, totalTokens));
           } catch (error) {
             const message = error instanceof Error ? error.message : "Embedding failed";
             if (message.includes("overloaded")) {
               return json({ error: { message, type: "server_error" } }, 429);
+            }
+            if (error instanceof EmbeddingModelIncompatibleError) {
+              return json({ error: { message, type: "invalid_request_error" } }, 400);
             }
             return json({ error: { message, type: "server_error" } }, 500);
           }
@@ -484,7 +529,17 @@ export function startServer(options: ServeOptions): void {
         OPTIONS: optionsResponse,
       },
       "/health": {
-        GET: () => json({ ok: true, model: modelLabel, active_requests: activeRequests, queued_requests: queuedRequests }),
+        GET: () => {
+          const queue = getInferenceQueueSnapshot();
+          return json({
+            ok: true,
+            service: "runai",
+            pid: process.pid,
+            model: modelLabel,
+            active_requests: queue.activeRequests,
+            queued_requests: queue.queuedRequests,
+          });
+        },
         OPTIONS: optionsResponse,
       },
     },

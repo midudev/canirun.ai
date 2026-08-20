@@ -9,6 +9,7 @@ export {
   handleImport,
   handleDaemon,
   handleStop,
+  handleUpdate,
   handleBrowse,
   handlePull,
   handleServe,

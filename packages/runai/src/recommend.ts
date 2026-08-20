@@ -1,8 +1,12 @@
-import { readdirSync, existsSync } from "node:fs";
-import { getActiveParamsBillions, models } from "../../../src/data/models.ts";
-import { evaluateModelComplete } from "../../../src/lib/hardware.ts";
+import { readdirSync } from "node:fs";
+import {
+  getActiveParamsBillions,
+  isCurrentInLineage,
+  models,
+  type AIModel,
+} from "@canirun/models";
+import { evaluateModelComplete } from "@canirun/compatibility";
 import type { RecommendedModel, CliHardwareInfo } from "./types";
-import { modelPathFromId } from "./model-store";
 import { RUNAI_MODEL_DIR } from "./config";
 
 let _installedFileSet: Set<string> | null = null;
@@ -30,73 +34,8 @@ function isModelInstalled(modelId: string): boolean {
   return set.has(fileName);
 }
 
-const OFFICIAL_MODEL_URLS = new Set([
-  // Qwen 3.5 series
-  "https://huggingface.co/lmstudio-community/Qwen3.5-0.8B-GGUF",
-  "https://huggingface.co/lmstudio-community/Qwen3.5-2B-GGUF",
-  "https://huggingface.co/lmstudio-community/Qwen3.5-4B-GGUF",
-  "https://huggingface.co/lmstudio-community/Qwen3.5-9B-GGUF",
-  "https://huggingface.co/lmstudio-community/Qwen3.5-27B-GGUF",
-  "https://huggingface.co/lmstudio-community/Qwen3.5-35B-A3B-GGUF",
-  "https://huggingface.co/lmstudio-community/Qwen3.5-122B-A10B-GGUF",
-  // Qwen 3 series
-  "https://huggingface.co/lmstudio-community/Qwen3-0.6B-GGUF",
-  "https://huggingface.co/Qwen/Qwen3-1.7B",
-  "https://huggingface.co/Qwen/Qwen3-4B",
-  "https://huggingface.co/Qwen/Qwen3-8B",
-  "https://huggingface.co/Qwen/Qwen3-14B",
-  "https://huggingface.co/Qwen/Qwen3-32B",
-  "https://huggingface.co/Qwen/Qwen3-30B-A3B",
-  // Llama series
-  "https://huggingface.co/meta-llama/Llama-3.2-1B",
-  "https://huggingface.co/meta-llama/Llama-3.2-3B",
-  "https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct",
-  "https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct",
-  "https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E-Instruct",
-  // Mistral series
-  "https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3",
-  "https://huggingface.co/mistralai/Mistral-Nemo-Instruct-2407",
-  "https://huggingface.co/mistralai/Mistral-Small-3.1-24B-Instruct-2503",
-  "https://huggingface.co/mistralai/Mixtral-8x7B-Instruct-v0.1",
-  "https://huggingface.co/mistralai/Devstral-Small-2-24B-Instruct-2512",
-  // Phi series
-  "https://huggingface.co/microsoft/Phi-3.5-mini-instruct",
-  "https://huggingface.co/microsoft/Phi-4-mini-reasoning",
-  "https://huggingface.co/microsoft/phi-4",
-  // DeepSeek series
-  "https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
-  "https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
-  "https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
-  "https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
-  // Gemma series
-  "https://huggingface.co/google/gemma-2-2b-it",
-  "https://huggingface.co/google/gemma-2-9b-it",
-  "https://huggingface.co/google/gemma-3-4b-it",
-  "https://huggingface.co/google/gemma-3-12b-it",
-  "https://huggingface.co/google/gemma-3-27b-it",
-  "https://huggingface.co/google/gemma-3-1b-it",
-  "https://huggingface.co/lmstudio-community/gemma-4-E2B-it-GGUF",
-  "https://huggingface.co/lmstudio-community/gemma-4-E4B-it-GGUF",
-  "https://huggingface.co/lmstudio-community/gemma-4-31B-it-GGUF",
-  "https://huggingface.co/lmstudio-community/gemma-4-26B-A4B-it-GGUF",
-  // Qwen 2.5 series
-  "https://huggingface.co/Qwen/Qwen2.5-7B-Instruct",
-  "https://huggingface.co/Qwen/Qwen2.5-14B-Instruct",
-  "https://huggingface.co/Qwen/Qwen2.5-32B-Instruct",
-  "https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct",
-  "https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct",
-  "https://huggingface.co/Qwen/Qwen2.5-Coder-32B-Instruct",
-  // NVIDIA
-  "https://huggingface.co/nvidia/NVIDIA-Nemotron-Nano-9B-v2",
-  // Community / Others
-  "https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-  "https://huggingface.co/HuggingFaceTB/SmolLM3-3B",
-  "https://huggingface.co/openai/gpt-oss-20b",
-  "https://huggingface.co/mistralai/Ministral-8B-Instruct-2410",
-]);
-
-const catalogModels = models.filter((model) => OFFICIAL_MODEL_URLS.has(model.url));
-type CatalogModel = (typeof catalogModels)[number];
+const catalogModels: AIModel[] = models.filter((model) => model.quants.length > 0);
+type CatalogModel = AIModel;
 
 function parseReleaseDate(value: string | null): number | null {
   if (!value) return null;
@@ -148,6 +87,10 @@ function modelCapabilityBonus(model: CatalogModel): number {
   return bonus;
 }
 
+export function inferenceParamsBillions(model: CatalogModel): number {
+  return getActiveParamsBillions(model);
+}
+
 function computeRankingScore(
   model: CatalogModel,
   quantBits: number,
@@ -176,49 +119,66 @@ function compareRecommendations(a: RecommendedModel, b: RecommendedModel): numbe
   return a.name.localeCompare(b.name);
 }
 
-function pickBestQuant(
+function toRecommended(
   model: CatalogModel,
+  quant: CatalogModel["quants"][number],
   hw: CliHardwareInfo,
-): RecommendedModel | null {
-  const byQuality = [...model.quants].sort((a, b) => b.bits - a.bits);
-  let best: RecommendedModel | null = null;
-
-  for (const quant of byQuality) {
-    const evalResult = evaluateModelComplete(
-      quant.vramGB,
-      hw,
-      model.paramsBillions,
-      { activeParamsBillions: getActiveParamsBillions(model) },
-    );
-    if (evalResult.status === "cannot-run" || evalResult.status === "unknown") continue;
-    const downloaded = isModelInstalled(model.id);
-    const diskNeededGB = quant.diskGB;
-    const rankingScore = computeRankingScore(
+): RecommendedModel {
+  const activeParamsBillions = inferenceParamsBillions(model);
+  const evalResult = evaluateModelComplete(
+    quant.vramGB,
+    hw,
+    model.paramsBillions,
+    { activeParamsBillions },
+  );
+  return {
+    id: model.id,
+    name: model.name,
+    provider: model.provider,
+    ollamaId: model.ollamaId,
+    sourceUrl: model.url,
+    ggufRepo: model.ggufRepo,
+    quant: quant.name,
+    score: Math.round(computeRankingScore(
       model,
       quant.bits,
       evalResult.score,
       evalResult.status,
       evalResult.toksPerSec,
       evalResult.memPct,
-    );
+    )),
+    grade: evalResult.grade,
+    status: evalResult.status,
+    expectedTokensPerSec: evalResult.toksPerSec,
+    memoryNeededGB: quant.vramGB,
+    diskNeededGB: quant.diskGB,
+    paramsBillions: model.paramsBillions,
+    activeParamsBillions,
+    downloaded: isModelInstalled(model.id),
+  };
+}
 
-    const candidate: RecommendedModel = {
-      id: model.id,
-      name: model.name,
-      provider: model.provider,
-      ollamaId: model.ollamaId,
-      sourceUrl: model.url,
-      quant: quant.name,
-      score: Math.round(rankingScore),
-      grade: evalResult.grade,
-      status: evalResult.status,
-      expectedTokensPerSec: evalResult.toksPerSec,
-      memoryNeededGB: quant.vramGB,
-      diskNeededGB,
-      paramsBillions: model.paramsBillions,
-      downloaded,
-    };
+function pickBestQuant(
+  model: CatalogModel,
+  hw: CliHardwareInfo,
+  options: { includeUnfit?: boolean } = {},
+): RecommendedModel | null {
+  const byQuality = [...model.quants].sort((a, b) => b.bits - a.bits);
+  let best: RecommendedModel | null = null;
+  let fallback: RecommendedModel | null = null;
 
+  for (const quant of byQuality) {
+    const candidate = toRecommended(model, quant, hw);
+    const unfit = candidate.status === "cannot-run" || candidate.status === "unknown";
+    if (unfit) {
+      if (
+        options.includeUnfit
+        && (!fallback || candidate.memoryNeededGB < fallback.memoryNeededGB)
+      ) {
+        fallback = candidate;
+      }
+      continue;
+    }
     if (
       !best
       || candidate.score > best.score
@@ -228,52 +188,199 @@ function pickBestQuant(
     }
   }
 
-  return best;
+  return best ?? fallback ?? null;
+}
+
+function isGenerationOnly(model: CatalogModel): boolean {
+  const uses = model.useCase ?? [];
+  return uses.length > 0 && uses.every((use) => use === "image" || use === "video");
 }
 
 export function recommendTopModels(hw: CliHardwareInfo, limit = 3): RecommendedModel[] {
   const candidates: RecommendedModel[] = [];
   for (const model of catalogModels) {
+    if (!isCurrentInLineage(model, catalogModels)) continue;
+    if (isGenerationOnly(model)) continue;
     const best = pickBestQuant(model, hw);
     if (best) candidates.push(best);
   }
   return candidates.sort(compareRecommendations).slice(0, limit);
 }
 
-export function searchCatalog(query: string, hw: CliHardwareInfo, limit = 25): RecommendedModel[] {
-  const q = query.toLowerCase().trim();
-  const results: RecommendedModel[] = [];
+export type CatalogMatchKind = "exact" | "alias" | "prefix" | "fuzzy";
+
+export interface CatalogMatch {
+  model: RecommendedModel;
+  kind: CatalogMatchKind;
+  matchScore: number;
+}
+
+function compactToken(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function repoFromUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    return parts.length >= 2 ? `${parts[0]}/${parts[1]}`.toLowerCase() : "";
+  } catch {
+    return "";
+  }
+}
+
+function normalizeQuery(name: string): {
+  raw: string;
+  withoutLatest: string;
+  compact: string;
+  repo: string | null;
+} {
+  let raw = name.trim().toLowerCase().replace(/\.gguf$/i, "");
+  if (raw.startsWith("http://") || raw.startsWith("https://")) {
+    try {
+      raw = new URL(name.trim()).pathname.replace(/\/+$/, "").replace(/^\/+/, "");
+    } catch {
+      // keep the original trimmed query
+    }
+  }
+  raw = raw.replace(/^\/+/, "");
+  const withoutLatest = raw.endsWith(":latest") ? raw.slice(0, -7) : raw;
+  const repo = withoutLatest.includes("/")
+    ? withoutLatest.split("/").filter(Boolean).slice(0, 2).join("/")
+    : null;
+  return { raw, withoutLatest, compact: compactToken(withoutLatest), repo };
+}
+
+function scoreModelQuery(model: CatalogModel, query: string): {
+  kind: CatalogMatchKind;
+  score: number;
+} | null {
+  const q = normalizeQuery(query);
+  if (!q.withoutLatest && !q.compact) return null;
+
+  const id = model.id.toLowerCase();
+  const name = model.name.toLowerCase();
+  const ollama = model.ollamaId?.toLowerCase() ?? "";
+  const ollamaFamily = ollama.split(":")[0] || "";
+  const compactId = compactToken(id);
+  const compactOllama = compactToken(ollama);
+  const compactName = compactToken(name);
+  const repo = repoFromUrl(model.url);
+  const ggufRepo = model.ggufRepo?.toLowerCase() ?? "";
+
+  if (id === q.raw || id === q.withoutLatest || compactId === q.compact) {
+    return { kind: "exact", score: 1000 };
+  }
+  if (ollama && (ollama === q.raw || ollama === q.withoutLatest || compactOllama === q.compact)) {
+    return { kind: "exact", score: 990 };
+  }
+  if (repo && (repo === q.withoutLatest || repo === q.repo)) {
+    return { kind: "exact", score: 980 };
+  }
+  if (ggufRepo && (ggufRepo === q.withoutLatest || ggufRepo === q.repo)) {
+    return { kind: "exact", score: 970 };
+  }
+  if (model.url.toLowerCase().replace(/\/$/, "") === q.raw.replace(/\/$/, "")) {
+    return { kind: "exact", score: 960 };
+  }
+  if (q.raw.endsWith(":latest") && ollamaFamily && ollamaFamily === q.withoutLatest) {
+    return { kind: "alias", score: 940 };
+  }
+
+  if (
+    id.startsWith(q.withoutLatest)
+    || compactId.startsWith(q.compact)
+    || (ollama && (ollama.startsWith(q.withoutLatest) || compactOllama.startsWith(q.compact)))
+  ) {
+    const extra = Math.max(0, compactId.length - q.compact.length);
+    return { kind: "prefix", score: 800 - extra };
+  }
+
+  if (
+    name.includes(q.withoutLatest)
+    || compactName.includes(q.compact)
+    || id.includes(q.withoutLatest)
+    || compactId.includes(q.compact)
+    || compactOllama.includes(q.compact)
+  ) {
+    return { kind: "fuzzy", score: 400 };
+  }
+
+  if (
+    model.family.toLowerCase() === q.withoutLatest
+    || model.provider.toLowerCase() === q.withoutLatest
+    || (model.useCase ?? []).some((use) => use.toLowerCase() === q.withoutLatest)
+  ) {
+    return { kind: "fuzzy", score: 220 };
+  }
+
+  const haystack = [
+    name,
+    model.provider,
+    model.family,
+    id,
+    ollama,
+    ...(model.useCase || []),
+  ].join(" ").toLowerCase();
+  if (haystack.includes(q.withoutLatest)) {
+    return { kind: "fuzzy", score: 160 };
+  }
+
+  return null;
+}
+
+export function findCatalogMatches(
+  query: string,
+  hw: CliHardwareInfo,
+  limit = 12,
+): CatalogMatch[] {
+  const scored: CatalogMatch[] = [];
   for (const model of catalogModels) {
-    if (!q) {
-      const best = pickBestQuant(model, hw);
-      if (best) results.push(best);
+    if (isGenerationOnly(model)) continue;
+    const match = scoreModelQuery(model, query);
+    if (!match) continue;
+    if (
+      (match.kind === "prefix" || match.kind === "fuzzy")
+      && !isCurrentInLineage(model, catalogModels)
+    ) {
       continue;
     }
-    const haystack = [
-      model.name,
-      model.provider,
-      model.family,
-      model.id,
-      ...(model.useCase || []),
-      model.ollamaId || "",
-    ].join(" ").toLowerCase();
-    if (!haystack.includes(q)) continue;
-    const best = pickBestQuant(model, hw);
-    if (best) results.push(best);
+    const includeUnfit = match.kind === "exact" || match.kind === "alias";
+    const recommended = pickBestQuant(model, hw, { includeUnfit });
+    if (!recommended) continue;
+    scored.push({ model: recommended, kind: match.kind, matchScore: match.score });
   }
-  return results.sort(compareRecommendations).slice(0, limit);
+  scored.sort((a, b) => {
+    if (b.matchScore !== a.matchScore) return b.matchScore - a.matchScore;
+    return compareRecommendations(a.model, b.model);
+  });
+  return scored.slice(0, limit);
+}
+
+export function searchCatalog(query: string, hw: CliHardwareInfo, limit = 25): RecommendedModel[] {
+  const q = query.toLowerCase().trim();
+  if (!q) {
+    const results: RecommendedModel[] = [];
+    for (const model of catalogModels) {
+      if (!isCurrentInLineage(model, catalogModels)) continue;
+      if (isGenerationOnly(model)) continue;
+      const best = pickBestQuant(model, hw);
+      if (best) results.push(best);
+    }
+    return results.sort(compareRecommendations).slice(0, limit);
+  }
+  return findCatalogMatches(query, hw, limit).map((item) => item.model);
 }
 
 export function findModelByName(name: string, hw: CliHardwareInfo): RecommendedModel | null {
-  const q = name.toLowerCase().trim();
-  for (const model of catalogModels) {
-    const matchesId = model.id.toLowerCase() === q;
-    const matchesOllama = model.ollamaId?.toLowerCase() === q;
-    const matchesName = model.name.toLowerCase().includes(q);
-    if (matchesId || matchesOllama || matchesName) {
-      return pickBestQuant(model, hw);
-    }
-  }
+  const matches = findCatalogMatches(name, hw, 40);
+  const exact = matches.filter((item) => item.kind === "exact" || item.kind === "alias");
+  if (exact.length === 1) return exact[0]!.model;
+  if (exact.length > 1) return exact[0]!.model;
+
+  const prefixes = matches.filter((item) => item.kind === "prefix");
+  if (prefixes.length === 1) return prefixes[0]!.model;
+
   return null;
 }
 

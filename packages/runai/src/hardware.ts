@@ -1,7 +1,12 @@
-import { platform } from "node:os";
+import { cpus, platform, totalmem } from "node:os";
+import { RUNAI_HARDWARE_CACHE_TTL_MS } from "./config";
 import type { CliHardwareInfo } from "./types";
 
-export async function detectHardware(): Promise<CliHardwareInfo> {
+let cachedHardware: CliHardwareInfo | null = null;
+let cachedAt = 0;
+let pendingDetection: Promise<CliHardwareInfo> | null = null;
+
+async function detectHardwareFresh(): Promise<CliHardwareInfo> {
   const os = platform();
 
   if (os === "darwin") {
@@ -14,8 +19,10 @@ export async function detectHardware(): Promise<CliHardwareInfo> {
     return detectLinuxHardware();
   }
 
-  const totalMem = (await import("node:os")).totalmem();
+  const totalMem = totalmem();
   const ramGB = Math.round((totalMem / (1024 ** 3)) * 10) / 10;
+  const cpuList = cpus();
+  const cpuName = cpuList[0]?.model?.trim() ?? null;
 
   return {
     gpuRenderer: null,
@@ -34,6 +41,31 @@ export async function detectHardware(): Promise<CliHardwareInfo> {
     platform: os,
     cpuBenchmark: null,
     isMobile: false,
-    deviceName: `${os} (${ramGB} GB RAM)`,
+    deviceName: `${os} (${ramGB} GB RAM, unsupported platform)`,
+    isWsl: false,
+    cpuName,
+    cpuCores: cpuList.length || null,
+    computeBackend: "unknown",
   };
+}
+
+export async function detectHardware(
+  options: { force?: boolean } = {},
+): Promise<CliHardwareInfo> {
+  const now = Date.now();
+  if (!options.force && cachedHardware && now - cachedAt < RUNAI_HARDWARE_CACHE_TTL_MS) {
+    return cachedHardware;
+  }
+  if (!options.force && pendingDetection) return pendingDetection;
+
+  pendingDetection = detectHardwareFresh()
+    .then((hardware) => {
+      cachedHardware = hardware;
+      cachedAt = Date.now();
+      return hardware;
+    })
+    .finally(() => {
+      pendingDetection = null;
+    });
+  return pendingDetection;
 }

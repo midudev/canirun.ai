@@ -1,5 +1,10 @@
 import { existsSync } from "node:fs";
-import { RUNAI_KEEP_ALIVE_MS } from "./config";
+import {
+  RUNAI_CONTEXT_SIZE,
+  RUNAI_KEEP_ALIVE_MS,
+  RUNAI_MAX_QUEUE,
+} from "./config";
+import { FifoInferenceQueue } from "./inference-queue";
 import type { ChatMessage, InferenceParams } from "./types";
 
 type LlamaModule = typeof import("node-llama-cpp");
@@ -22,6 +27,8 @@ export interface LlamaRunOptions {
   seed?: number;
   stop?: string[];
   repeatPenalty?: number;
+  frequencyPenalty?: number;
+  presencePenalty?: number;
 }
 
 export interface LlamaChatOptions {
@@ -37,16 +44,57 @@ export interface LlamaStreamChunk {
   segmentEnd?: boolean;
 }
 
+export type LlamaChatHistoryItem =
+  | { type: "system"; text: string }
+  | { type: "user"; text: string }
+  | { type: "model"; response: string[] };
+
 type LlamaInstance = Awaited<ReturnType<LlamaModule["getLlama"]>>;
 type LlamaModel = Awaited<ReturnType<LlamaInstance["loadModel"]>>;
+type LlamaContext = Awaited<ReturnType<LlamaModel["createContext"]>>;
+type LlamaEmbeddingContext = Awaited<ReturnType<LlamaModel["createEmbeddingContext"]>>;
+type LlamaChatSessionInstance = InstanceType<LlamaModule["LlamaChatSession"]>;
 
 let cachedModelPath: string | null = null;
 let cachedModel: LlamaModel | null = null;
 let cachedLlama: LlamaInstance | null = null;
+let cachedInferenceContext: LlamaContext | null = null;
+let cachedInferenceSession: LlamaChatSessionInstance | null = null;
+let cachedEmbeddingContext: LlamaEmbeddingContext | null = null;
 let keepAliveTimer: ReturnType<typeof setTimeout> | null = null;
+let inferenceRunning = false;
 const modelArchitectureCache = new Map<string, string>();
 const UNSUPPORTED_MAIN_ARCHITECTURES = new Set<string>([]);
 const GPU_OOM_HINT = "GPU memory exhausted while running the model. Try a smaller quant/model, lower max tokens, or close GPU-heavy apps and retry.";
+const inferenceQueue = new FifoInferenceQueue(RUNAI_MAX_QUEUE);
+
+export function queueInference<T>(fn: () => Promise<T>): Promise<T> {
+  return inferenceQueue.run(async () => {
+    inferenceRunning = true;
+    if (keepAliveTimer) {
+      clearTimeout(keepAliveTimer);
+      keepAliveTimer = null;
+    }
+    try {
+      return await fn();
+    } finally {
+      inferenceRunning = false;
+      if (cachedModel) resetKeepAliveTimer();
+    }
+  });
+}
+
+export function getInferenceQueueSnapshot(): {
+  activeRequests: number;
+  queuedRequests: number;
+  canAccept: boolean;
+} {
+  return {
+    activeRequests: inferenceQueue.activeRequests,
+    queuedRequests: inferenceQueue.queuedRequests,
+    canAccept: inferenceQueue.canAccept,
+  };
+}
 
 type DisposableResource = {
   dispose?: () => void | Promise<void>;
@@ -76,7 +124,7 @@ async function disposeResource(resource: unknown): Promise<void> {
 
 function resetKeepAliveTimer(): void {
   if (keepAliveTimer) clearTimeout(keepAliveTimer);
-  if (RUNAI_KEEP_ALIVE_MS <= 0) return;
+  if (RUNAI_KEEP_ALIVE_MS <= 0 || inferenceRunning) return;
   keepAliveTimer = setTimeout(async () => {
     await unloadModel();
   }, RUNAI_KEEP_ALIVE_MS);
@@ -86,6 +134,15 @@ export async function unloadModel(): Promise<void> {
   if (keepAliveTimer) {
     clearTimeout(keepAliveTimer);
     keepAliveTimer = null;
+  }
+  if (cachedInferenceContext) {
+    cachedInferenceSession = null;
+    await disposeResource(cachedInferenceContext);
+    cachedInferenceContext = null;
+  }
+  if (cachedEmbeddingContext) {
+    await disposeResource(cachedEmbeddingContext);
+    cachedEmbeddingContext = null;
   }
   if (cachedModel) {
     await disposeResource(cachedModel);
@@ -192,7 +249,14 @@ async function ensureLlama() {
   return cachedLlama;
 }
 
-async function getModel(modelPath: string, onProgress?: (progress: number) => void) {
+async function getModel(
+  modelPath: string,
+  onProgress?: (progress: number) => void,
+  purpose: "chat" | "embedding" = "chat",
+) {
+  if (purpose === "chat") {
+    await assertMainChatModel(modelPath);
+  }
   if (cachedModel && cachedModelPath === modelPath) {
     resetKeepAliveTimer();
     return cachedModel;
@@ -204,8 +268,6 @@ async function getModel(modelPath: string, onProgress?: (progress: number) => vo
   if (cachedModel && cachedModelPath !== modelPath) {
     await unloadModel();
   }
-
-  await assertMainChatModel(modelPath);
 
   const llama = await ensureLlama();
   try {
@@ -232,16 +294,86 @@ async function getModel(modelPath: string, onProgress?: (progress: number) => vo
   return cachedModel;
 }
 
-function buildPromptOptions(params: InferenceParams): Record<string, unknown> {
+async function getInferenceRuntime(modelPath: string): Promise<{
+  model: LlamaModel;
+  session: LlamaChatSessionInstance;
+}> {
+  const model = await getModel(modelPath);
+  if (!cachedInferenceContext) {
+    cachedInferenceContext = await model.createContext({ contextSize: RUNAI_CONTEXT_SIZE });
+  }
+  if (!cachedInferenceSession) {
+    const { LlamaChatSession } = await requireLlamaModule();
+    cachedInferenceSession = new LlamaChatSession({
+      contextSequence: cachedInferenceContext.getSequence(),
+    });
+  }
+  return { model, session: cachedInferenceSession };
+}
+
+async function getEmbeddingContext(modelPath: string): Promise<{
+  model: LlamaModel;
+  context: LlamaEmbeddingContext;
+}> {
+  const model = await getModel(modelPath, undefined, "embedding");
+  if (!cachedEmbeddingContext) {
+    cachedEmbeddingContext = await model.createEmbeddingContext();
+  }
+  return { model, context: cachedEmbeddingContext };
+}
+
+export function buildPromptOptions(params: InferenceParams): Record<string, unknown> {
   const opts: Record<string, unknown> = {};
   if (params.temperature !== undefined) opts.temperature = params.temperature;
   if (params.maxTokens !== undefined) opts.maxTokens = params.maxTokens;
   if (params.topP !== undefined) opts.topP = params.topP;
   if (params.topK !== undefined) opts.topK = params.topK;
   if (params.seed !== undefined) opts.seed = params.seed;
-  if (params.repeatPenalty !== undefined) opts.repeatPenalty = params.repeatPenalty;
-  if (params.stop && params.stop.length > 0) opts.stopStrings = params.stop;
+  if (
+    params.repeatPenalty !== undefined
+    || params.frequencyPenalty !== undefined
+    || params.presencePenalty !== undefined
+  ) {
+    opts.repeatPenalty = {
+      ...(params.repeatPenalty !== undefined ? { penalty: params.repeatPenalty } : {}),
+      ...(params.frequencyPenalty !== undefined ? { frequencyPenalty: params.frequencyPenalty } : {}),
+      ...(params.presencePenalty !== undefined ? { presencePenalty: params.presencePenalty } : {}),
+    };
+  }
+  if (params.stop && params.stop.length > 0) opts.customStopTriggers = params.stop;
   return opts;
+}
+
+export function toLlamaChatHistory(messages: ChatMessage[]): {
+  history: LlamaChatHistoryItem[];
+  prompt: string;
+} {
+  const lastMessage = messages[messages.length - 1];
+  if (!lastMessage || lastMessage.role !== "user") {
+    throw new Error("Last message must be from user");
+  }
+
+  const history = messages.slice(0, -1).map<LlamaChatHistoryItem>((message) => {
+    if (message.role === "assistant") {
+      return { type: "model", response: [message.content] };
+    }
+    return { type: message.role, text: message.content };
+  });
+
+  return { history, prompt: lastMessage.content };
+}
+
+type ChatSessionWithHistory = {
+  setChatHistory(history: LlamaChatHistoryItem[]): void;
+};
+
+function restoreChatHistory(
+  session: ChatSessionWithHistory,
+  messages: ChatMessage[],
+): string {
+  const { history, prompt } = toLlamaChatHistory(messages);
+  session.setChatHistory(history);
+  return prompt;
 }
 
 export async function tokenize(modelPath: string, text: string): Promise<number[]> {
@@ -256,25 +388,43 @@ export async function countTokens(modelPath: string, text: string): Promise<numb
 }
 
 export async function generateEmbedding(modelPath: string, input: string): Promise<{ embedding: number[]; tokenCount: number }> {
-  const model = await getModel(modelPath);
-  const context = await model.createEmbeddingContext();
   try {
+    const { model, context } = await getEmbeddingContext(modelPath);
     const result = await context.getEmbeddingFor(input);
     const tokenCount = model.tokenize(input).length;
     return { embedding: Array.from(result.vector), tokenCount };
-  } finally {
-    await disposeResource(context);
+  } catch (error) {
+    throw normalizeEmbeddingError(error);
   }
 }
 
+export class EmbeddingModelIncompatibleError extends Error {
+  constructor(message = "The selected model does not support embeddings. Choose an embedding-compatible GGUF model.") {
+    super(message);
+    this.name = "EmbeddingModelIncompatibleError";
+  }
+}
+
+function normalizeEmbeddingError(error: unknown): Error {
+  const message = error instanceof Error ? error.message : String(error);
+  const normalized = message.toLowerCase();
+  if (
+    normalized.includes("embedding") && (
+      normalized.includes("not support")
+      || normalized.includes("not enabled")
+      || normalized.includes("unsupported")
+      || normalized.includes("cannot")
+    )
+  ) {
+    return new EmbeddingModelIncompatibleError();
+  }
+  return error instanceof Error ? error : new Error(message);
+}
+
 export async function runLlamaOnce(options: LlamaRunOptions): Promise<{ text: string; promptTokens: number; completionTokens: number }> {
-  const { LlamaChatSession } = await requireLlamaModule();
-  const model = await getModel(options.modelPath);
-  const context = await model.createContext();
+  const { model, session } = await getInferenceRuntime(options.modelPath);
   try {
-    const session = new LlamaChatSession({
-      contextSequence: context.getSequence(),
-    });
+    session.setChatHistory([]);
     const promptOpts = buildPromptOptions({
       temperature: options.temperature,
       maxTokens: options.maxTokens,
@@ -283,6 +433,8 @@ export async function runLlamaOnce(options: LlamaRunOptions): Promise<{ text: st
       seed: options.seed,
       stop: options.stop,
       repeatPenalty: options.repeatPenalty,
+      frequencyPenalty: options.frequencyPenalty,
+      presencePenalty: options.presencePenalty,
     });
     const text = await session.prompt(options.prompt, promptOpts as never);
     const promptTokens = model.tokenize(options.prompt).length;
@@ -290,30 +442,16 @@ export async function runLlamaOnce(options: LlamaRunOptions): Promise<{ text: st
     return { text: text.trim(), promptTokens, completionTokens };
   } catch (error) {
     return await handleInferenceError(error);
-  } finally {
-    await disposeResource(context);
   }
 }
 
 export async function runLlamaChatOnce(options: LlamaChatOptions): Promise<{ text: string; promptTokens: number; completionTokens: number }> {
-  const { LlamaChatSession } = await requireLlamaModule();
-  const model = await getModel(options.modelPath);
-  const context = await model.createContext();
+  const { model, session } = await getInferenceRuntime(options.modelPath);
   try {
-    const systemMessage = options.messages.find((m) => m.role === "system");
-    const session = new LlamaChatSession({
-      contextSequence: context.getSequence(),
-      systemPrompt: systemMessage?.content,
-    });
-
-    const nonSystemMessages = options.messages.filter((m) => m.role !== "system");
-    const lastUserMessage = nonSystemMessages[nonSystemMessages.length - 1];
-    if (!lastUserMessage || lastUserMessage.role !== "user") {
-      throw new Error("Last message must be from user");
-    }
+    const prompt = restoreChatHistory(session, options.messages);
 
     const promptOpts = buildPromptOptions(options.params);
-    const text = await session.prompt(lastUserMessage.content, promptOpts as never);
+    const text = await session.prompt(prompt, promptOpts as never);
 
     let promptTokenCount = 0;
     for (const msg of options.messages) {
@@ -324,8 +462,6 @@ export async function runLlamaChatOnce(options: LlamaChatOptions): Promise<{ tex
     return { text: text.trim(), promptTokens: promptTokenCount, completionTokens };
   } catch (error) {
     return await handleInferenceError(error);
-  } finally {
-    await disposeResource(context);
   }
 }
 
@@ -333,13 +469,9 @@ export async function runLlamaStream(
   options: LlamaRunOptions,
   onChunk: (chunk: string) => void,
 ): Promise<{ promptTokens: number; completionTokens: number }> {
-  const { LlamaChatSession } = await requireLlamaModule();
-  const model = await getModel(options.modelPath);
-  const context = await model.createContext();
+  const { model, session } = await getInferenceRuntime(options.modelPath);
   try {
-    const session = new LlamaChatSession({
-      contextSequence: context.getSequence(),
-    });
+    session.setChatHistory([]);
     const promptOpts = buildPromptOptions({
       temperature: options.temperature,
       maxTokens: options.maxTokens,
@@ -348,6 +480,8 @@ export async function runLlamaStream(
       seed: options.seed,
       stop: options.stop,
       repeatPenalty: options.repeatPenalty,
+      frequencyPenalty: options.frequencyPenalty,
+      presencePenalty: options.presencePenalty,
     });
 
     let hasChunks = false;
@@ -372,8 +506,6 @@ export async function runLlamaStream(
   } catch (error) {
     await handleInferenceError(error);
     return { promptTokens: 0, completionTokens: 0 };
-  } finally {
-    await disposeResource(context);
   }
 }
 
@@ -381,26 +513,14 @@ export async function runLlamaChatStream(
   options: LlamaChatOptions,
   onChunk: (chunk: string) => void,
 ): Promise<{ promptTokens: number; completionTokens: number }> {
-  const { LlamaChatSession } = await requireLlamaModule();
-  const model = await getModel(options.modelPath);
-  const context = await model.createContext();
+  const { model, session } = await getInferenceRuntime(options.modelPath);
   try {
-    const systemMessage = options.messages.find((m) => m.role === "system");
-    const session = new LlamaChatSession({
-      contextSequence: context.getSequence(),
-      systemPrompt: systemMessage?.content,
-    });
-
-    const nonSystemMessages = options.messages.filter((m) => m.role !== "system");
-    const lastUserMessage = nonSystemMessages[nonSystemMessages.length - 1];
-    if (!lastUserMessage || lastUserMessage.role !== "user") {
-      throw new Error("Last message must be from user");
-    }
+    const prompt = restoreChatHistory(session, options.messages);
 
     const promptOpts = buildPromptOptions(options.params);
     let hasChunks = false;
     let fullText = "";
-    const text = await session.prompt(lastUserMessage.content, {
+    const text = await session.prompt(prompt, {
       ...promptOpts,
       onTextChunk: (chunk: string) => {
         hasChunks = true;
@@ -423,8 +543,6 @@ export async function runLlamaChatStream(
   } catch (error) {
     await handleInferenceError(error);
     return { promptTokens: 0, completionTokens: 0 };
-  } finally {
-    await disposeResource(context);
   }
 }
 
@@ -432,13 +550,9 @@ export async function runLlamaStreamWithSegments(
   options: LlamaRunOptions,
   onChunk: (chunk: LlamaStreamChunk) => void,
 ): Promise<void> {
-  const { LlamaChatSession } = await requireLlamaModule();
-  const model = await getModel(options.modelPath);
-  const context = await model.createContext();
+  const { session } = await getInferenceRuntime(options.modelPath);
   try {
-    const session = new LlamaChatSession({
-      contextSequence: context.getSequence(),
-    });
+    session.setChatHistory([]);
     const promptOpts = buildPromptOptions({
       temperature: options.temperature,
       maxTokens: options.maxTokens,
@@ -447,6 +561,8 @@ export async function runLlamaStreamWithSegments(
       seed: options.seed,
       stop: options.stop,
       repeatPenalty: options.repeatPenalty,
+      frequencyPenalty: options.frequencyPenalty,
+      presencePenalty: options.presencePenalty,
     });
 
     let hasChunks = false;
@@ -454,11 +570,10 @@ export async function runLlamaStreamWithSegments(
       ...promptOpts,
       onResponseChunk: (chunk: { type: string; text: string; segmentType?: string; segmentStartTime?: unknown; segmentEndTime?: unknown }) => {
         hasChunks = true;
-        if (chunk.type === "segment") {
-          const segmentType = chunk.segmentType === "thought" ? "thought" : "comment";
+        if (chunk.type === "segment" && chunk.segmentType === "thought") {
           onChunk({
             text: chunk.text,
-            segmentType,
+            segmentType: "thought",
             segmentStart: Boolean(chunk.segmentStartTime),
             segmentEnd: Boolean(chunk.segmentEndTime),
           });
@@ -479,8 +594,6 @@ export async function runLlamaStreamWithSegments(
     }
   } catch (error) {
     await handleInferenceError(error);
-  } finally {
-    await disposeResource(context);
   }
 }
 
@@ -488,35 +601,22 @@ export async function runLlamaChatStreamWithSegments(
   options: LlamaChatOptions,
   onChunk: (chunk: LlamaStreamChunk) => void,
 ): Promise<{ promptTokens: number; completionTokens: number }> {
-  const { LlamaChatSession } = await requireLlamaModule();
-  const model = await getModel(options.modelPath);
-  const context = await model.createContext();
+  const { model, session } = await getInferenceRuntime(options.modelPath);
   try {
-    const systemMessage = options.messages.find((m) => m.role === "system");
-    const session = new LlamaChatSession({
-      contextSequence: context.getSequence(),
-      systemPrompt: systemMessage?.content,
-    });
-
-    const nonSystemMessages = options.messages.filter((m) => m.role !== "system");
-    const lastUserMessage = nonSystemMessages[nonSystemMessages.length - 1];
-    if (!lastUserMessage || lastUserMessage.role !== "user") {
-      throw new Error("Last message must be from user");
-    }
+    const prompt = restoreChatHistory(session, options.messages);
 
     const promptOpts = buildPromptOptions(options.params);
     let hasChunks = false;
     let fullText = "";
-    const text = await session.prompt(lastUserMessage.content, {
+    const text = await session.prompt(prompt, {
       ...promptOpts,
       onResponseChunk: (chunk: { type: string; text: string; segmentType?: string; segmentStartTime?: unknown; segmentEndTime?: unknown }) => {
         hasChunks = true;
         fullText += chunk.text;
-        if (chunk.type === "segment") {
-          const segmentType = chunk.segmentType === "thought" ? "thought" : "comment";
+        if (chunk.type === "segment" && chunk.segmentType === "thought") {
           onChunk({
             text: chunk.text,
-            segmentType,
+            segmentType: "thought",
             segmentStart: Boolean(chunk.segmentStartTime),
             segmentEnd: Boolean(chunk.segmentEndTime),
           });
@@ -546,8 +646,6 @@ export async function runLlamaChatStreamWithSegments(
   } catch (error) {
     await handleInferenceError(error);
     return { promptTokens: 0, completionTokens: 0 };
-  } finally {
-    await disposeResource(context);
   }
 }
 
@@ -558,7 +656,7 @@ export interface PersistentChatSession {
     text: string,
     params: InferenceParams,
     onChunk: (chunk: LlamaStreamChunk) => void,
-  ): Promise<{ completionTokens: number }>;
+  ): Promise<{ completionTokens: number; text: string }>;
   dispose(): Promise<void>;
 }
 
@@ -568,20 +666,20 @@ export async function createPersistentChatSession(
 ): Promise<PersistentChatSession> {
   const { LlamaChatSession } = await requireLlamaModule();
   const model = await getModel(modelPath);
-  const context = await model.createContext();
+  const context = await model.createContext({ contextSize: RUNAI_CONTEXT_SIZE });
   const session = new LlamaChatSession({
     contextSequence: context.getSequence(),
     systemPrompt,
   });
 
   return {
-    async prompt(text, params, onChunk) {
+    async prompt(promptText, params, onChunk) {
       const promptOpts = buildPromptOptions(params);
       let hasChunks = false;
       let fullText = "";
 
       try {
-        const responseText = await session.prompt(text, {
+        const responseText = await session.prompt(promptText, {
           ...promptOpts,
           onResponseChunk: (chunk: {
             type: string | undefined;
@@ -592,12 +690,10 @@ export async function createPersistentChatSession(
           }) => {
             hasChunks = true;
             fullText += chunk.text;
-            if (chunk.type === "segment") {
-              const segmentType =
-                chunk.segmentType === "thought" ? "thought" : "comment";
+            if (chunk.type === "segment" && chunk.segmentType === "thought") {
               onChunk({
                 text: chunk.text,
-                segmentType,
+                segmentType: "thought",
                 segmentStart: Boolean(chunk.segmentStartTime),
                 segmentEnd: Boolean(chunk.segmentEndTime),
               });
@@ -612,8 +708,9 @@ export async function createPersistentChatSession(
           onChunk({ text: responseText, segmentType: "main" });
         }
 
-        const completionTokens = model.tokenize(fullText || responseText).length;
-        return { completionTokens };
+        const generatedText = (responseText || fullText).trim();
+        const completionTokens = model.tokenize(fullText || responseText || "").length;
+        return { completionTokens, text: generatedText };
       } catch (error) {
         return await handleInferenceError(error);
       }

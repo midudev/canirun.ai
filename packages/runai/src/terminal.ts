@@ -20,6 +20,51 @@ export function displayWidth(text: string): number {
   return stringWidth(stripAnsi(text));
 }
 
+export function wrapAnsi(text: string, width: number): string[] {
+  const max = Math.max(1, Math.floor(width));
+  const lines: string[] = [];
+  let current = "";
+  let currentWidth = 0;
+  let i = 0;
+
+  const flush = (): void => {
+    lines.push(current);
+    current = "";
+    currentWidth = 0;
+  };
+
+  while (i < text.length) {
+    if (text[i] === "\u001b") {
+      const end = text.indexOf("m", i);
+      if (end !== -1) {
+        current += text.slice(i, end + 1);
+        i = end + 1;
+        continue;
+      }
+    }
+    if (text[i] === "\n") {
+      flush();
+      i += 1;
+      continue;
+    }
+    const char = text[i]!;
+    const charWidth = stringWidth(char);
+    if (currentWidth + charWidth > max && currentWidth > 0) flush();
+    current += char;
+    currentWidth += charWidth;
+    i += 1;
+  }
+  if (current || lines.length === 0) flush();
+  return lines;
+}
+
+export function padAnsi(text: string, width: number): string {
+  const max = Math.max(0, Math.floor(width));
+  const visible = displayWidth(text);
+  if (visible >= max) return truncateAnsi(text, max);
+  return `${text}${" ".repeat(max - visible)}`;
+}
+
 export function truncateAnsi(text: string, maxWidth: number): string {
   if (maxWidth <= 0) return "";
   if (displayWidth(text) <= maxWidth) return text;

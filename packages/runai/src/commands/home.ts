@@ -6,11 +6,7 @@ import { isModelLoaded, getLoadedModelPath, unloadModel } from "../llamacpp";
 import { getPromptOutput, usePromptLegend } from "../prompt-footer";
 import { ANSI, paint, gradientBrand, pluralize } from "../terminal";
 import { listInstalledModelOptions, stripGguf } from "../cli-utils";
-import { handleChat } from "./chat";
-import { handleRecommend } from "./recommend-install";
-import { handleDeleteModels } from "./simple";
-import { handleServe } from "./simple";
-import { loadModelWithProgress } from "./model-lifecycle";
+import { checkForCliUpdate, type UpdateCheck } from "../update";
 
 function homeIntro(installedCount: number, apiActive: boolean, portInUse: boolean): string {
   const apiLabel = apiActive
@@ -30,13 +26,26 @@ function homeIntro(installedCount: number, apiActive: boolean, portInUse: boolea
   ].join("\n");
 }
 
+function updateBanner(update: UpdateCheck): string | null {
+  if (update.state !== "outdated") return null;
+  return `Update available: v${update.current} → v${update.latest}. Run \`runai update\`.`;
+}
+
 export async function handleHome(): Promise<void> {
+  const pendingUpdate = checkForCliUpdate();
   while (true) {
-    const installed = await listInstalledModelOptions();
+    const [installed, update] = await Promise.all([
+      listInstalledModelOptions(),
+      pendingUpdate,
+    ]);
     const apiActive = await isApiServerActive();
     const portInUse = apiActive ? false : await isPortInUse();
     if (installed.length === 0) {
-      const status = await handleRecommend([], { allowBackOnCancel: true });
+      const { handleRecommend } = await import("./recommend-install");
+      const status = await handleRecommend([], {
+        allowBackOnCancel: true,
+        onboarding: true,
+      });
       if (status === "cancelled") return;
       continue;
     }
@@ -45,11 +54,19 @@ export async function handleHome(): Promise<void> {
     const loadedName = loadedPath ? stripGguf(loadedPath.split("/").pop()!) : null;
 
     p.intro(homeIntro(installed.length, apiActive, portInUse));
+    const banner = updateBanner(update);
+    if (banner) p.log.warn(banner);
     usePromptLegend("list");
     const action = await p.select({
       message: "Choose an action:",
       output: getPromptOutput(),
       options: [
+        ...(update.state === "outdated"
+          ? [{
+              value: "update",
+              label: `⬆  Update runai ${paint(`v${update.current} → v${update.latest}`, ANSI.yellow, true)}`,
+            }]
+          : []),
         { value: "chat", label: "☻  Open an interactive chat session" },
         {
           value: "load",
@@ -70,8 +87,15 @@ export async function handleHome(): Promise<void> {
 
     if (p.isCancel(action)) return;
 
+    if (action === "update") {
+      const { handleUpdate } = await import("./update");
+      await handleUpdate(["--yes"]);
+      return;
+    }
     if (action === "chat") {
-      await handleChat([], { allowBackOnCancel: true });
+      const { handleChat } = await import("./chat");
+      const chatOutcome = await handleChat([], { allowBackOnCancel: true });
+      if (chatOutcome === "exit") return;
       continue;
     }
     if (action === "load") {
@@ -107,6 +131,7 @@ export async function handleHome(): Promise<void> {
       }
 
       try {
+        const { loadModelWithProgress } = await import("./model-lifecycle");
         await loadModelWithProgress(selected);
       } catch {
         // Error already logged by loadModelWithProgress
@@ -114,10 +139,12 @@ export async function handleHome(): Promise<void> {
       continue;
     }
     if (action === "install") {
+      const { handleRecommend } = await import("./recommend-install");
       await handleRecommend([], { allowBackOnCancel: true });
       continue;
     }
     if (action === "delete") {
+      const { handleDeleteModels } = await import("./simple");
       const status = await handleDeleteModels({ allowBackOnCancel: true });
       if (status === "completed") p.outro("Done.");
       continue;
@@ -143,10 +170,8 @@ export async function handleHome(): Promise<void> {
         p.log.info(`Use another port: runai api --port 11436`);
         continue;
       }
-      const started = await handleServe([]);
-      if (started) {
-        p.log.success(`API running on http://localhost:${RUNAI_DEFAULT_PORT}`);
-      }
+      const { handleDaemon } = await import("./daemon");
+      await handleDaemon([]);
       continue;
     }
   }

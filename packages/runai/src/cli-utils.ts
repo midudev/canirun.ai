@@ -12,7 +12,10 @@ export interface InstalledModelOption {
 
 export interface PromptNavigationOptions {
   allowBackOnCancel?: boolean;
+  onboarding?: boolean;
 }
+
+export type ChatOutcome = "back" | "exit";
 
 export function getArgValue(args: string[], name: string): string | undefined {
   const index = args.indexOf(name);
@@ -55,6 +58,14 @@ export function estimateTokens(text: string): number {
   const trimmed = text.trim();
   if (!trimmed) return 0;
   return trimmed.split(/\s+/).length;
+}
+
+export function countGeneratedTokens(
+  thinking: string,
+  answer: string,
+  engineTokens = 0,
+): number {
+  return Math.max(engineTokens, estimateTokens(thinking) + estimateTokens(answer));
 }
 
 export function formatSeconds(ms: number): string {

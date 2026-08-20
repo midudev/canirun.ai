@@ -5,7 +5,7 @@ import { RUNAI_DEFAULT_PORT } from "../config";
 import { detectHardware } from "../hardware";
 import { installCatalogModel } from "../install";
 import { printBrowseResults } from "../output";
-import { pullModel } from "../pull";
+import { installModelInteractively, installRequestedModel } from "../model-request";
 import { searchCatalog } from "../recommend";
 import { sendBrowseTelemetry } from "../telemetry";
 import { startServer } from "../serve";
@@ -18,7 +18,7 @@ import {
 import { getPromptOutput, usePromptLegend } from "../prompt-footer";
 import { ANSI, paint } from "../terminal";
 import {
-  getArgValue, hasFlag, positionalArgs, stripGguf, normalizeModelId,
+  getArgValue, hasFlag, positionalArgs,
   listInstalledModelOptions, resolveServeModel, uiFitScore,
   type PromptNavigationOptions,
 } from "../cli-utils";
@@ -167,24 +167,21 @@ export async function handleBrowse(args: string[]): Promise<void> {
 }
 
 export async function handlePull(args: string[]): Promise<void> {
-  const url = args.find((a) => a.startsWith("http://") || a.startsWith("https://"));
-  if (!url) {
-    throw new Error("Usage: runai pull <gguf-url> [--name my-model.gguf]");
-  }
+  const request = positionalArgs(args, ["--name"]).join(" ");
   const name = getArgValue(args, "--name");
-  const installedPath = await pullModel(url, name);
-  const id = normalizeModelId(name || installedPath);
-  upsertInstalledModel({
-    id,
-    name: stripGguf(name || basename(installedPath)),
-    path: installedPath,
-    sourceUrl: url,
-    sourceRepo: null,
-    sourceFile: basename(installedPath),
-  });
+  const installed = request
+    ? await installRequestedModel(request, name)
+    : await installModelInteractively();
+  if (!installed) {
+    if (!request && !process.stdin.isTTY) {
+      throw new Error("Usage: runai pull <model-or-gguf-url> [--name my-model.gguf]");
+    }
+    return;
+  }
+  p.log.success(`Ready: ${installed.name}`);
 
   const { promptLoadAfterInstall } = await import("./model-lifecycle");
-  await promptLoadAfterInstall(installedPath);
+  await promptLoadAfterInstall(installed.path);
 }
 
 export async function handleServe(args: string[]): Promise<boolean> {

@@ -1,17 +1,22 @@
 {
   "name": "runai",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "description": "Local AI runtime with hardware-aware recommendations and OpenAI-compatible API",
-  "module": "src/cli.ts",
+  "module": "dist/cli.js",
   "type": "module",
-  "private": true,
-  "packageManager": "pnpm@11.1.3",
+  "files": [
+    "bin",
+    "dist",
+    "install"
+  ],
+  "packageManager": "pnpm@11.22.0",
   "bin": {
     "runai": "./bin/runai"
   },
   "scripts": {
     "dev": "bun src/cli.ts",
-    "build": "bun build ./src/cli.ts --target bun --outfile ./dist/cli.js",
+    "build": "bun build ./src/cli.ts --target bun --packages external --outfile ./dist/cli.js",
+    "prepack": "pnpm run build",
     "test": "vitest run",
     "recommend": "bun src/cli.ts recommend",
     "browse": "bun src/cli.ts browse",
@@ -21,12 +26,33 @@
   "devDependencies": {
     "@types/bun": "1.3.14"
   },
-  "peerDependencies": {
-    "typescript": "6.0.3"
-  },
   "dependencies": {
-    "@clack/prompts": "1.4.0",
+    "@canirun/compatibility": "workspace:^",
+    "@canirun/models": "workspace:^",
+    "@clack/prompts": "1.7.0",
     "fast-string-width": "3.0.2",
-    "node-llama-cpp": "3.18.1"
+    "node-llama-cpp": "3.20.0"
+  },
+  "engines": {
+    "bun": ">=1.2.0"
+  },
+  "homepage": "https://canirun.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/midudev/canirun.ai.git",
+    "directory": "packages/runai"
+  },
+  "bugs": {
+    "url": "https://github.com/midudev/canirun.ai/issues"
+  },
+  "keywords": [
+    "ai",
+    "llm",
+    "gguf",
+    "llama.cpp",
+    "local-ai"
+  ],
+  "publishConfig": {
+    "access": "public"
   }
 }

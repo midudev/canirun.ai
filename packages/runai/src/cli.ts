@@ -26,22 +26,29 @@ runai - local AI runtime (Bun + llama.cpp)
 
 Usage:
   runai                                  Interactive home menu
-  runai run <model>                      Download (if needed) + chat in one command
-  runai chat [--model <path-or-id>]      Open interactive chat
-  runai recommend [--top N] [--json]     Hardware-aware model recommendations
+  runai run [model-or-url]               Download if needed, then open chat
+  runai pull [model-or-url]              Download the best compatible GGUF
+  runai serve [--detach]                 Start the local OpenAI-compatible API
+  runai list                             List installed models
+  runai ps                               Show the model currently in memory
+  runai stop                             Stop the background API
+  runai doctor                           Diagnose this installation
+  runai update                           Update the CLI to the latest version
+
+Discover:
+  runai recommend [--top N] [--json]     Hardware-aware recommendations
   runai browse [query] [--limit N]       Search model catalog
-  runai pull <gguf-url> [--name ...]     Download GGUF from URL
-  runai list [--json]                    List installed models
+
+Advanced:
+  runai chat [--model <path-or-id>]      Open interactive chat
+  runai pull <url> [--name ...]          Save a direct GGUF URL with a custom name
   runai show [model] [--json]            Show model metadata & info
   runai bench [--model <path-or-id>]     Benchmark a model (tok/s, TTFT)
-  runai serve [--model ...] [--port ..]  Start OpenAI-compatible API server
-  runai serve --detach                   Start API as background daemon
-  runai stop                             Stop background daemon
   runai load [model]                     Pre-load a model into memory
   runai unload                           Unload model from memory
-  runai ps                               Show currently loaded model
-  runai import [--json]                  Import models from Ollama
-  runai doctor [--json] [--model ...]    Diagnose setup issues
+  runai import [--json]                  Find GGUF equivalents for Ollama models
+  runai list|doctor --json                Machine-readable diagnostics
+  runai update --check [--json]          Check for a newer CLI without installing
   runai --help | --version
 
 API endpoints:
@@ -57,7 +64,10 @@ Environment:
   RUNAI_KEEP_ALIVE        Idle model unload time in seconds (300)
   RUNAI_MAX_QUEUE         Max queued requests (64)
   RUNAI_MAX_TOKENS        Default max tokens (2048)
+  RUNAI_CONTEXT_SIZE      Max inference context tokens (4096)
+  RUNAI_HARDWARE_CACHE_TTL  Hardware cache time in seconds (30)
   RUNAI_TELEMETRY_DISABLED=1  Disable anonymous telemetry
+  RUNAI_UPDATE_CHECK=0    Disable background CLI update checks
   OLLAMA_MODELS           Ollama model dir for import (~/.ollama/models)
 `);
 }
@@ -161,6 +171,11 @@ async function main(): Promise<void> {
     await handleDoctor(args);
     return;
   }
+  if (cmd === "update" || cmd === "upgrade") {
+    const { handleUpdate } = await import("./commands/update");
+    await handleUpdate(args);
+    return;
+  }
 
   console.error(`Unknown command: ${cmd}`);
   printHelp();
@@ -168,4 +183,9 @@ async function main(): Promise<void> {
 }
 
 setupHardExitOnCtrlC();
-await main();
+try {
+  await main();
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exitCode = 1;
+}

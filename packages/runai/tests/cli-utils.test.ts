@@ -7,6 +7,7 @@ import {
   stripGguf,
   normalizeModelId,
   estimateTokens,
+  countGeneratedTokens,
   formatSeconds,
 } from "../src/cli-utils";
 
@@ -101,6 +102,16 @@ describe("estimateTokens", () => {
   test("returns 0 for empty string", () => {
     expect(estimateTokens("")).toBe(0);
     expect(estimateTokens("   ")).toBe(0);
+  });
+});
+
+describe("countGeneratedTokens", () => {
+  test("includes thinking tokens in the generated total", () => {
+    expect(countGeneratedTokens("one two three four", "hello world")).toBe(6);
+  });
+
+  test("keeps the engine count when it is higher", () => {
+    expect(countGeneratedTokens("one two", "three", 40)).toBe(40);
   });
 });
 

@@ -11,8 +11,6 @@ import {
   getArgValue, hasFlag, parseInstallTokens, uiFitScore,
   type PromptNavigationOptions,
 } from "../cli-utils";
-import { handleChat } from "./chat";
-import { promptLoadAfterInstall } from "./model-lifecycle";
 import type { RecommendedModel, CliHardwareInfo } from "../types";
 
 function recommendationOptionLabel(item: RecommendedModel, index: number): string {
@@ -21,7 +19,8 @@ function recommendationOptionLabel(item: RecommendedModel, index: number): strin
   const fitLine = `   ${paint("☆ Fit:", ANSI.magenta, true)} ${paint(`${fit}/100`, ANSI.green, true)}`;
   const metricsLine = `   ${paint("⛁", ANSI.cyan, true)} ${paint("Disk:", ANSI.cyan, true)} ${paint(`${item.diskNeededGB} GB`, ANSI.cyan, true)}   ${paint("⛃", ANSI.cyan, true)} ${paint("VRAM:", ANSI.cyan, true)} ${paint(`~${item.memoryNeededGB} GB`, ANSI.cyan, true)}`;
   const speedLine = `   ${paint("⚡Speed expected:", ANSI.yellow)} ~${item.expectedTokensPerSec ?? "?"} tok/s`;
-  return `${paint(String(index + 1), ANSI.bold)}. ${item.name} ${quant}\n${fitLine}\n${metricsLine}\n${speedLine}\n`;
+  const sourceLine = `   ${paint("Source:", ANSI.gray, true)} ${item.ggufRepo ?? item.provider}`;
+  return `${paint(String(index + 1), ANSI.bold)}. ${item.name} ${quant}\n${fitLine}\n${metricsLine}\n${speedLine}\n${sourceLine}\n`;
 }
 
 function searchableModelLabel(item: RecommendedModel): string {
@@ -161,17 +160,26 @@ async function installRecommendations(
     lastInstalledPath = installed.path;
   }
 
-  if (lastInstalledPath) {
-    const loaded = await promptLoadAfterInstall(lastInstalledPath);
-
-    usePromptLegend("default");
-    const openChat = await p.confirm({
-      message: "Open chat now?",
-      output: getPromptOutput(),
-    });
-    if (p.isCancel(openChat)) return "cancelled";
-    if (openChat) {
-      await handleChat(loaded ? ["--model", lastInstalledPath] : [], options);
+  if (lastInstalledPath && process.stdin.isTTY) {
+    if (options.onboarding) {
+      p.log.info("Model installed. Loading it and opening chat...");
+      const { handleChat } = await import("./chat");
+      const chatOutcome = await handleChat(["--model", lastInstalledPath], options);
+      if (chatOutcome === "exit") return "cancelled";
+    } else {
+      const { promptLoadAfterInstall } = await import("./model-lifecycle");
+      const loaded = await promptLoadAfterInstall(lastInstalledPath);
+      usePromptLegend("default");
+      const openChat = await p.confirm({
+        message: "Open chat now?",
+        output: getPromptOutput(),
+      });
+      if (p.isCancel(openChat)) return "cancelled";
+      if (openChat) {
+        const { handleChat } = await import("./chat");
+        const chatOutcome = await handleChat(loaded ? ["--model", lastInstalledPath] : [], options);
+        if (chatOutcome === "exit") return "cancelled";
+      }
     }
   }
   return "completed";
@@ -196,6 +204,8 @@ export async function handleRecommend(
   }
   const status = await installRecommendations(args, recommendations, hw, options);
   if (status === "cancelled") return "cancelled";
-  p.outro("Done.");
+  if (!options.onboarding) {
+    p.outro("Done.");
+  }
   return "completed";
 }

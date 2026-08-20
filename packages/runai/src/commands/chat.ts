@@ -1,296 +1,196 @@
 import * as p from "@clack/prompts";
 import { basename } from "node:path";
 import {
-  createPersistentChatSession, isModelLoaded,
+  createPersistentChatSession,
+  isModelLoaded,
+  unloadModel,
   type PersistentChatSession,
 } from "../llamacpp";
 import { loadModelWithProgress } from "./model-lifecycle";
-import { setPromptFooter } from "../prompt-footer";
+import { pausePromptFooter, resumePromptFooter, setPromptFooter } from "../prompt-footer";
+import { ChatScreen, formatChatMetrics } from "../chat-screen";
 import {
-  ANSI, paint,
-  parseThinkingBlock, waveGradient,
-  createMarkdownRenderState, renderMarkdownDelta, flushMarkdownDelta,
-} from "../terminal";
+  accumulateChatChunk,
+  createChatStreamState,
+  finalizeChatStream,
+} from "../chat-stream";
+import { RUNAI_DEFAULT_MAX_TOKENS } from "../config";
 import {
-  estimateTokens, formatSeconds,
+  countGeneratedTokens,
   resolveChatModel,
+  stripGguf,
+  type ChatOutcome,
   type PromptNavigationOptions,
 } from "../cli-utils";
+
+interface StreamedReply {
+  answer: string;
+  thinking: string;
+  hasThinking: boolean;
+  thinkingMs: number;
+  completionTokens: number;
+}
+
+async function streamReply(
+  chatSession: PersistentChatSession,
+  prompt: string,
+  onUpdate: (state: { thinking: string; answer: string; thoughtOpen: boolean }) => void,
+): Promise<StreamedReply> {
+  let state = createChatStreamState();
+  let thinkStartedAt: number | null = null;
+  let thinkEndedAt: number | null = null;
+
+  const result = await chatSession.prompt(
+    prompt,
+    { temperature: 0.7, maxTokens: RUNAI_DEFAULT_MAX_TOKENS },
+    (chunk) => {
+      state = accumulateChatChunk(state, chunk);
+      if (state.thinking && !thinkStartedAt) thinkStartedAt = Date.now();
+      if (!state.thoughtOpen && state.thinking && !thinkEndedAt) thinkEndedAt = Date.now();
+      onUpdate(state);
+    },
+  );
+
+  const finalized = finalizeChatStream(state, result.text);
+  const thinkingMs = thinkStartedAt && thinkEndedAt && thinkEndedAt >= thinkStartedAt
+    ? thinkEndedAt - thinkStartedAt
+    : thinkStartedAt
+      ? Math.max(0, Date.now() - thinkStartedAt)
+      : 0;
+  return {
+    answer: finalized.answer,
+    thinking: finalized.thinking,
+    hasThinking: Boolean(finalized.thinking),
+    thinkingMs,
+    completionTokens: result.completionTokens,
+  };
+}
+
+async function runFullscreenChat(
+  chatSession: PersistentChatSession,
+  modelName: string,
+): Promise<"back" | "exit"> {
+  const screen = new ChatScreen(modelName);
+  pausePromptFooter();
+  screen.enter();
+  try {
+    while (true) {
+      const raw = await screen.readLine();
+      if (raw === null) return "back";
+      const prompt = raw.trim();
+      if (!prompt) continue;
+      if (prompt === "/think" || prompt === "/thinking") {
+        screen.toggleThinking();
+        continue;
+      }
+      if (prompt === "/exit" || prompt === "/quit") return "exit";
+
+      screen.set({ turns: [...screen.state.turns, { role: "user", text: prompt }], input: "" }, true);
+      screen.startLive();
+      const stopHotkeys = screen.watchHotkeys();
+      const startedAt = Date.now();
+      try {
+        const reply = await streamReply(chatSession, prompt, (live) => {
+          screen.updateLive({
+            status: live.thoughtOpen && !live.answer ? "thinking" : live.answer ? "replying" : "thinking",
+            thinking: live.thinking,
+            answer: live.answer,
+          });
+        });
+        const elapsedMs = Math.max(1, Date.now() - startedAt);
+        const tokens = countGeneratedTokens(
+          reply.thinking,
+          reply.answer,
+          reply.completionTokens,
+        );
+        screen.finishTurn({
+          role: "assistant",
+          text: reply.answer || "…",
+          thinking: reply.thinking,
+          metrics: formatChatMetrics({
+            tokensPerSec: tokens / (elapsedMs / 1000),
+            elapsedMs,
+            thinkingMs: reply.hasThinking ? reply.thinkingMs : undefined,
+          }),
+        });
+      } catch (error) {
+        screen.finishTurn({
+          role: "assistant",
+          text: error instanceof Error ? error.message : "Inference failed",
+        });
+      } finally {
+        stopHotkeys();
+      }
+    }
+  } finally {
+    screen.exit();
+    resumePromptFooter();
+    setPromptFooter("");
+  }
+}
+
+async function runPlainChat(chatSession: PersistentChatSession): Promise<ChatOutcome> {
+  while (true) {
+    const userInput = await p.text({ message: "You" });
+    if (p.isCancel(userInput)) return "back";
+    const prompt = userInput.trim();
+    if (!prompt) continue;
+    if (prompt === "/exit" || prompt === "/quit") return "exit";
+    p.log.step("Thinking...");
+    try {
+      const reply = await streamReply(chatSession, prompt, () => {});
+      p.log.message(reply.answer, { symbol: "🤖" });
+    } catch (error) {
+      p.log.error(error instanceof Error ? error.message : "Inference failed");
+    }
+  }
+}
 
 export async function handleChat(
   args: string[],
   options: PromptNavigationOptions = {},
-): Promise<void> {
+): Promise<ChatOutcome> {
   let modelPath: string;
   try {
     const resolvedModelPath = await resolveChatModel(args, options);
-    if (!resolvedModelPath) return;
+    if (!resolvedModelPath) return "back";
     modelPath = resolvedModelPath;
   } catch (error) {
     p.log.error(error instanceof Error ? error.message : "Unable to start chat.");
-    return;
+    return "back";
   }
-  p.log.message(`${paint("Model", ANSI.gray, true)} ${paint(basename(modelPath), ANSI.cyan)}`, { symbol: " " });
 
   if (!isModelLoaded()) {
     try {
       await loadModelWithProgress(modelPath);
     } catch {
-      return;
+      return "back";
     }
   }
-
-  p.log.message(
-    `${paint("Tips", ANSI.gray, true)} /exit to quit  ·  Ctrl+T or /think toggle thinking`,
-    { symbol: " " },
-  );
 
   let chatSession: PersistentChatSession;
   try {
     chatSession = await createPersistentChatSession(modelPath);
   } catch (error) {
     p.log.error(error instanceof Error ? error.message : "Failed to start chat session.");
-    return;
+    return "back";
   }
 
-  let showThinking = true;
-  const renderChatFooter = (): void => {
-    setPromptFooter(
-      `[enter] send | [esc] back | [ctrl+t or /think] thinking: ${showThinking ? "ON" : "OFF"} | [ctrl+c] cancel`,
-    );
-  };
-
+  const useFullscreen = Boolean(process.stdout.isTTY && process.stdin.isTTY);
+  let outcome: ChatOutcome = "back";
   try {
-  while (true) {
-    renderChatFooter();
-    const userInput = await p.text({ message: "You" });
-    if (p.isCancel(userInput)) {
-      p.cancel("Chat cancelled.");
-      break;
-    }
-    const prompt = userInput.trim();
-    if (!prompt) continue;
-    if (prompt === "/think" || prompt === "/thinking") {
-      showThinking = !showThinking;
-      p.log.info(`Thinking view ${showThinking ? "enabled" : "disabled"}.`);
-      continue;
-    }
-    if (prompt === "/exit" || prompt === "/quit") {
+    outcome = useFullscreen
+      ? await runFullscreenChat(chatSession, stripGguf(basename(modelPath)))
+      : await runPlainChat(chatSession);
+    if (outcome === "exit" && !options.allowBackOnCancel) {
       p.outro("Chat ended.");
-      break;
     }
-
-    let cleanupInput: (() => void) | null = null;
-    let thinkingAnimationTimer: ReturnType<typeof setInterval> | null = null;
-    try {
-      const startedAt = Date.now();
-      let fullText = "";
-      let displayedAnswer = "";
-      let latestThinkingText = "";
-      const markdownRenderState = createMarkdownRenderState();
-      let shownThinkingLines = 0;
-      let hasThinkBlock = false;
-      let thinkStartedAt: number | null = null;
-      let thinkEndedAt: number | null = null;
-      let responseHeaderShown = false;
-      let keyListenerAttached = false;
-      let statusMode: "thinking" | "replied" = "thinking";
-      let thinkingGradientPhase = 0;
-      const stdin = process.stdin as NodeJS.ReadStream & { setRawMode?: (mode: boolean) => void; isRaw?: boolean };
-      const wasRawMode = Boolean(stdin.isRaw);
-
-      const BAR = paint("│", ANSI.gray);
-      const BAR_PREFIX = `${BAR}  `;
-
-      const clearThinking = (): void => {
-        if (!process.stdout.isTTY || shownThinkingLines === 0) return;
-        for (let i = 0; i < shownThinkingLines; i += 1) {
-          process.stdout.write("\u001b[1A");
-          process.stdout.write("\r\u001b[2K");
-        }
-        shownThinkingLines = 0;
-      };
-      const renderThinking = (thinkingText: string): void => {
-        if (!process.stdout.isTTY) return;
-        const lines = thinkingText
-          .replace(/\r/g, "")
-          .split("\n")
-          .map((line) => line.trimEnd())
-          .slice(-8);
-        clearThinking();
-        const title = statusMode === "thinking"
-          ? waveGradient("Thinking", thinkingGradientPhase)
-          : paint("Assistant replied", ANSI.green);
-        process.stdout.write(`${BAR}\n`);
-        process.stdout.write(`${BAR_PREFIX}${title}\n`);
-        let lineCount = 2;
-        for (const line of lines) {
-          process.stdout.write(`${BAR_PREFIX}${paint(line || " ", ANSI.gray, true)}\n`);
-          lineCount++;
-        }
-        shownThinkingLines = lineCount;
-      };
-
-      const stopThinkingAnimation = (): void => {
-        if (!thinkingAnimationTimer) return;
-        clearInterval(thinkingAnimationTimer);
-        thinkingAnimationTimer = null;
-      };
-
-      const setRepliedStatus = (): void => {
-        if (statusMode === "replied") return;
-        statusMode = "replied";
-        stopThinkingAnimation();
-        if (showThinking) renderThinking(latestThinkingText);
-      };
-
-      const onKeypress = (buffer: Buffer): void => {
-        if (buffer.length === 1 && buffer[0] === 0x14) {
-          showThinking = !showThinking;
-          renderChatFooter();
-          if (!showThinking) {
-            clearThinking();
-            return;
-          }
-          if (latestThinkingText) {
-            renderThinking(latestThinkingText);
-          } else if (statusMode === "thinking" || statusMode === "replied") {
-            renderThinking("");
-          }
-        }
-      };
-
-      if (stdin.isTTY && typeof stdin.setRawMode === "function") {
-        stdin.setRawMode(true);
-        stdin.resume();
-        stdin.on("data", onKeypress);
-        keyListenerAttached = true;
-        cleanupInput = () => {
-          if (!keyListenerAttached) return;
-          stdin.off("data", onKeypress);
-          stdin.setRawMode?.(wasRawMode);
-          keyListenerAttached = false;
-        };
-      }
-
-      if (process.stdout.isTTY) {
-        if (showThinking) renderThinking("");
-        thinkingAnimationTimer = setInterval(() => {
-          if (!showThinking || statusMode !== "thinking") return;
-          thinkingGradientPhase += 1;
-          renderThinking(latestThinkingText);
-        }, 90);
-      } else {
-        p.log.step("Thinking...");
-      }
-
-      let thoughtSegmentOpen = false;
-      await chatSession.prompt(
-        prompt,
-        { temperature: 0.7, maxTokens: 512 },
-        (chunk) => {
-          if (chunk.segmentType === "thought" || chunk.segmentType === "comment") {
-            if (chunk.segmentStart && !thoughtSegmentOpen) {
-              fullText += "<think>";
-              thoughtSegmentOpen = true;
-            }
-            if (!thoughtSegmentOpen) {
-              fullText += "<think>";
-              thoughtSegmentOpen = true;
-            }
-            fullText += chunk.text;
-            if (chunk.segmentEnd && thoughtSegmentOpen) {
-              fullText += "</think>";
-              thoughtSegmentOpen = false;
-            }
-          } else {
-            fullText += chunk.text;
-          }
-
-          const parsed = parseThinkingBlock(fullText);
-          let visibleAnswer = parsed.answerText;
-
-          if (parsed.hasThinking) {
-            hasThinkBlock = true;
-            if (!thinkStartedAt) thinkStartedAt = Date.now();
-            latestThinkingText = parsed.thinkingText;
-
-            if (parsed.isOpen) {
-              if (showThinking) {
-                renderThinking(latestThinkingText);
-              } else {
-                clearThinking();
-              }
-              visibleAnswer = "";
-            } else if (showThinking && latestThinkingText.trim()) {
-              renderThinking(latestThinkingText);
-            } else if (!showThinking) {
-              clearThinking();
-            }
-
-            if (!parsed.isOpen && !thinkEndedAt) {
-              thinkEndedAt = Date.now();
-            }
-          } else {
-            latestThinkingText = "";
-            visibleAnswer = fullText;
-          }
-
-          if (!visibleAnswer) return;
-          setRepliedStatus();
-          const delta = visibleAnswer.slice(displayedAnswer.length);
-          if (!delta) return;
-          if (!responseHeaderShown) {
-            responseHeaderShown = true;
-            process.stdout.write(`${BAR}\n${BAR_PREFIX}🤖  `);
-          }
-          const rendered = renderMarkdownDelta(delta, markdownRenderState);
-          process.stdout.write(rendered.replaceAll("\n", `\n${BAR_PREFIX}`));
-          displayedAnswer = visibleAnswer;
-        },
-      );
-
-      if (thoughtSegmentOpen) {
-        fullText += "</think>";
-      }
-
-      if (responseHeaderShown) {
-        const tail = flushMarkdownDelta(markdownRenderState);
-        if (tail) process.stdout.write(tail.replaceAll("\n", `\n${BAR_PREFIX}`));
-      }
-      setRepliedStatus();
-
-      if (!showThinking) clearThinking();
-      if (responseHeaderShown) process.stdout.write("\n");
-      renderChatFooter();
-
-      const parsed = parseThinkingBlock(fullText);
-      const answer = parsed.hasThinking ? parsed.answerText.trim() : fullText.trim();
-
-      if (!responseHeaderShown) {
-        p.log.message(answer, { symbol: "🤖" });
-      }
-
-      const elapsedMs = Math.max(1, Date.now() - startedAt);
-      const tokens = estimateTokens(answer);
-      const tps = tokens / (elapsedMs / 1000);
-      const metrics = [
-        `${paint("⚡", ANSI.yellow)} ${paint(`${tps.toFixed(1)} tok/s`, ANSI.yellow)}`,
-        `${paint("⏱", ANSI.cyan)} ${paint(formatSeconds(elapsedMs), ANSI.cyan)}`,
-      ];
-      if (hasThinkBlock && thinkStartedAt && thinkEndedAt && thinkEndedAt >= thinkStartedAt) {
-        metrics.push(`${paint("🧠", ANSI.magenta)} ${paint(`${formatSeconds(thinkEndedAt - thinkStartedAt)} thinking`, ANSI.magenta)}`);
-      }
-      p.log.info(metrics.join("  ·  "));
-    } catch (error) {
-      p.log.error(error instanceof Error ? error.message : "Inference failed");
-    } finally {
-      if (thinkingAnimationTimer) clearInterval(thinkingAnimationTimer);
-      cleanupInput?.();
-    }
-  }
+    return outcome;
   } finally {
     await chatSession.dispose();
+    if (outcome === "exit" || !options.allowBackOnCancel) {
+      await unloadModel();
+    }
     setPromptFooter("");
   }
 }
