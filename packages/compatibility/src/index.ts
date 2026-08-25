@@ -139,6 +139,9 @@ export const GPU_DB: Record<string, { vram: number; bw: number; cores: number }>
   "A100": { vram: 80, bw: 2039, cores: 6912 },
   "A100 40GB": { vram: 40, bw: 1555, cores: 6912 },
   "H100": { vram: 80, bw: 3350, cores: 14592 },
+  // Blackwell Ultra: up to 160 SMs × 128 CUDA cores
+  "GB300-WS": { vram: 252, bw: 7100, cores: 20480 },
+  "GB300": { vram: 288, bw: 8000, cores: 20480 },
   "GH200": { vram: 96, bw: 4000, cores: 16896 },
   "DGX Spark": { vram: 128, bw: 273, cores: 6144 },
   "L40S": { vram: 48, bw: 864, cores: 18176 },
@@ -1510,7 +1513,7 @@ export function buildSelectOptions(presets: number[], detected: number | null): 
 export function getGPUCategory(name: string): string {
   // Pro/workstation cards must be checked BEFORE consumer series (e.g. "RTX 5000 Ada" vs "RTX 5090")
   if (name.includes("Ada") || name.startsWith("RTX PRO") || name.startsWith("RTX 6000") || name.startsWith("RTX 4500") || name.startsWith("RTX A") || name.startsWith("Quadro") || name.startsWith("NVIDIA T") || /^T\d{3,4}$/.test(name)) return "NVIDIA Pro";
-  if (/^tesla\b/i.test(name) || /^(b200|h200|h100|a100|a10g|a10|gh200|dgx spark|l40s|l20|t4)\b/i.test(name) || /^L4$/i.test(name)) return "NVIDIA Datacenter";
+  if (/^tesla\b/i.test(name) || /^(b200|h200|h100|a100|a10g|a10|gb300|gh200|dgx spark|l40s|l20|t4)\b/i.test(name) || /^L4$/i.test(name)) return "NVIDIA Datacenter";
   if (name.startsWith("RTX 50")) return "NVIDIA RTX 50";
   if (name.startsWith("RTX 40")) return "NVIDIA RTX 40";
   if (name.startsWith("RTX 30")) return "NVIDIA RTX 30";

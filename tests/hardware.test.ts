@@ -157,6 +157,8 @@ describe("getGPUCategory", () => {
       ["A100", "NVIDIA Datacenter"],
       ["A100 40GB", "NVIDIA Datacenter"],
       ["H100", "NVIDIA Datacenter"],
+      ["GB300-WS", "NVIDIA Datacenter"],
+      ["GB300", "NVIDIA Datacenter"],
       ["GH200", "NVIDIA Datacenter"],
       ["DGX Spark", "NVIDIA Datacenter"],
       ["L40S", "NVIDIA Datacenter"],
@@ -220,6 +222,16 @@ describe("matchGPU", () => {
     const result = matchGPU("NVIDIA GeForce RTX 4090");
     expect(result).not.toBeNull();
     expect(result!.vram).toBe(24);
+  });
+
+  it("matches NVIDIA GB300 datacenter renderer strings", () => {
+    const result = matchGPU("NVIDIA-GB300");
+    expect(result).toEqual({ vram: 288, bw: 8000, cores: 20480 });
+  });
+
+  it("matches NVIDIA GB300-WS renderer strings", () => {
+    const result = matchGPU("NVIDIA-GB300-WS");
+    expect(result).toEqual({ vram: 252, bw: 7100, cores: 20480 });
   });
 
   it("RTX 5000 Ada — matches the 32GB pro card, not a consumer card", () => {

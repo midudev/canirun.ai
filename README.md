@@ -37,7 +37,7 @@ Browser APIs → Hardware Detection → Per-Use-Case Ranking → Best-Pick Recom
 
 | Platform | Detection method |
 |---|---|
-| **NVIDIA** RTX 30xx / 40xx / 50xx, A100, H100 | WebGL renderer string + GPU database |
+| **NVIDIA** RTX 30xx / 40xx / 50xx, A100, H100, B200, GB300/GB300-WS | WebGL renderer string + GPU database |
 | **AMD** RX 6xxx / 7xxx / 9xxx | WebGL renderer string + GPU database |
 | **Intel** Arc A-series | WebGL renderer string + GPU database |
 | **Apple Silicon** M1–M4 (Pro, Max, Ultra) | WebGL + unified memory lookup |
