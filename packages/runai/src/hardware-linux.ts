@@ -1,3 +1,4 @@
+import { readdirSync, readFileSync } from "node:fs";
 import { cpus, release, totalmem } from "node:os";
 import { matchGPU, parseVRAMFromName } from "@canirun/compatibility";
 import type { CliHardwareInfo } from "./types";
@@ -159,15 +160,43 @@ function detectNvidiaGpu(isWsl: boolean): LinuxGpuInfo | null {
   return null;
 }
 
+// Read total VRAM the amdgpu kernel driver exposes in sysfs. rocm-smi is
+// frequently absent on consumer setups, so this is the fallback path. We take
+// the largest card to prefer a discrete GPU over an integrated one's small
+// carveout.
+// ponytail: max() heuristic; multi-dGPU rigs would need per-card selection.
+function detectAmdVramFromSysfs(): number | null {
+  try {
+    const base = "/sys/class/drm";
+    const cards = readdirSync(base).filter((name) => /^card\d+$/.test(name));
+    let maxMB = 0;
+    for (const card of cards) {
+      try {
+        const raw = readFileSync(`${base}/${card}/device/mem_info_vram_total`, "utf8").trim();
+        const bytes = Number.parseInt(raw, 10);
+        if (Number.isFinite(bytes) && bytes > 0) {
+          maxMB = Math.max(maxMB, Math.round(bytes / (1024 * 1024)));
+        }
+      } catch {
+        // Not an amdgpu-backed card (no mem_info_vram_total); skip it.
+      }
+    }
+    return maxMB > 0 ? maxMB : null;
+  } catch {
+    return null;
+  }
+}
+
 function detectAmdVramMB(): number | null {
   const output = run("rocm-smi", ["--showmeminfo", "vram", "--csv"]);
-  if (!output) return null;
-  for (const line of output.split("\n").slice(1)) {
-    const values = line.match(/\d+/g)?.map(Number) ?? [];
-    const bytes = Math.max(0, ...values.filter((value) => value > 1024 * 1024));
-    if (bytes > 0) return Math.round(bytes / (1024 * 1024));
+  if (output) {
+    for (const line of output.split("\n").slice(1)) {
+      const values = line.match(/\d+/g)?.map(Number) ?? [];
+      const bytes = Math.max(0, ...values.filter((value) => value > 1024 * 1024));
+      if (bytes > 0) return Math.round(bytes / (1024 * 1024));
+    }
   }
-  return null;
+  return detectAmdVramFromSysfs();
 }
 
 export async function detectLinuxHardware(): Promise<CliHardwareInfo> {
