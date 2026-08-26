@@ -56,4 +56,6 @@ export const CHIP_BW_GBS: Record<string, number> = {
   "m5": 153,
   "m5 pro": 307,
   "m5 max": 614,
+  "m5 ultra": 1200,
+  "m6": 170,
 };

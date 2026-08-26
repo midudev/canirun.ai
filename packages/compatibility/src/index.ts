@@ -352,6 +352,8 @@ export const APPLE_DB: Record<string, { ram: number; bw: number; cpuCores: numbe
   // Criterio usado:
   // - aquí lo dejo en configuración "máxima" del chip dentro de una familia,
   //   para que la tabla sea consistente entre Pro/Max/Ultra.
+  "m6": { ram: 16, bw: 170, cpuCores: 12, gpuCores: 12 },
+  "m5 ultra": { ram: 96, bw: 1200, cpuCores: 36, gpuCores: 80 },
   "m5 max": { ram: 36, bw: 614, cpuCores: 18, gpuCores: 40 }, // corregido
   "m5 pro": { ram: 24, bw: 307, cpuCores: 18, gpuCores: 20 }, // corregido
   "m5": { ram: 16, bw: 153, cpuCores: 10, gpuCores: 10 }, // corregido bw
@@ -533,10 +535,10 @@ function identifyAppleChip(signals: {
       score += 20 * Math.max(0, 1 - diff / 8);
     }
 
-    // CPU benchmark → chip generation (M1≈67, M2≈82, M3≈95, M4≈107, M5≈120)
+    // CPU benchmark → chip generation (M1≈67, M2≈82, M3≈95, M4≈107, M5≈120, M6≈132)
     const gen = parseInt(chip.match(/m(\d)/)?.[1] || "0");
     if (gen > 0 && cpuBenchmark > 0) {
-      const centers: Record<number, number> = { 1: 67, 2: 82, 3: 95, 4: 107, 5: 120 };
+      const centers: Record<number, number> = { 1: 67, 2: 82, 3: 95, 4: 107, 5: 120, 6: 132 };
       const center = centers[gen] ?? 67;
       const diff = Math.abs(cpuBenchmark - center);
       score += Math.max(0, 10 - diff * 0.4);
@@ -610,7 +612,7 @@ export function matchApple(renderer: string): { ram: number; bw: number; cpuCore
 
 export function isAppleSiliconCheck(renderer: string): boolean {
   const r = renderer.toLowerCase();
-  return r.includes("apple") && (r.includes("m1") || r.includes("m2") || r.includes("m3") || r.includes("m4") || r.includes("m5") || r.includes("gpu"));
+  return r.includes("apple") && (r.includes("m1") || r.includes("m2") || r.includes("m3") || r.includes("m4") || r.includes("m5") || r.includes("m6") || r.includes("gpu"));
 }
 
 export function cleanGPUName(renderer: string): string {

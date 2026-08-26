@@ -371,6 +371,14 @@ describe("isAppleSiliconCheck", () => {
     expect(isAppleSiliconCheck("Apple M4 Max")).toBe(true);
   });
 
+  it("detects Apple M6", () => {
+    expect(isAppleSiliconCheck("Apple M6")).toBe(true);
+  });
+
+  it("detects Apple M5 Ultra", () => {
+    expect(isAppleSiliconCheck("Apple M5 Ultra")).toBe(true);
+  });
+
   it("detects generic Apple GPU", () => {
     expect(isAppleSiliconCheck("Apple GPU")).toBe(true);
   });
@@ -398,6 +406,20 @@ describe("matchApple", () => {
     const result = matchApple("Apple M4 Pro");
     expect(result).not.toBeNull();
     expect(result!.ram).toBe(APPLE_DB["m4 pro"].ram);
+  });
+
+  it("matches M6", () => {
+    const result = matchApple("Apple M6");
+    expect(result).not.toBeNull();
+    expect(result!.ram).toBe(APPLE_DB["m6"].ram);
+    expect(result!.bw).toBe(APPLE_DB["m6"].bw);
+  });
+
+  it("matches M5 Ultra instead of base M5", () => {
+    const result = matchApple("Apple M5 Ultra");
+    expect(result).not.toBeNull();
+    expect(result!.ram).toBe(APPLE_DB["m5 ultra"].ram);
+    expect(result!.bw).toBe(APPLE_DB["m5 ultra"].bw);
   });
 
   it("falls back to M1 for unknown Apple chip", () => {
