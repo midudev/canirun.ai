@@ -81,6 +81,22 @@ describe("Linux and WSL hardware parsing", () => {
       vendor: "AMD",
       integrated: false,
     }, null).vramMB).toBe(12288);
+    expect(enrichLinuxGpu({
+      name: "AMD Radeon RX 9060 XT",
+      vendor: "AMD",
+      integrated: false,
+    }, 16304)).toMatchObject({
+      vramMB: 16304,
+      bandwidthGBs: 320,
+      backend: "vulkan",
+    });
+    expect(enrichLinuxGpu({
+      name: "AMD Radeon RX 9060 XT",
+      vendor: "AMD",
+      integrated: false,
+    }, 16304, true)).toMatchObject({
+      backend: "rocm",
+    });
   });
 });
 

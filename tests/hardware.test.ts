@@ -189,6 +189,8 @@ describe("getGPUCategory", () => {
   describe("AMD GPUs", () => {
     it.each([
       ["RX 9070 XT", "AMD RX 9000"],
+      ["RX 9060 XT", "AMD RX 9000"],
+      ["RX 9060 XT 8GB", "AMD RX 9000"],
       ["RX 7900 XTX", "AMD RX 7000"],
       ["RX 6800 XT", "AMD RX 6000"],
       ["RX 5700 XT", "AMD RX 5000"],
@@ -266,6 +268,22 @@ describe("matchGPU", () => {
     const result = matchGPU("AMD Radeon RX 7900 XTX");
     expect(result).not.toBeNull();
     expect(result!.vram).toBe(24);
+  });
+
+  it("RX 9060 XT defaults to the 16 GB SKU when size is omitted", () => {
+    const result = matchGPU("AMD Radeon RX 9060 XT");
+    expect(result).not.toBeNull();
+    expect(result!.vram).toBe(16);
+    expect(result!.bw).toBe(320);
+    expect(result!.cores).toBe(2048);
+  });
+
+  it("RX 9060 XT 8GB matches the 8 GB SKU over the default 16 GB entry", () => {
+    const result = matchGPU("AMD Radeon RX 9060 XT 8GB");
+    expect(result).not.toBeNull();
+    expect(result!.vram).toBe(8);
+    expect(result!.bw).toBe(320);
+    expect(result!.cores).toBe(2048);
   });
 
   it("matches Intel Arc", () => {
