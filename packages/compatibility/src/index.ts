@@ -131,6 +131,7 @@ export const GPU_DB: Record<string, { vram: number; bw: number; cores: number }>
   // Source: NVIDIA official GeForce specs
   "RTX 2060 12GB": { vram: 12, bw: 336, cores: 2176 },
   "RTX 3050 6GB": { vram: 6, bw: 168, cores: 2304 },
+  "RTX 3060 8GB": { vram: 8, bw: 240, cores: 3584 },
 
   // Data center / AI / inference
   // Source: NVIDIA official product pages / docs
@@ -144,6 +145,7 @@ export const GPU_DB: Record<string, { vram: number; bw: number; cores: number }>
   "GB300": { vram: 288, bw: 8000, cores: 20480 },
   "GH200": { vram: 96, bw: 4000, cores: 16896 },
   "DGX Spark": { vram: 128, bw: 273, cores: 6144 },
+  "L40": { vram: 48, bw: 864, cores: 18176 },
   "L40S": { vram: 48, bw: 864, cores: 18176 },
   "L20": { vram: 48, bw: 864, cores: 11776 },
   "L4": { vram: 24, bw: 300, cores: 7424 },
@@ -158,11 +160,13 @@ export const GPU_DB: Record<string, { vram: number; bw: number; cores: number }>
   // Source: AMD official product specs
   "RX 7900 XTX": { vram: 24, bw: 960, cores: 6144 },
   "RX 7900 XT": { vram: 20, bw: 800, cores: 5376 },
+  "RX 7900 GRE": { vram: 16, bw: 576, cores: 5120 },
   "RX 7800 XT": { vram: 16, bw: 624, cores: 3840 },
   "RX 7700 XT": { vram: 12, bw: 432, cores: 3456 },
   "RX 7600 XT": { vram: 16, bw: 288, cores: 2048 },
   "RX 7600": { vram: 8, bw: 288, cores: 2048 },
   "RX 6900 XT": { vram: 16, bw: 512, cores: 5120 },
+  "RX 6950 XT": { vram: 16, bw: 576, cores: 5120 },
   "RX 6800 XT": { vram: 16, bw: 512, cores: 4608 },
   "RX 6800": { vram: 16, bw: 512, cores: 3840 },
   "RX 6750 XT": { vram: 12, bw: 432, cores: 2560 },
@@ -171,6 +175,7 @@ export const GPU_DB: Record<string, { vram: number; bw: number; cores: number }>
   "RX 6600 XT": { vram: 8, bw: 256, cores: 2048 },
   "RX 6600": { vram: 8, bw: 224, cores: 1792 },
   "RX 6500 XT": { vram: 4, bw: 144, cores: 1024 },
+  "RX 6400": { vram: 4, bw: 128, cores: 768 },
 
   // Intel Arc desktop
   // Source: Intel official product specs
@@ -180,6 +185,11 @@ export const GPU_DB: Record<string, { vram: number; bw: number; cores: number }>
   "Arc A380": { vram: 6, bw: 186, cores: 1024 },
   "Arc Pro B70": { vram: 32, bw: 608, cores: 4096 }, // 32 Xe2-cores × 128, GDDR6 256-bit
   "Arc Pro B60": { vram: 24, bw: 456, cores: 2560 }, // 20 Xe2-cores × 128, GDDR6 192-bit
+
+  // Intel Arc B-series (Battlemage) desktop
+  // Source: Intel official Arc B-series launch specs
+  "Arc B580": { vram: 12, bw: 456, cores: 2560 }, // 20 Xe2-cores, GDDR6 192-bit
+  "Arc B570": { vram: 10, bw: 380, cores: 2304 }, // 18 Xe2-cores, GDDR6 160-bit
 
   // GTX 16 series
   // Source: NVIDIA official GeForce compare/specs
@@ -290,6 +300,11 @@ export const GPU_DB: Record<string, { vram: number; bw: number; cores: number }>
   "RX 5700": { vram: 8, bw: 448, cores: 2304 },
   "RX 5600 XT": { vram: 6, bw: 288, cores: 2304 },
   "RX 5500 XT": { vram: 8, bw: 224, cores: 1408 },
+
+  // AMD RX 400 series (Polaris)
+  // Source: AMD official product specs
+  "RX 480": { vram: 8, bw: 256, cores: 2304 },
+  "RX 470": { vram: 4, bw: 211, cores: 2048 }, // GDDR5 256-bit @ 6.6 Gbps
 
   // AMD RX 500 series (Polaris)
   // Source: AMD official product specs
