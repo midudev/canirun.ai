@@ -102,8 +102,13 @@ describe("Linux and WSL hardware parsing", () => {
 
 describe("macOS hardware parsing", () => {
   test("does not classify an unknown Apple chip as M1", () => {
-    expect(parseAppleChip("Apple M6")).toBeNull();
+    expect(parseAppleChip("Apple M7")).toBeNull();
     expect(parseAppleChip("Apple M4 Pro")).toBe("m4 pro");
+  });
+
+  test("recognizes M6 and M5 Ultra", () => {
+    expect(parseAppleChip("Apple M6")).toBe("m6");
+    expect(parseAppleChip("Apple M5 Ultra")).toBe("m5 ultra");
   });
 
   test("parses Intel Mac display details", () => {
