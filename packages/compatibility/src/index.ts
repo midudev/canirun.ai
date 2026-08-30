@@ -303,6 +303,8 @@ export const GPU_DB: Record<string, { vram: number; bw: number; cores: number }>
   // Source: AMD official product specs
   "RX 9070 XT": { vram: 16, bw: 640, cores: 4096 }, // corregido
   "RX 9070": { vram: 16, bw: 640, cores: 3584 }, // corregido
+  "RX 9060 XT 8GB": { vram: 8, bw: 320, cores: 2048 }, // Navi 44, GDDR6 128-bit 20Gbps
+  "RX 9060 XT": { vram: 16, bw: 320, cores: 2048 }, // Navi 44, 16 GB SKU (default when size is omitted)
 
   // AMD Discrete Laptop GPUs (RX 7000M/S)
   // Source: AMD official product specs

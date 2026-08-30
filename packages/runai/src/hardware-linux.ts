@@ -1,3 +1,4 @@
+import { readdirSync, readFileSync } from "node:fs";
 import { cpus, release, totalmem } from "node:os";
 import { matchGPU, parseVRAMFromName } from "@canirun/compatibility";
 import type { CliHardwareInfo } from "./types";
@@ -86,6 +87,7 @@ function lookupBandwidth(name: string, vendor: LinuxGpuInfo["vendor"]): number |
 export function enrichLinuxGpu(
   gpu: Omit<LinuxGpuInfo, "vramMB" | "bandwidthGBs" | "backend">,
   detectedVramMB: number | null,
+  hasRocm = false,
 ): LinuxGpuInfo {
   const catalogMatch = matchGPU(gpu.name);
   const catalogVramMB = catalogMatch?.vram
@@ -103,7 +105,7 @@ export function enrichLinuxGpu(
     integrated,
     vramMB: detectedVramMB ?? catalogVramMB ?? parsedVramMB,
     bandwidthGBs: catalogMatch?.bw ?? lookupBandwidth(gpu.name, gpu.vendor),
-    backend: gpu.vendor === "AMD" && detectedVramMB ? "rocm" : "vulkan",
+    backend: gpu.vendor === "AMD" && hasRocm ? "rocm" : "vulkan",
   };
 }
 
@@ -159,7 +161,7 @@ function detectNvidiaGpu(isWsl: boolean): LinuxGpuInfo | null {
   return null;
 }
 
-function detectAmdVramMB(): number | null {
+function detectAmdVramFromRocmSmi(): number | null {
   const output = run("rocm-smi", ["--showmeminfo", "vram", "--csv"]);
   if (!output) return null;
   for (const line of output.split("\n").slice(1)) {
@@ -168,6 +170,44 @@ function detectAmdVramMB(): number | null {
     if (bytes > 0) return Math.round(bytes / (1024 * 1024));
   }
   return null;
+}
+
+// Read total VRAM the amdgpu kernel driver exposes in sysfs. rocm-smi is
+// frequently absent on consumer setups, so this is the fallback path. We take
+// the largest card to prefer a discrete GPU over an integrated one's small
+// carveout. Multi-dGPU rigs would need per-card selection.
+function detectAmdVramFromSysfs(): number | null {
+  try {
+    const base = "/sys/class/drm";
+    const cards = readdirSync(base).filter((name) => /^card\d+$/.test(name));
+    let maxMB = 0;
+    for (const card of cards) {
+      try {
+        const raw = readFileSync(`${base}/${card}/device/mem_info_vram_total`, "utf8").trim();
+        const bytes = Number.parseInt(raw, 10);
+        if (Number.isFinite(bytes) && bytes > 0) {
+          maxMB = Math.max(maxMB, Math.round(bytes / (1024 * 1024)));
+        }
+      } catch {
+        // Not an amdgpu-backed card (no mem_info_vram_total); skip it.
+      }
+    }
+    return maxMB > 0 ? maxMB : null;
+  } catch {
+    return null;
+  }
+}
+
+function detectAmdVram(gpuName: string): { vramMB: number | null; hasRocm: boolean } {
+  const rocmVramMB = detectAmdVramFromRocmSmi();
+  if (rocmVramMB) return { vramMB: rocmVramMB, hasRocm: true };
+
+  // Known iGPUs advertise a small GTT carveout in sysfs; that is shared memory,
+  // not dedicated VRAM. Skip the fallback so we keep treating them as APUs.
+  const catalog = matchGPU(gpuName);
+  if (catalog && catalog.vram === 0) return { vramMB: null, hasRocm: false };
+
+  return { vramMB: detectAmdVramFromSysfs(), hasRocm: false };
 }
 
 export async function detectLinuxHardware(): Promise<CliHardwareInfo> {
@@ -188,8 +228,8 @@ export async function detectLinuxHardware(): Promise<CliHardwareInfo> {
 
   let gpu = detectNvidiaGpu(isWsl);
   if (!gpu && lspciGpu) {
-    const amdVramMB = lspciGpu.vendor === "AMD" ? detectAmdVramMB() : null;
-    gpu = enrichLinuxGpu(lspciGpu, amdVramMB);
+    const amdVram = lspciGpu.vendor === "AMD" ? detectAmdVram(lspciGpu.name) : null;
+    gpu = enrichLinuxGpu(lspciGpu, amdVram?.vramMB ?? null, amdVram?.hasRocm ?? false);
   }
 
   const vramGB = gpu?.vramMB ? Math.round((gpu.vramMB / 1024) * 10) / 10 : null;
