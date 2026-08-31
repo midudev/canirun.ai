@@ -1327,6 +1327,10 @@ export function scoreToGrade(score: number, status: ModelStatus): Grade {
     if (score >= 40) return "C";
     return "D";
   }
+  // A tight fit still fits. Without a floor it can score below `can-run-slow`,
+  // which does not fit at all and falls back to system RAM — leaving the model
+  // labelled "Too heavy" while a strictly worse outcome reads "Barely runs".
+  if (status === "tight" && score < 20) return "D";
   if (score >= 85) return "S";
   if (score >= 70) return "A";
   if (score >= 55) return "B";
