@@ -1347,9 +1347,19 @@ export interface ModelEvaluation {
   grade: Grade;
 }
 
+/** Mirrors `MemoryProfile` in @canirun/models. Kept local to avoid a package cycle. */
+export type MemoryProfile = "autoregressive" | "diffusion";
+
 export interface ModelEvaluationOptions {
   /** Parameters active per token. Fit and memory usage still use total VRAM. */
   activeParamsBillions?: number;
+  /**
+   * Defaults to `autoregressive`. `diffusion` suppresses the tokens/s estimate:
+   * image and video generators do not emit tokens, and their runtime is bound by
+   * the denoising loop rather than by memory bandwidth, so the bandwidth roofline
+   * below does not describe them.
+   */
+  memoryProfile?: MemoryProfile;
 }
 
 export function evaluateModelComplete(
@@ -1366,9 +1376,11 @@ export function evaluateModelComplete(
     ? Math.max(0.5, vramGB * (activeParams / paramsBillions))
     : vramGB;
   const status = evaluateModel(vramGB, hw);
-  const toksPerSec = estimateTokensPerSecond(speedWorkingSetGB, hw, {
-    residentModelGB: vramGB,
-  });
+  // `computeScore` falls back to a neutral speed term when this is null, so the
+  // grade rests on fit and memory headroom — the parts that do transfer.
+  const toksPerSec = options.memoryProfile === "diffusion"
+    ? null
+    : estimateTokensPerSecond(speedWorkingSetGB, hw, { residentModelGB: vramGB });
   const memPct = memoryPercentage(vramGB, hw);
   const score = computeScore(status, toksPerSec, paramsBillions, memPct);
   const grade = scoreToGrade(score, status);

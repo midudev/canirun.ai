@@ -6,6 +6,18 @@ export interface Quantization {
   quality: string;
 }
 
+/**
+ * How the model consumes memory at inference time.
+ *
+ * - `autoregressive`: transformer LLMs. Peak memory is dominated by the weights,
+ *   so `params × bytes-per-param` is a good predictor and throughput is bound by
+ *   memory bandwidth (tokens/s).
+ * - `diffusion`: image and video generators. The denoiser is only one of several
+ *   always-resident components, and peak memory is dominated by activations, not
+ *   weights. There are no tokens, so tokens/s is meaningless.
+ */
+export type MemoryProfile = "autoregressive" | "diffusion";
+
 export interface AIModel {
   id: string;
   name: string;
@@ -26,6 +38,14 @@ export interface AIModel {
   minRamGB: number;
   recommendedRamGB: number;
   quants: Quantization[];
+  /** Defaults to `autoregressive` when omitted. */
+  memoryProfile?: MemoryProfile;
+  /**
+   * Diffusion only. Text encoder + VAE, in GB, at the precision they are normally
+   * loaded. These stay resident alongside the denoiser and are not touched by the
+   * denoiser's quantization level, so they are a flat addition to every quant.
+   */
+  companionWeightsGB?: number;
   moe?: { numExperts: number; activeExperts: number; activeParameters: number };
   hfDownloads?: number;
   hfLikes?: number;
@@ -108,6 +128,24 @@ export function getActiveParamsBillions(
   return Number.isFinite(active) && active > 0 ? active : model.paramsBillions;
 }
 
+/** `true` for image and video generators, which do not run on a llama.cpp stack. */
+export function isDiffusionModel(model: Pick<AIModel, "memoryProfile">): boolean {
+  return model.memoryProfile === "diffusion";
+}
+
+/**
+ * Everything `evaluateModelComplete` needs to know about a model. Prefer this
+ * over hand-building the options object so a new field reaches every call site.
+ */
+export function getEvaluationOptions(
+  model: Pick<AIModel, "paramsBillions" | "architecture" | "activeParams" | "moe" | "memoryProfile">,
+): { activeParamsBillions: number; memoryProfile: MemoryProfile } {
+  return {
+    activeParamsBillions: getActiveParamsBillions(model),
+    memoryProfile: model.memoryProfile ?? "autoregressive",
+  };
+}
+
 /** Approximate quantized working set used for MoE throughput estimates. */
 export function getInferenceWorkingSetGB(
   totalVramGB: number,
@@ -147,6 +185,62 @@ function ram(paramsB: number): { min: number; rec: number } {
   return {
     min: Math.round(Math.max(modelSizeGB * 1.2, 1.0) * 10) / 10,
     rec: Math.round(Math.max(modelSizeGB * 2.0, 2.0) * 10) / 10,
+  };
+}
+
+// ── Diffusion sizing ──────────────────────────────────────
+//
+// `makeQuants` models an LLM: peak memory ≈ weights, everything shrinks with the
+// quant level. Diffusion image/video models break both assumptions.
+//
+// 1. The quantized denoiser is not the whole pipeline. A text encoder and a VAE
+//    stay resident next to it, they dominate on the small models, and community
+//    GGUF builds quantize only the denoiser — so they are a flat per-model add.
+// 2. Peak memory is driven by activations, not weights. A video model holds the
+//    latents for every frame plus temporal attention across them at once, which
+//    is why the published requirements are far above the file sizes on disk.
+
+/**
+ * Peak activation/latent memory of a diffusion pipeline at its reference
+ * resolution, on top of the resident weights.
+ *
+ * Anchored on Wan 2.2 TI2V-5B, the one model in the catalog with a published
+ * single-GPU floor: Alibaba states "at least 24GB VRAM (e.g, RTX 4090 GPU)" for
+ * 720p@24fps. Its resident weights at Q8_0 are 5.4 GB (denoiser, measured from
+ * unsloth/Wan2.2-TI2V-5B-GGUF) + 14.2 GB (umT5-XXL + Wan2.2-VAE), so the
+ * activations account for the remaining ~4.4 GB.
+ *
+ * One constant across the catalog is deliberately crude, but it is sourced and
+ * it is an order of magnitude closer than the 0.5 GB LLM runtime constant.
+ */
+const DIFFUSION_ACTIVATION_GB = 4.4;
+
+/**
+ * Quantization table for a diffusion pipeline.
+ *
+ * `paramsB` is the denoiser alone — the part community GGUF builds quantize.
+ * `companionGB` is the text encoder + VAE, added flat to every level because
+ * quantizing the denoiser does not shrink them.
+ */
+function makeDiffusionQuants(paramsB: number, companionGB: number): Quantization[] {
+  const base = makeQuants(paramsB);
+  const resident = companionGB + DIFFUSION_ACTIVATION_GB;
+  return base.map((q) => ({
+    ...q,
+    // Drop the LLM KV-cache constant, it does not apply to a denoising loop.
+    vramGB: Math.round((q.vramGB - RUNTIME_OVERHEAD_GB + resident) * 10) / 10,
+    // Disk still only counts the weights the user downloads.
+    diskGB: Math.round((q.diskGB + companionGB) * 10) / 10,
+  }));
+}
+
+function diffusionRam(paramsB: number, companionGB: number): { min: number; rec: number } {
+  const quants = makeDiffusionQuants(paramsB, companionGB);
+  const smallest = quants[0]!.vramGB;
+  const recommended = quants.find((q) => q.name === "Q8_0")?.vramGB ?? smallest;
+  return {
+    min: Math.round(smallest * 10) / 10,
+    rec: Math.round(recommended * 10) / 10,
   };
 }
 
@@ -259,20 +353,20 @@ const STATIC_MODELS: AIModel[] = [
   { id: "muse-glimmer-30b", name: "Muse Glimmer 30B", provider: "Meta", family: "Muse", params: "30B", paramsBillions: 30, architecture: "dense", releaseDate: "2026-08", contextLength: 131072, useCase: ["chat", "vision", "reasoning", "code"], description: "Open agentic 30B distilled from Muse Spark — tool use, vision and local recovery on a single GPU", url: "https://huggingface.co/meta-models/Muse-Glimmer-30B", ggufRepo: "unsloth/Muse-Glimmer-30B-GGUF", minRamGB: ram(30).min, recommendedRamGB: ram(30).rec, quants: makeQuants(30), ollamaId: "muse-glimmer", lmStudioId: "muse-glimmer", tools: true, thinking: true, featured: true, license: "Apache 2.0" },
   { id: "qwen3.8-2.4t-a95b", name: "Qwen 3.8 2.4T-A95B", provider: "Alibaba", family: "Qwen", params: "2.4T", paramsBillions: 2400, activeParams: "95B active", architecture: "moe", releaseDate: "2026-08", contextLength: 1048576, useCase: ["chat", "reasoning", "code"], description: "Frontier Qwen 3.8 MoE — 95B active, 1M context", url: "https://huggingface.co/Qwen/Qwen3.8-2.4T-A95B", ggufRepo: "unsloth/Qwen3.8-2.4T-A95B-GGUF", minRamGB: ram(2400).min, recommendedRamGB: ram(2400).rec, quants: makeQuants(2400), tools: true, thinking: true, featured: true, license: "Qwen" },
   { id: "minimax-m3", name: "MiniMax M3", provider: "MiniMax", family: "MiniMax", params: "428B", paramsBillions: 428, activeParams: "23B active", architecture: "moe", releaseDate: "2026-06", contextLength: 1048576, useCase: ["chat", "vision", "reasoning", "code"], description: "Native multimodal MoE — understands text, image and long video with 1M context", url: "https://huggingface.co/MiniMaxAI/MiniMax-M3", ggufRepo: "unsloth/MiniMax-M3-GGUF", minRamGB: ram(428).min, recommendedRamGB: ram(428).rec, quants: makeQuants(428), moe: { numExperts: 128, activeExperts: 4, activeParameters: 23_000_000_000 }, tools: true, thinking: true, featured: true, license: "MiniMax Community" },
-  { id: "minimax-h3", name: "MiniMax H3", provider: "MiniMax", family: "MiniMax", params: "33B", paramsBillions: 33, architecture: "dense", releaseDate: "2026-08", contextLength: 32768, useCase: ["video"], description: "Open video generation — text/image to 2K video with native stereo audio", url: "https://huggingface.co/MiniMaxAI/MiniMax-H3", ggufRepo: "unsloth/MiniMax-H3-GGUF", minRamGB: ram(33).min, recommendedRamGB: ram(33).rec, quants: makeQuants(33), featured: true, license: "MiniMax Community" },
-  { id: "wan2.1-t2v-1.3b", name: "Wan 2.1 T2V 1.3B", provider: "Alibaba", family: "Wan", params: "1.3B", paramsBillions: 1.3, architecture: "dense", releaseDate: "2025-02", contextLength: 4096, useCase: ["video"], description: "Tiny open text-to-video — 480p clips on 8GB consumer GPUs", url: "https://huggingface.co/Wan-AI/Wan2.1-T2V-1.3B", minRamGB: ram(1.3).min, recommendedRamGB: ram(1.3).rec, quants: makeQuants(1.3), license: "Apache 2.0" },
-  { id: "wan2.2-ti2v-5b", name: "Wan 2.2 TI2V 5B", provider: "Alibaba", family: "Wan", params: "5B", paramsBillions: 5, architecture: "dense", releaseDate: "2025-07", contextLength: 4096, useCase: ["video"], description: "Unified text/image-to-video — the local sweet spot under Apache 2.0", url: "https://huggingface.co/Wan-AI/Wan2.2-TI2V-5B", ggufRepo: "unsloth/Wan2.2-TI2V-5B-GGUF", minRamGB: ram(5).min, recommendedRamGB: ram(5).rec, quants: makeQuants(5), featured: true, license: "Apache 2.0" },
-  { id: "hunyuan-video-1.5", name: "HunyuanVideo 1.5", provider: "Tencent", family: "Hunyuan", params: "8.3B", paramsBillions: 8.3, architecture: "dense", releaseDate: "2025-11", contextLength: 4096, useCase: ["video"], description: "Compact cinematic video model — strong faces and motion on a single 4090", url: "https://huggingface.co/tencent/HunyuanVideo-1.5", minRamGB: ram(8.3).min, recommendedRamGB: ram(8.3).rec, quants: makeQuants(8.3), featured: true, license: "Tencent Hunyuan Community" },
-  { id: "wan2.2-t2v-a14b", name: "Wan 2.2 T2V A14B", provider: "Alibaba", family: "Wan", params: "27B", paramsBillions: 27, activeParams: "14B active", architecture: "moe", releaseDate: "2025-07", contextLength: 4096, useCase: ["video"], description: "Flagship open Wan 2.2 — 14B-active MoE for photoreal text-to-video", url: "https://huggingface.co/Wan-AI/Wan2.2-T2V-A14B", minRamGB: ram(27).min, recommendedRamGB: ram(27).rec, quants: makeQuants(27), moe: { numExperts: 2, activeExperts: 1, activeParameters: 14_000_000_000 }, featured: true, license: "Apache 2.0" },
-  { id: "ltx-2.3", name: "LTX 2.3", provider: "Lightricks", family: "LTX", params: "19B", paramsBillions: 19, architecture: "dense", releaseDate: "2026-03", contextLength: 4096, useCase: ["video"], description: "Open 4K video with native stereo audio — text, image and video-to-video", url: "https://huggingface.co/Lightricks/LTX-2.3", ggufRepo: "unsloth/LTX-2.3-GGUF", minRamGB: ram(19).min, recommendedRamGB: ram(19).rec, quants: makeQuants(19), featured: true, license: "LTX-2 Community" },
+  { id: "minimax-h3", name: "MiniMax H3", provider: "MiniMax", family: "MiniMax", params: "33B", paramsBillions: 33, architecture: "dense", releaseDate: "2026-08", contextLength: 32768, useCase: ["video"], description: "Open video generation — text/image to 2K video with native stereo audio", url: "https://huggingface.co/MiniMaxAI/MiniMax-H3", ggufRepo: "unsloth/MiniMax-H3-GGUF", minRamGB: diffusionRam(33, 10.4).min, recommendedRamGB: diffusionRam(33, 10.4).rec, quants: makeDiffusionQuants(33, 10.4), memoryProfile: "diffusion", companionWeightsGB: 10.4, featured: true, license: "MiniMax Community" },
+  { id: "wan2.1-t2v-1.3b", name: "Wan 2.1 T2V 1.3B", provider: "Alibaba", family: "Wan", params: "1.3B", paramsBillions: 1.3, architecture: "dense", releaseDate: "2025-02", contextLength: 4096, useCase: ["video"], description: "Tiny open text-to-video — 480p clips on 8GB consumer GPUs", url: "https://huggingface.co/Wan-AI/Wan2.1-T2V-1.3B", minRamGB: diffusionRam(1.3, 11.9).min, recommendedRamGB: diffusionRam(1.3, 11.9).rec, quants: makeDiffusionQuants(1.3, 11.9), memoryProfile: "diffusion", companionWeightsGB: 11.9, license: "Apache 2.0" },
+  { id: "wan2.2-ti2v-5b", name: "Wan 2.2 TI2V 5B", provider: "Alibaba", family: "Wan", params: "5B", paramsBillions: 5, architecture: "dense", releaseDate: "2025-07", contextLength: 4096, useCase: ["video"], description: "Unified text/image-to-video — the local sweet spot under Apache 2.0", url: "https://huggingface.co/Wan-AI/Wan2.2-TI2V-5B", ggufRepo: "unsloth/Wan2.2-TI2V-5B-GGUF", minRamGB: diffusionRam(5, 14.2).min, recommendedRamGB: diffusionRam(5, 14.2).rec, quants: makeDiffusionQuants(5, 14.2), memoryProfile: "diffusion", companionWeightsGB: 14.2, featured: true, license: "Apache 2.0" },
+  { id: "hunyuan-video-1.5", name: "HunyuanVideo 1.5", provider: "Tencent", family: "Hunyuan", params: "8.3B", paramsBillions: 8.3, architecture: "dense", releaseDate: "2025-11", contextLength: 4096, useCase: ["video"], description: "Compact cinematic video model — strong faces and motion on a single 4090", url: "https://huggingface.co/tencent/HunyuanVideo-1.5", minRamGB: diffusionRam(8.3, 5.0).min, recommendedRamGB: diffusionRam(8.3, 5.0).rec, quants: makeDiffusionQuants(8.3, 5.0), memoryProfile: "diffusion", companionWeightsGB: 5.0, featured: true, license: "Tencent Hunyuan Community" },
+  { id: "wan2.2-t2v-a14b", name: "Wan 2.2 T2V A14B", provider: "Alibaba", family: "Wan", params: "27B", paramsBillions: 27, activeParams: "14B active", architecture: "moe", releaseDate: "2025-07", contextLength: 4096, useCase: ["video"], description: "Flagship open Wan 2.2 — 14B-active MoE for photoreal text-to-video", url: "https://huggingface.co/Wan-AI/Wan2.2-T2V-A14B", minRamGB: diffusionRam(27, 11.9).min, recommendedRamGB: diffusionRam(27, 11.9).rec, quants: makeDiffusionQuants(27, 11.9), memoryProfile: "diffusion", companionWeightsGB: 11.9, moe: { numExperts: 2, activeExperts: 1, activeParameters: 14_000_000_000 }, featured: true, license: "Apache 2.0" },
+  { id: "ltx-2.3", name: "LTX 2.3", provider: "Lightricks", family: "LTX", params: "19B", paramsBillions: 19, architecture: "dense", releaseDate: "2026-03", contextLength: 4096, useCase: ["video"], description: "Open 4K video with native stereo audio — text, image and video-to-video", url: "https://huggingface.co/Lightricks/LTX-2.3", ggufRepo: "unsloth/LTX-2.3-GGUF", minRamGB: diffusionRam(19, 0.0).min, recommendedRamGB: diffusionRam(19, 0.0).rec, quants: makeDiffusionQuants(19, 0.0), memoryProfile: "diffusion", companionWeightsGB: 0.0, featured: true, license: "LTX-2 Community" },
   // Image generation
-  { id: "flux2-klein-4b", name: "FLUX.2 Klein 4B", provider: "Black Forest Labs", family: "FLUX.2", params: "4B", paramsBillions: 4, architecture: "dense", releaseDate: "2026-01", contextLength: 32768, useCase: ["image"], description: "Fastest open FLUX.2 — sub-second text-to-image and multi-reference editing on consumer GPUs", url: "https://huggingface.co/black-forest-labs/FLUX.2-klein-4B", ggufRepo: "unsloth/FLUX.2-klein-4B-GGUF", minRamGB: ram(4).min, recommendedRamGB: ram(4).rec, quants: makeQuants(4), featured: true, license: "Apache 2.0" },
-  { id: "z-image-turbo", name: "Z-Image Turbo", provider: "Alibaba", family: "Z-Image", params: "6B", paramsBillions: 6, architecture: "dense", releaseDate: "2025-11", contextLength: 4096, useCase: ["image"], description: "8-step distilled image model — photorealism and bilingual text on 16GB cards", url: "https://huggingface.co/Tongyi-MAI/Z-Image-Turbo", ggufRepo: "unsloth/Z-Image-Turbo-GGUF", minRamGB: ram(6).min, recommendedRamGB: ram(6).rec, quants: makeQuants(6), featured: true, license: "Apache 2.0" },
-  { id: "flux2-klein-9b", name: "FLUX.2 Klein 9B", provider: "Black Forest Labs", family: "FLUX.2", params: "9B", paramsBillions: 9, architecture: "dense", releaseDate: "2026-01", contextLength: 32768, useCase: ["image"], description: "Higher-quality distilled FLUX.2 — sub-second generation and multi-reference editing", url: "https://huggingface.co/black-forest-labs/FLUX.2-klein-9B", ggufRepo: "unsloth/FLUX.2-klein-9B-GGUF", minRamGB: ram(9).min, recommendedRamGB: ram(9).rec, quants: makeQuants(9), license: "FLUX Non-Commercial" },
-  { id: "qwen-image-2512", name: "Qwen Image 2512", provider: "Alibaba", family: "Qwen", params: "20B", paramsBillions: 20, architecture: "dense", releaseDate: "2025-12", contextLength: 4096, useCase: ["image"], description: "Open text-to-image with strong English and Chinese typography", url: "https://huggingface.co/Qwen/Qwen-Image-2512", ggufRepo: "unsloth/Qwen-Image-2512-GGUF", minRamGB: ram(20).min, recommendedRamGB: ram(20).rec, quants: makeQuants(20), featured: true, license: "Apache 2.0" },
-  { id: "flux2-dev", name: "FLUX.2 Dev", provider: "Black Forest Labs", family: "FLUX.2", params: "32B", paramsBillions: 32, architecture: "dense", releaseDate: "2025-11", contextLength: 32768, useCase: ["image"], description: "Flagship open-weight FLUX.2 — text-to-image and multi-reference editing up to 4MP", url: "https://huggingface.co/black-forest-labs/FLUX.2-dev", ggufRepo: "unsloth/FLUX.2-dev-GGUF", minRamGB: ram(32).min, recommendedRamGB: ram(32).rec, quants: makeQuants(32), featured: true, license: "FLUX Non-Commercial" },
-  { id: "hunyuan-image-3", name: "HunyuanImage 3.0", provider: "Tencent", family: "Hunyuan", params: "80B", paramsBillions: 80, activeParams: "13B active", architecture: "moe", releaseDate: "2025-09", contextLength: 4096, useCase: ["image"], description: "Largest open image MoE — 13B active, strong long-prompt generation", url: "https://huggingface.co/tencent/HunyuanImage-3.0", minRamGB: ram(80).min, recommendedRamGB: ram(80).rec, quants: makeQuants(80), moe: { numExperts: 64, activeExperts: 8, activeParameters: 13_000_000_000 }, license: "Tencent Hunyuan Community" },
-  { id: "hunyuan-image-3-instruct", name: "HunyuanImage 3.0 Instruct", provider: "Tencent", family: "Hunyuan", params: "80B", paramsBillions: 80, activeParams: "13B active", architecture: "moe", releaseDate: "2026-01", contextLength: 4096, useCase: ["image"], description: "Reasoning image model — prompt rewrite, chain-of-thought and image-to-image editing", url: "https://huggingface.co/tencent/HunyuanImage-3.0-Instruct", minRamGB: ram(80).min, recommendedRamGB: ram(80).rec, quants: makeQuants(80), moe: { numExperts: 64, activeExperts: 8, activeParameters: 13_000_000_000 }, thinking: true, featured: true, license: "Tencent Hunyuan Community" },
+  { id: "flux2-klein-4b", name: "FLUX.2 Klein 4B", provider: "Black Forest Labs", family: "FLUX.2", params: "4B", paramsBillions: 4, architecture: "dense", releaseDate: "2026-01", contextLength: 32768, useCase: ["image"], description: "Fastest open FLUX.2 — sub-second text-to-image and multi-reference editing on consumer GPUs", url: "https://huggingface.co/black-forest-labs/FLUX.2-klein-4B", ggufRepo: "unsloth/FLUX.2-klein-4B-GGUF", minRamGB: diffusionRam(4, 8.2).min, recommendedRamGB: diffusionRam(4, 8.2).rec, quants: makeDiffusionQuants(4, 8.2), memoryProfile: "diffusion", companionWeightsGB: 8.2, featured: true, license: "Apache 2.0" },
+  { id: "z-image-turbo", name: "Z-Image Turbo", provider: "Alibaba", family: "Z-Image", params: "6B", paramsBillions: 6, architecture: "dense", releaseDate: "2025-11", contextLength: 4096, useCase: ["image"], description: "8-step distilled image model — photorealism and bilingual text on 16GB cards", url: "https://huggingface.co/Tongyi-MAI/Z-Image-Turbo", ggufRepo: "unsloth/Z-Image-Turbo-GGUF", minRamGB: diffusionRam(6, 8.2).min, recommendedRamGB: diffusionRam(6, 8.2).rec, quants: makeDiffusionQuants(6, 8.2), memoryProfile: "diffusion", companionWeightsGB: 8.2, featured: true, license: "Apache 2.0" },
+  { id: "flux2-klein-9b", name: "FLUX.2 Klein 9B", provider: "Black Forest Labs", family: "FLUX.2", params: "9B", paramsBillions: 9, architecture: "dense", releaseDate: "2026-01", contextLength: 32768, useCase: ["image"], description: "Higher-quality distilled FLUX.2 — sub-second generation and multi-reference editing", url: "https://huggingface.co/black-forest-labs/FLUX.2-klein-9B", ggufRepo: "unsloth/FLUX.2-klein-9B-GGUF", minRamGB: diffusionRam(9, 16.6).min, recommendedRamGB: diffusionRam(9, 16.6).rec, quants: makeDiffusionQuants(9, 16.6), memoryProfile: "diffusion", companionWeightsGB: 16.6, license: "FLUX Non-Commercial" },
+  { id: "qwen-image-2512", name: "Qwen Image 2512", provider: "Alibaba", family: "Qwen", params: "20B", paramsBillions: 20, architecture: "dense", releaseDate: "2025-12", contextLength: 4096, useCase: ["image"], description: "Open text-to-image with strong English and Chinese typography", url: "https://huggingface.co/Qwen/Qwen-Image-2512", ggufRepo: "unsloth/Qwen-Image-2512-GGUF", minRamGB: diffusionRam(20, 16.9).min, recommendedRamGB: diffusionRam(20, 16.9).rec, quants: makeDiffusionQuants(20, 16.9), memoryProfile: "diffusion", companionWeightsGB: 16.9, featured: true, license: "Apache 2.0" },
+  { id: "flux2-dev", name: "FLUX.2 Dev", provider: "Black Forest Labs", family: "FLUX.2", params: "32B", paramsBillions: 32, architecture: "dense", releaseDate: "2025-11", contextLength: 32768, useCase: ["image"], description: "Flagship open-weight FLUX.2 — text-to-image and multi-reference editing up to 4MP", url: "https://huggingface.co/black-forest-labs/FLUX.2-dev", ggufRepo: "unsloth/FLUX.2-dev-GGUF", minRamGB: diffusionRam(32, 48.3).min, recommendedRamGB: diffusionRam(32, 48.3).rec, quants: makeDiffusionQuants(32, 48.3), memoryProfile: "diffusion", companionWeightsGB: 48.3, featured: true, license: "FLUX Non-Commercial" },
+  { id: "hunyuan-image-3", name: "HunyuanImage 3.0", provider: "Tencent", family: "Hunyuan", params: "80B", paramsBillions: 80, activeParams: "13B active", architecture: "moe", releaseDate: "2025-09", contextLength: 4096, useCase: ["image"], description: "Largest open image MoE — 13B active, strong long-prompt generation", url: "https://huggingface.co/tencent/HunyuanImage-3.0", minRamGB: diffusionRam(80, 0.0).min, recommendedRamGB: diffusionRam(80, 0.0).rec, quants: makeDiffusionQuants(80, 0.0), memoryProfile: "diffusion", companionWeightsGB: 0.0, moe: { numExperts: 64, activeExperts: 8, activeParameters: 13_000_000_000 }, license: "Tencent Hunyuan Community" },
+  { id: "hunyuan-image-3-instruct", name: "HunyuanImage 3.0 Instruct", provider: "Tencent", family: "Hunyuan", params: "80B", paramsBillions: 80, activeParams: "13B active", architecture: "moe", releaseDate: "2026-01", contextLength: 4096, useCase: ["image"], description: "Reasoning image model — prompt rewrite, chain-of-thought and image-to-image editing", url: "https://huggingface.co/tencent/HunyuanImage-3.0-Instruct", minRamGB: diffusionRam(80, 0.0).min, recommendedRamGB: diffusionRam(80, 0.0).rec, quants: makeDiffusionQuants(80, 0.0), memoryProfile: "diffusion", companionWeightsGB: 0.0, moe: { numExperts: 64, activeExperts: 8, activeParameters: 13_000_000_000 }, thinking: true, featured: true, license: "Tencent Hunyuan Community" },
   { id: "gemma4-12b-it", name: "Gemma 4 12B IT", provider: "Google", family: "Gemma", params: "12B", paramsBillions: 12, architecture: "dense", releaseDate: "2026-04", contextLength: 262144, useCase: ["chat", "vision", "reasoning"], description: "Gemma 4 mid-size instruct — multimodal any-to-any", url: "https://huggingface.co/google/gemma-4-12B-it", ggufRepo: "unsloth/gemma-4-12b-it-GGUF", minRamGB: ram(12).min, recommendedRamGB: ram(12).rec, quants: makeQuants(12), license: "Apache 2.0" },
   { id: "mistral-small-4-119b", name: "Mistral Small 4 119B", provider: "Mistral AI", family: "Mistral", params: "119B", paramsBillions: 119, activeParams: "6.5B active", architecture: "moe", releaseDate: "2026-03", contextLength: 262144, useCase: ["chat", "vision", "code", "reasoning"], description: "Sparse Mistral Small 4 — 6.5B active, strong local all-rounder", url: "https://huggingface.co/mistralai/Mistral-Small-4-119B-2603", ggufRepo: "unsloth/Mistral-Small-4-119B-2603-GGUF", minRamGB: ram(119).min, recommendedRamGB: ram(119).rec, quants: makeQuants(119), moe: { numExperts: 128, activeExperts: 4, activeParameters: 6_500_000_000 }, tools: true, featured: true, license: "Apache 2.0" },
   { id: "ministral-3-3b", name: "Ministral 3 3B", provider: "Mistral AI", family: "Mistral", params: "3B", paramsBillions: 3, architecture: "dense", releaseDate: "2025-12", contextLength: 262144, useCase: ["chat", "edge"], description: "Current-gen tiny Ministral — edge chat with 256K context", url: "https://huggingface.co/mistralai/Ministral-3-3B-Instruct-2512", minRamGB: ram(3).min, recommendedRamGB: ram(3).rec, quants: makeQuants(3), tools: true, license: "Apache 2.0" },
