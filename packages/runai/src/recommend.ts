@@ -129,7 +129,7 @@ function toRecommended(
     quant.vramGB,
     hw,
     model.paramsBillions,
-    { activeParamsBillions },
+    { activeParamsBillions, memoryProfile: model.memoryProfile ?? "autoregressive" },
   );
   return {
     id: model.id,

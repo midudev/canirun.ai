@@ -505,6 +505,7 @@ function timeAgo(dateStr: string | null): string {
             data-quants={JSON.stringify(model.quants)}
             data-params={model.paramsBillions}
             data-active-params={getActiveParamsBillions(model)}
+            data-memory-profile={model.memoryProfile ?? "autoregressive"}
             data-arch={model.architecture}
             data-uses={model.useCase.join(",")}
             data-provider={model.provider}
@@ -869,6 +870,7 @@ function timeAgo(dateStr: string | null): string {
             data-quants={JSON.stringify(model.quants)}
             data-params={model.paramsBillions}
             data-active-params={getActiveParamsBillions(model)}
+            data-memory-profile={model.memoryProfile ?? "autoregressive"}
             data-arch={model.architecture}
             data-uses={model.useCase.join(",")}
             data-provider={model.provider}
@@ -1786,6 +1788,7 @@ function timeAgo(dateStr: string | null): string {
       grade,
     } = evaluateModelComplete(vram, hw, params, {
       activeParamsBillions: activeParams,
+      memoryProfile: card.dataset.memoryProfile === "diffusion" ? "diffusion" : "autoregressive",
     })
     const gradeInfo = GRADES[grade]
 

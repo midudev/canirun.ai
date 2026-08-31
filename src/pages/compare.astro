@@ -152,7 +152,7 @@ const sortedModels = [...models].sort(
   } from "@/lib/hardware";
   import type { HardwareInfo, Grade, GradeInfo } from "@/lib/hardware";
   import { appendDeviceOptgroups, formatChipName } from "@/lib/hardware-ui";
-  import { getActiveParamsBillions, models } from "@/data/models";
+  import { getEvaluationOptions, models } from "@/data/models";
 
   const DEFAULT_DEVICE_B = "apple:m5 max";
 
@@ -285,9 +285,7 @@ const sortedModels = [...models].sort(
       const q4 = model.quants.find(q => q.name === "Q4_K_M") || model.quants[0];
       if (!q4) return;
 
-      const options = {
-        activeParamsBillions: getActiveParamsBillions(model),
-      };
+      const options = getEvaluationOptions(model);
       const evalA = evaluateModelComplete(q4.vramGB, hwA, model.paramsBillions, options);
       const evalB = evaluateModelComplete(q4.vramGB, hwB, model.paramsBillions, options);
 

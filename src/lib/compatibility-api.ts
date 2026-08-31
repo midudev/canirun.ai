@@ -6,7 +6,7 @@
 // by the web UI.
 
 import {
-  getActiveParamsBillions,
+  getEvaluationOptions,
   getLineageSuccessor,
   isCurrentInLineage,
   models,
@@ -244,7 +244,7 @@ function pickBestFitQuant(model: AIModel, hw: HardwareInfo): Quantization {
       quant.vramGB,
       hw,
       model.paramsBillions,
-      { activeParamsBillions: getActiveParamsBillions(model) },
+      getEvaluationOptions(model),
     );
     if (ev.status === "can-run" && !firstComfortable) firstComfortable = quant;
     if ((ev.status === "tight" || ev.status === "can-run-slow") && !firstTight) firstTight = quant;
@@ -344,7 +344,7 @@ export function evaluateCompatibility(
     quant.vramGB,
     hw,
     model.paramsBillions,
-    { activeParamsBillions: getActiveParamsBillions(model) },
+    getEvaluationOptions(model),
   );
   const available = availableMemoryGb(hw);
   const headroom = available != null ? round1(available - quant.vramGB) : null;
@@ -434,7 +434,7 @@ function rankModel(model: AIModel, hw: HardwareInfo): { entry: RecommendedEntry;
       quant.vramGB,
       hw,
       model.paramsBillions,
-      { activeParamsBillions: getActiveParamsBillions(model) },
+      getEvaluationOptions(model),
     );
     if (ev.status === "cannot-run" || ev.status === "unknown") continue;
 

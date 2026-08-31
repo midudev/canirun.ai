@@ -1,7 +1,7 @@
 ---
 import Layout from "@/layouts/Layout.astro"
 import NavHeader from "@/components/NavHeader.astro"
-import { models, getActiveParamsBillions, isCommercialLicense, getLicenseTier, getLineageSuccessor } from "@/data/models"
+import { models, getActiveParamsBillions, isDiffusionModel, isCommercialLicense, getLicenseTier, getLineageSuccessor } from "@/data/models"
 import { getLicenseSlug } from "@/data/licenses"
 import ollamaReadmes from "@/data/ollama-readmes.json"
 import { AA_BENCHMARKS, getAaBenchmark } from "@/data/aa-benchmarks"
@@ -37,6 +37,7 @@ export function getStaticPaths() {
 }
 
 const { model } = Astro.props
+const isDiffusion = isDiffusionModel(model)
 const ollamaSlug = model.ollamaId?.split(":")[0]
 const ollamaHref = ollamaSlug
   ? ollamaSlug.includes("/")
@@ -457,6 +458,7 @@ const modelFaqs = [
             class="space-y-2 font-mono text-[13px]"
             data-params={model.paramsBillions}
             data-active-params={getActiveParamsBillions(model)}
+            data-memory-profile={model.memoryProfile ?? "autoregressive"}
           >
             <p class="text-muted italic">Detecting...</p>
           </div>
@@ -546,7 +548,7 @@ const modelFaqs = [
             </>
           )}
           <p class={`font-mono text-xs text-muted ${(model.ollamaId || model.lmStudioId) ? "mt-4" : ""} mb-1`}>
-            llama.cpp / GGUF
+            {isDiffusion ? "ComfyUI / GGUF" : "llama.cpp / GGUF"}
           </p>
           <a
             href={`https://huggingface.co/models?search=${encodeURIComponent(model.name + " GGUF")}`}
@@ -557,6 +559,12 @@ const modelFaqs = [
             <IconDownload class="h-3 w-3 shrink-0" />
             Download GGUF from HuggingFace
           </a>
+          {isDiffusion && (
+            <p class="mt-2 font-mono text-[11px] leading-relaxed text-muted">
+              Diffusion GGUFs load through ComfyUI-GGUF, not llama.cpp, and cover
+              the denoiser only — the text encoder and VAE are separate downloads.
+            </p>
+          )}
         </div>
 
         <!-- Key specs -->
@@ -752,7 +760,8 @@ const modelFaqs = [
 
     const paramsBillions = parseFloat(container.dataset.params || "0")
     const activeParamsBillions = parseFloat(container.dataset.activeParams || "0")
-    const evaluationOptions = { activeParamsBillions }
+    const memoryProfile = container.dataset.memoryProfile === "diffusion" ? "diffusion" as const : "autoregressive" as const
+    const evaluationOptions = { activeParamsBillions, memoryProfile }
     let detectedHW: HardwareInfo
     let currentHW: HardwareInfo
 
@@ -800,7 +809,7 @@ const modelFaqs = [
       let comfortable: string | null = null
       let tight: string | null = null
       for (const quant of candidates) {
-        const { status } = evaluateModelComplete(quant.vram, hw, paramsBillions)
+        const { status } = evaluateModelComplete(quant.vram, hw, paramsBillions, evaluationOptions)
         if (status === "can-run" && !comfortable) comfortable = quant.name
         if ((status === "tight" || status === "can-run-slow") && !tight) tight = quant.name
       }

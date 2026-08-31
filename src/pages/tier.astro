@@ -103,6 +103,7 @@ import IconCopy from "@/icons/copy.svg";
         params: m.params,
         paramsBillions: m.paramsBillions,
         activeParamsBillions: getActiveParamsBillions(m),
+        memoryProfile: m.memoryProfile ?? "autoregressive",
         architecture: m.architecture,
         vramQ4: m.quants.find(q => q.name === "Q4_K_M")?.vramGB || m.quants[0].vramGB,
         featured: m.featured || false,
@@ -181,6 +182,7 @@ import IconCopy from "@/icons/copy.svg";
     params: string;
     paramsBillions: number;
     activeParamsBillions: number;
+    memoryProfile: "autoregressive" | "diffusion";
     architecture: string;
     vramQ4: number;
     featured: boolean;
@@ -471,7 +473,7 @@ import IconCopy from "@/icons/copy.svg";
         m.vramQ4,
         currentHW,
         m.paramsBillions,
-        { activeParamsBillions: m.activeParamsBillions },
+        { activeParamsBillions: m.activeParamsBillions, memoryProfile: m.memoryProfile },
       );
       return { model: m, grade, score, toks };
     });
