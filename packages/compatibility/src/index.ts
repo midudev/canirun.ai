@@ -1505,7 +1505,7 @@ export function getDeviceOverrides(deviceKey: string): HardwareOverrides | null 
   return null;
 }
 
-export const RAM_OPTIONS = [2, 4, 6, 8, 12, 16, 18, 24, 32, 36, 48, 64, 96, 128, 192, 256, 384, 512];
+export const RAM_OPTIONS = [2, 4, 6, 8, 12, 16, 18, 24, 32, 36, 48, 64, 96, 128, 192, 256, 384, 512, 768, 1024];
 export const SYSTEM_RAM_OPTIONS = [4, 8, 16, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768, 1024];
 export const BW_OPTIONS = [50, 68, 100, 120, 150, 153, 170, 200, 224, 256, 273, 288, 300, 307, 346, 360, 408, 432, 448, 456, 504, 546, 608, 614, 672, 768, 819, 960, 1008, 1024, 1200, 1792, 2039, 3350, 4000];
 export function buildSelectOptions(presets: number[], detected: number | null): number[] {
