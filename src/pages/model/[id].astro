@@ -722,6 +722,7 @@ const modelFaqs = [
   } from "@/lib/hardware"
   import type { HardwareInfo, HardwareOverrides } from "@/lib/hardware"
   import { fitSelectWidth, buildGroupedDeviceOptions } from "@/lib/hardware-ui"
+  import { enhanceDeviceSelect } from "@/lib/device-picker"
   import { DEVICE_CATEGORY_ORDER } from "@/lib/hardware"
 
   document.addEventListener('astro:page-load', () => {
@@ -903,7 +904,10 @@ const modelFaqs = [
       const sysramEl = document.getElementById("hw-sysram-select") as HTMLSelectElement
       const bwEl = document.getElementById("hw-bw-select") as HTMLSelectElement
 
-      if (deviceEl) fitSelectWidth(deviceEl)
+      if (deviceEl) {
+        fitSelectWidth(deviceEl)
+        enhanceDeviceSelect(deviceEl)
+      }
       if (ramEl) fitSelectWidth(ramEl)
       if (sysramEl) fitSelectWidth(sysramEl)
       if (bwEl) fitSelectWidth(bwEl)

@@ -1278,6 +1278,7 @@ function timeAgo(dateStr: string | null): string {
     populateSelect,
     appendDeviceOptgroups,
   } from "@/lib/hardware-ui"
+  import { enhanceDeviceSelect } from "@/lib/device-picker"
   import { deviceKeyToSlug, slugToDeviceKey } from "@/lib/device-slugs"
   import {
     matchesUseCategory,
@@ -1518,6 +1519,7 @@ function timeAgo(dateStr: string | null): string {
     select.value = storedDevice || "auto"
     select.disabled = false
     fitSelectWidth(select)
+    enhanceDeviceSelect(select)
   }
 
   function updateHardwarePanel(hw: HardwareInfo) {
@@ -3340,6 +3342,11 @@ function timeAgo(dateStr: string | null): string {
     max-width: none;
     min-height: 1.625rem;
     white-space: nowrap;
+  }
+
+  .hw-spec :global(.device-picker),
+  .hw-spec :global(.device-picker-trigger) {
+    max-width: none;
   }
 
   @media (max-width: 639px) {

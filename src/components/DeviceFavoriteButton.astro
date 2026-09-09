@@ -1,0 +1,19 @@
+---
+import IconStar from "@/icons/star.svg"
+
+interface Props {
+  name: string
+}
+
+const { name } = Astro.props
+---
+
+<button
+  type="button"
+  class="device-favorite absolute top-1/2 right-2 inline-flex size-10 -translate-y-1/2 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-raised hover:text-secondary aria-pressed:text-accent"
+  aria-pressed="false"
+  aria-label={`Add ${name} to favorites`}
+  data-label={name}
+>
+  <IconStar class="size-4" />
+</button>

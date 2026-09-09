@@ -1,0 +1,26 @@
+---
+/**
+ * Favorites shelf for the device list. Populated at runtime by
+ * `initDeviceFavoritesList` from the device cards already on the page.
+ */
+---
+
+<section id="favorites-section" class="mb-10" aria-labelledby="favorites-title" hidden>
+  <div class="mb-4 flex items-center justify-between gap-3">
+    <h2 id="favorites-title" class="font-pixel text-xl text-primary">
+      Favorites
+      <span id="favorites-count" class="font-mono text-sm text-muted"></span>
+    </h2>
+    <button
+      type="button"
+      id="favorites-clear"
+      class="inline-flex min-h-9 items-center rounded-lg border border-edge/70 bg-surface-card px-3 font-mono text-[13px] text-secondary transition-colors hover:border-danger/40 hover:text-danger"
+    >
+      Clear all
+    </button>
+  </div>
+  <ul id="favorites-list" class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3"></ul>
+  <p id="favorites-empty" class="hidden py-4 font-mono text-[13px] text-muted">
+    No favorites match that search.
+  </p>
+</section>

@@ -4,6 +4,8 @@ import NavHeader from "@/components/NavHeader.astro"
 import Footer from "@/components/Footer.astro"
 import IconSearch from "@/icons/search.svg"
 import IconArrowLeft from "@/icons/arrow-left.svg"
+import DeviceFavorites from "@/components/DeviceFavorites.astro"
+import DeviceFavoriteButton from "@/components/DeviceFavoriteButton.astro"
 import VendorLogo from "@/components/VendorLogo.astro"
 import {
   formatMemory,
@@ -150,6 +152,8 @@ const faqs = [
       </p>
     </div>
 
+    <DeviceFavorites />
+
     <nav aria-label="Device families" class="mb-10">
       <ul class="flex flex-wrap gap-2">
         {
@@ -230,14 +234,15 @@ const faqs = [
                     const memory = formatMemory(device)
                     return (
                       <li
-                        class="device-card"
+                        class="device-card relative"
+                        data-key={device.key}
                         data-name={device.name.toLowerCase()}
                         data-category={group.category.toLowerCase()}
                         data-family={family.name.toLowerCase()}
                       >
                         <a
                           href={`/device/${device.slug}`}
-                          class="group flex min-h-16 items-center justify-between gap-3 rounded-lg border border-edge/70 bg-surface-card px-4 py-3 transition-colors hover:border-accent/30 hover:bg-surface-hover"
+                          class="group flex min-h-16 items-center justify-between gap-3 rounded-lg border border-edge/70 bg-surface-card py-3 pr-12 pl-4 transition-colors hover:border-accent/30 hover:bg-surface-hover"
                         >
                           <VendorLogo vendor={device.vendor} class="size-8 rounded-md" />
                           <span class="min-w-0 flex-1">
@@ -254,6 +259,7 @@ const faqs = [
                             </span>
                           )}
                         </a>
+                        <DeviceFavoriteButton name={device.name} />
                       </li>
                     )
                   })}
@@ -292,7 +298,10 @@ const faqs = [
 </Layout>
 
 <script>
+  import { initDeviceFavoritesList } from "@/lib/device-favorites-list"
+
   function initDeviceSearch() {
+    const root = document.querySelector("main")
     const input = document.getElementById("device-search") as HTMLInputElement | null
     const status = document.getElementById("device-filter-status")
     const empty = document.getElementById("device-empty")
@@ -300,24 +309,38 @@ const faqs = [
     const categories = [...document.querySelectorAll<HTMLElement>(".device-category")]
     const families = [...document.querySelectorAll<HTMLElement>(".device-family")]
     const familyLinks = [...document.querySelectorAll<HTMLElement>("[data-family-link]")]
-    if (!input || !status || !empty) return
+    if (!root || !input || !status || !empty) return
 
     const total = cards.length
+
+    function matches(card: HTMLElement, query: string) {
+      if (!query) return true
+      const haystack = [
+        card.dataset.name ?? "",
+        card.dataset.category ?? "",
+        card.dataset.family ?? "",
+      ].join(" ")
+      return haystack.includes(query)
+    }
+
+    const favorites = initDeviceFavoritesList({
+      root,
+      cards,
+      matches,
+      onChange: () => applyFilter(),
+    })
 
     function applyFilter() {
       const query = input!.value.trim().toLowerCase()
       let visible = 0
 
       for (const card of cards) {
-        const haystack = [
-          card.dataset.name ?? "",
-          card.dataset.category ?? "",
-          card.dataset.family ?? "",
-        ].join(" ")
-        const match = !query || haystack.includes(query)
+        const match = matches(card, query)
         card.hidden = !match
         if (match) visible += 1
       }
+
+      favorites?.applyQuery(query)
 
       for (const category of categories) {
         const hasVisible = [...category.querySelectorAll<HTMLElement>(".device-card")].some(
@@ -345,6 +368,7 @@ const faqs = [
     }
 
     input.addEventListener("input", applyFilter)
+    applyFilter()
   }
 
   document.addEventListener("astro:page-load", initDeviceSearch)

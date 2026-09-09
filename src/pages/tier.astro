@@ -173,6 +173,7 @@ import IconCopy from "@/icons/copy.svg";
   import { detectHardware, evaluateModelComplete, cleanGPUName, getDisplayName, getHardwareOverrides, saveHardwareOverrides, applyOverrides, getDeviceOverrides, RAM_OPTIONS, BW_OPTIONS, GRADES } from "@/lib/hardware";
   import type { HardwareInfo, HardwareOverrides } from "@/lib/hardware";
   import { fitSelectWidth, populateSelect, appendDeviceOptgroups } from "@/lib/hardware-ui";
+  import { enhanceDeviceSelect } from "@/lib/device-picker";
 
   interface TierModel {
     id: string;
@@ -356,6 +357,7 @@ import IconCopy from "@/icons/copy.svg";
     select.classList.remove("text-muted");
     select.classList.add("text-secondary");
     fitSelectWidth(select);
+    enhanceDeviceSelect(select);
   }
 
   function updateHardwareBar(hw: HardwareInfo) {
