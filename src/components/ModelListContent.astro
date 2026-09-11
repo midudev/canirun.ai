@@ -3344,8 +3344,7 @@ function timeAgo(dateStr: string | null): string {
 
   @media (max-width: 639px) {
     .hw-spec-panel {
-      grid-template-columns: repeat(4, max-content);
-      justify-content: space-between;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       column-gap: 0.75rem;
     }
 
