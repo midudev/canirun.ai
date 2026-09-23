@@ -22,6 +22,7 @@ import LogoOrnith from "@/icons/companies/ornith.svg"
 import LogoQwen from "@/icons/companies/qwen.svg"
 import LogoTencent from "@/icons/companies/tencent.svg"
 import LogoZai from "@/icons/companies/zai.svg"
+import LogoPrismML from "@/icons/companies/prismml.svg"
 
 interface Props {
   company: CompanyInfo
@@ -58,6 +59,7 @@ const LOGOS: Record<CompanyLogoKey, typeof LogoQwen> = {
   internscience: LogoInternScience,
   ibm: LogoIbm,
   cohere: LogoCohere,
+  prismml: LogoPrismML,
 }
 
 const Logo = company.logo ? LOGOS[company.logo] : undefined
