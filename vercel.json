@@ -1,4 +1,15 @@
 {
+  "headers": [
+    {
+      "source": "/((?!_astro/|api/|og/).*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    }
+  ],
   "redirects": [
     { "source": "/og/home.png", "destination": "/og/home.jpg", "permanent": true },
     { "source": "/og/:id.png", "destination": "/og/:id.jpg", "permanent": true }
