@@ -23,6 +23,7 @@ export type CompanyLogoKey =
   | "internscience"
   | "ibm"
   | "cohere"
+  | "prismml"
 
 export interface CompanyInfo {
   slug: string
@@ -277,6 +278,17 @@ export const ALL_COMPANIES: CompanyInfo[] = [
       "Cohere develops North, an open family of agentic coding models released through Cohere Labs for local software engineering workloads.",
     website: "https://cohere.com",
     logo: "cohere",
+  },
+  {
+    slug: "prism-ml",
+    name: "Prism ML",
+    brand: "Bonsai",
+    providers: ["Prism ML"],
+    families: ["Bonsai"],
+    description:
+      "Prism ML develops Bonsai, a family of 1-bit binary transformer weight models for highly efficient local reasoning, vision, and tool-use.",
+    website: "https://prismml.com/",
+    logo: "prismml",
   },
 ]
 
