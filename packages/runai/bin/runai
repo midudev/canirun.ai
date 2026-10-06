@@ -6,7 +6,15 @@ if ! command -v bun >/dev/null 2>&1; then
   exit 127
 fi
 
-SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+SCRIPT_PATH=$0
+while [ -L "${SCRIPT_PATH}" ]; do
+  LINK_TARGET=$(readlink -- "${SCRIPT_PATH}")
+  case "${LINK_TARGET}" in
+    /*) SCRIPT_PATH=${LINK_TARGET} ;;
+    *) SCRIPT_PATH=$(dirname -- "${SCRIPT_PATH}")/${LINK_TARGET} ;;
+  esac
+done
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "${SCRIPT_PATH}")" && pwd)
 DIST_CLI="${SCRIPT_DIR}/../dist/cli.js"
 
 if [ ! -f "${DIST_CLI}" ]; then
