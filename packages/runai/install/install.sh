@@ -68,6 +68,10 @@ if ! pnpm bin --global >/dev/null 2>&1; then
   pnpm config set global-bin-dir "${PNPM_HOME}"
 fi
 
+# pnpm 11 puts global bins in $PNPM_HOME/bin, older versions in $PNPM_HOME.
+PNPM_BIN_DIR="$(pnpm bin --global 2>/dev/null)"
+export PATH="${PNPM_BIN_DIR}:${PATH}"
+
 install_runai_from_github() {
   if ! command -v git >/dev/null 2>&1; then
     echo "git is required to install runai while @canirun/runai is not on npm." >&2
@@ -94,8 +98,8 @@ install_runai_from_github() {
     pnpm --filter @canirun/runai build
   )
 
-  mkdir -p "${PNPM_HOME}"
-  ln -sfn "${src}/packages/runai/bin/runai" "${PNPM_HOME}/runai"
+  mkdir -p "${PNPM_BIN_DIR}"
+  ln -sfn "${src}/packages/runai/bin/runai" "${PNPM_BIN_DIR}/runai"
 }
 
 echo "Installing runai globally with pnpm..."
