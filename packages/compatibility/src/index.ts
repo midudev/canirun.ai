@@ -377,6 +377,15 @@ export const GPU_DB: Record<string, { vram: number; bw: number; cores: number }>
 
   // Intel integrated
   // Source: Intel platform memory specs / common system memory bandwidth assumptions
+  // Core Ultra Arc iGPUs: top-bin Xe-cores × 128; bw = fastest LPDDR5X on LPDDR5X-only
+  // chips, DDR5 dual-channel on chips that also ship with DDR5.
+  "Arc B390": { vram: 0, bw: 154, cores: 1536 }, // Series 3 (Panther Lake), 12 Xe3-cores, LPDDR5X-9600
+  "Arc B370": { vram: 0, bw: 137, cores: 1280 }, // Series 3 (Panther Lake), 10 Xe3-cores, LPDDR5X-8533
+  "Arc 140V": { vram: 0, bw: 137, cores: 1024 }, // Series 2 (Lunar Lake), 8 Xe2-cores, LPDDR5X-8533
+  "Arc 130V": { vram: 0, bw: 137, cores: 896 }, // Series 2 (Lunar Lake), 7 Xe2-cores, LPDDR5X-8533
+  "Arc 140T": { vram: 0, bw: 102, cores: 1024 }, // Series 2 (Arrow Lake H), 8 Xe-cores, DDR5-6400
+  "Arc 130T": { vram: 0, bw: 102, cores: 896 }, // Series 2 (Arrow Lake H), 7 Xe-cores, DDR5-6400
+  "Arc Graphics": { vram: 0, bw: 90, cores: 1024 }, // Series 1 (Meteor Lake H), 8 Xe-cores, DDR5-5600
   "Iris Xe": { vram: 0, bw: 68, cores: 96 },
   "Iris Plus": { vram: 0, bw: 50, cores: 64 },
   "UHD 770": { vram: 0, bw: 76, cores: 32 },
@@ -1659,6 +1668,7 @@ export function getGPUCategory(name: string): string {
   if (name === "Radeon VII") return "AMD Older";
   if (name.startsWith("Radeon") || name.startsWith("Ryzen") || /^Vega \d$/.test(name)) return "AMD Integrated";
   if (name.startsWith("RX") || name.startsWith("Vega")) return "AMD Older";
+  if (/^Arc (Graphics|B3\d0|1\d0[VT])$/.test(name)) return "Intel Integrated";
   if (name.startsWith("Arc")) return "Intel Arc";
   if (name.startsWith("Iris") || name.startsWith("UHD")) return "Intel Integrated";
   return "Other";
