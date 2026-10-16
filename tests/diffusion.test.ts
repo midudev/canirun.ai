@@ -140,6 +140,34 @@ describe("Wan 2.2 TI2V-5B matches its published floor", () => {
   });
 });
 
+describe("ERNIE-Image Turbo matches its published floor", () => {
+  // Baidu: "ERNIE-Image-Turbo can run on consumer GPUs with 24G VRAM".
+  // https://huggingface.co/baidu/ERNIE-Image-Turbo
+  it("fits Q8_0 in the 24 GB Baidu names", () => {
+    expect(quantOf("ernie-image-turbo", "Q8_0").vramGB).toBeLessThanOrEqual(24);
+  });
+
+  it("runs on a 24 GB RTX 4090", () => {
+    const model = models.find((m) => m.id === "ernie-image-turbo")!;
+    const { status } = evaluateModelComplete(
+      quantOf("ernie-image-turbo", "Q8_0").vramGB,
+      RTX_4090,
+      model.paramsBillions,
+      getEvaluationOptions(model),
+    );
+    expect(status).not.toBe("cannot-run");
+  });
+});
+
+describe("Ideogram 4 keeps both denoisers resident", () => {
+  it("sizes more than one 9.3B transformer", () => {
+    const ideogram = models.find((m) => m.id === "ideogram-4")!;
+    const companion = ideogram.companionWeightsGB ?? 0;
+    // Two 9.3B transformers at Q8_0 are ~18.6 GB on their own.
+    expect(quantOf("ideogram-4", "Q8_0").vramGB - companion).toBeGreaterThan(18);
+  });
+});
+
 // ── Throughput ───────────────────────────────────────────────
 
 describe("tokens/s is not reported for diffusion", () => {

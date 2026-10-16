@@ -24,14 +24,14 @@
     "api": "bun src/cli.ts api"
   },
   "devDependencies": {
-    "@types/bun": "1.3.14"
+    "@types/bun": "1.4.3"
   },
   "dependencies": {
     "@canirun/compatibility": "workspace:^",
     "@canirun/models": "workspace:^",
-    "@clack/prompts": "1.7.0",
+    "@clack/prompts": "1.8.1",
     "fast-string-width": "3.0.2",
-    "node-llama-cpp": "3.20.0"
+    "node-llama-cpp": "3.22.1"
   },
   "engines": {
     "bun": ">=1.2.0"

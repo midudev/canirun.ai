@@ -16,26 +16,26 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@astrojs/sitemap": "3.7.3",
-    "@astrojs/vercel": "11.0.6",
+    "@astrojs/sitemap": "3.7.4",
+    "@astrojs/vercel": "11.0.15",
     "@canirun/compatibility": "workspace:*",
     "@canirun/models": "workspace:*",
-    "@huggingface/transformers": "4.2.0",
-    "@libsql/client": "0.17.4",
+    "@huggingface/transformers": "4.3.1",
+    "@libsql/client": "0.18.0",
     "@resvg/resvg-js": "2.6.2",
     "@tailwindcss/vite": "4.3.3",
-    "@zumer/snapdom": "2.24.3",
-    "astro": "7.2.3",
+    "@zumer/snapdom": "3.3.4",
+    "astro": "7.4.0",
     "comlink": "4.4.2",
-    "pdfjs-dist": "6.2.108",
-    "satori": "0.29.0",
-    "sharp": "0.35.3",
+    "pdfjs-dist": "6.4.299",
+    "satori": "0.60.0",
+    "sharp": "0.35.5",
     "tailwindcss": "4.3.3"
   },
   "devDependencies": {
-    "@webgpu/types": "0.1.72",
-    "tsx": "4.23.12",
-    "typescript": "6.0.3",
-    "vitest": "4.1.11"
+    "@webgpu/types": "0.1.74",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
   }
 }

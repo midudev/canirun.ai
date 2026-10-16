@@ -214,6 +214,10 @@ describe("getGPUCategory", () => {
       ["Arc Pro B70", "Intel Arc"],
       ["Iris Xe", "Intel Integrated"],
       ["UHD 770", "Intel Integrated"],
+      ["Arc Graphics", "Intel Integrated"],
+      ["Arc 140V", "Intel Integrated"],
+      ["Arc 130T", "Intel Integrated"],
+      ["Arc B390", "Intel Integrated"],
     ])("%s → %s", (name, expected) => {
       expect(getGPUCategory(name)).toBe(expected);
     });
@@ -321,6 +325,25 @@ describe("matchGPU", () => {
     expect(result!.vram).toBe(32);
     expect(result!.bw).toBe(608);
     expect(result!.cores).toBe(4096);
+  });
+
+  it.each([
+    ["ANGLE (Intel, Intel(R) Arc(TM) Graphics (0x00007D55) Direct3D11 vs_5_0 ps_5_0, D3D11)", "Arc Graphics"],
+    ["Mesa Intel(R) Arc(tm) Graphics (MTL)", "Arc Graphics"],
+    ["ANGLE (Intel, Intel(R) Arc(TM) 140V GPU (0x000064A0) Direct3D11 vs_5_0 ps_5_0, D3D11)", "Arc 140V"],
+    ["Intel(R) Arc(TM) 130V GPU", "Arc 130V"],
+    ["Intel(R) Arc(TM) 140T GPU", "Arc 140T"],
+    ["Intel(R) Arc(TM) 130T GPU", "Arc 130T"],
+    ["Intel(R) Arc(TM) B390 GPU", "Arc B390"],
+    ["Intel(R) Arc(TM) B370 GPU", "Arc B370"],
+  ])("matches Core Ultra iGPU %s → %s", (renderer, name) => {
+    expect(matchGPU(renderer)).toEqual(GPU_DB[name]);
+    expect(GPU_DB[name]!.vram).toBe(0);
+  });
+
+  it("does not confuse discrete Arc cards with the Core Ultra iGPUs", () => {
+    expect(matchGPU("Intel(R) Arc(TM) A770 Graphics")).toEqual(GPU_DB["Arc A770"]);
+    expect(matchGPU("Intel(R) Arc(TM) B580 Graphics")).toEqual(GPU_DB["Arc B580"]);
   });
 
   it("returns null for unknown GPUs", () => {
