@@ -120,7 +120,7 @@ export const ALL_COMPANIES: CompanyInfo[] = [
     providers: ["Z.ai", "Zhipu AI"],
     families: ["GLM"],
     description:
-      "Z.ai, formerly known internationally as Zhipu AI, develops the multilingual GLM family of reasoning, coding and agentic models.",
+      "Z.ai, formerly known internationally as Zhipu AI, develops the multilingual GLM family of reasoning, coding and agentic models, plus the GLM-Image generator.",
     website: "https://z.ai",
     logo: "zai",
   },
@@ -197,7 +197,7 @@ export const ALL_COMPANIES: CompanyInfo[] = [
     providers: ["Meituan"],
     families: ["LongCat"],
     description:
-      "Meituan's LongCat team develops frontier-scale open models for coding, long-horizon agents, search and productivity workflows.",
+      "Meituan's LongCat team develops frontier-scale open models for coding, long-horizon agents, search and productivity workflows, plus the bilingual LongCat-Image generator.",
     website: "https://longcat.ai",
     logo: "longcat",
   },
@@ -244,6 +244,36 @@ export const ALL_COMPANIES: CompanyInfo[] = [
       "Lightricks develops LTX, an open video generation family with native audio, from the original LTX-Video models to LTX 2.3.",
     website: "https://ltx.video",
     logo: "ltx",
+  },
+  {
+    slug: "krea",
+    name: "Krea",
+    brand: "Krea",
+    providers: ["Krea"],
+    families: ["Krea"],
+    description:
+      "Krea develops creative AI tools and the open-weight Krea 2 image models, released as a Raw base for training and a distilled Turbo for fast generation.",
+    website: "https://www.krea.ai",
+  },
+  {
+    slug: "ideogram",
+    name: "Ideogram",
+    brand: "Ideogram",
+    providers: ["Ideogram"],
+    families: ["Ideogram"],
+    description:
+      "Ideogram builds image models known for typography and graphic design, and released Ideogram 4 as its first open-weight model.",
+    website: "https://ideogram.ai",
+  },
+  {
+    slug: "baidu",
+    name: "Baidu",
+    brand: "ERNIE",
+    providers: ["Baidu"],
+    families: ["ERNIE"],
+    description:
+      "Baidu's ERNIE team develops open models including ERNIE-Image, a text-to-image family focused on dense text, posters and structured layouts.",
+    website: "https://ernie.baidu.com",
   },
   {
     slug: "deep-reinforce",
