@@ -114,6 +114,8 @@ export const GPU_DB: Record<string, { vram: number; bw: number; cores: number }>
   // NVIDIA workstation / pro desktop
   // Source: NVIDIA professional desktop product pages / line cards
   "RTX PRO 6000": { vram: 96, bw: 1792, cores: 24064 },
+  "RTX PRO 5000": { vram: 48, bw: 1344, cores: 14080 }, // 110 SMs × 128, GDDR7 384-bit
+  "RTX PRO 5000 72GB": { vram: 72, bw: 1344, cores: 14080 }, // same GPU, 3 GB GDDR7 modules
   "RTX 6000 Ada": { vram: 48, bw: 960, cores: 18176 },
   "RTX 5880 Ada": { vram: 48, bw: 960, cores: 14080 },
   "RTX 5000 Ada": { vram: 32, bw: 800, cores: 12800 },

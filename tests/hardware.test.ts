@@ -135,6 +135,8 @@ describe("getGPUCategory", () => {
   describe("NVIDIA professional Ampere / Turing", () => {
     it.each([
       ["RTX PRO 6000", "NVIDIA Pro"],
+      ["RTX PRO 5000", "NVIDIA Pro"],
+      ["RTX PRO 5000 72GB", "NVIDIA Pro"],
       ["RTX A6000", "NVIDIA Pro"],
       ["RTX A5500", "NVIDIA Pro"],
       ["RTX A5000", "NVIDIA Pro"],
@@ -261,6 +263,18 @@ describe("matchGPU", () => {
     expect(result).not.toBeNull();
     expect(result!.vram).toBe(32);
     expect(result!.cores).toBe(21760);
+  });
+
+  it.each([
+    ["NVIDIA RTX PRO 5000 Blackwell", "RTX PRO 5000"],
+    ["ANGLE (NVIDIA, NVIDIA RTX PRO 5000 Blackwell (0x00002BB3) Direct3D11 vs_5_0 ps_5_0, D3D11)", "RTX PRO 5000"],
+    ["NVIDIA RTX PRO 5000 72GB Blackwell", "RTX PRO 5000 72GB"],
+  ])("matches RTX PRO 5000 %s → %s", (renderer, name) => {
+    expect(matchGPU(renderer)).toEqual(GPU_DB[name]);
+  });
+
+  it("RTX PRO 5000 72GB keeps the 48 GB card's bandwidth and cores", () => {
+    expect(GPU_DB["RTX PRO 5000 72GB"]).toEqual({ ...GPU_DB["RTX PRO 5000"], vram: 72 });
   });
 
   it("RTX 4090 is NOT confused with RTX 4000 Ada", () => {
