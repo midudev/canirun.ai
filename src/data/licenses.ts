@@ -90,6 +90,31 @@ const LICENSES: LicenseInfo[] = [
     ],
   },
   {
+    id: slug("OpenMDW 1.1"),
+    name: "OpenMDW 1.1",
+    fullName: "OpenMDW License Agreement, version 1.1",
+    tier: "open",
+    summary: "A permissive license for model weights, data and code that allows any use without restrictions on use or outputs.",
+    url: "https://openmdw.ai/license/1-1/",
+    commercialUse: true,
+    permissions: [
+      "Commercial use — use the model in commercial products and services",
+      "Modification — modify, fine-tune, and create derivative works",
+      "Distribution — distribute copies and derivative works",
+      "Patent use — grant covers copyright, patent, database and trade secret rights",
+      "Private use — use and modify privately without any obligation",
+    ],
+    conditions: [
+      "License notice — keep a copy of the agreement and the notices of origin when distributing",
+    ],
+    limitations: [
+      "Patent litigation — the grant terminates if you sue claiming the model infringes a patent or copyright",
+      "Third-party rights — you are responsible for clearing any third-party rights",
+      "Liability — the providers are not liable for any damages",
+      "Warranty — provided \"as is\" without warranty",
+    ],
+  },
+  {
     id: slug("CC BY-NC 4.0"),
     name: "CC BY-NC 4.0",
     fullName: "Creative Commons Attribution-NonCommercial 4.0 International",

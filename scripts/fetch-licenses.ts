@@ -67,6 +67,7 @@ const MODEL_HF_REPOS: Record<string, string> = {
   "qwen3.5-27b": "lmstudio-community/Qwen3.5-27B-GGUF",
   "qwen3-30b-a3b": "Qwen/Qwen3-30B-A3B",
   "nemotron-nano-30b": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
+  "nemotron-3.5-bolt-74b-a9b": "nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB",
   "gemma4-31b-it": "lmstudio-community/gemma-4-31B-it-GGUF",
   "gemma4-31b": "google/gemma-4-31B",
   "qwen2.5-32b": "Qwen/Qwen2.5-32B-Instruct",
