@@ -43,6 +43,24 @@ Browser APIs → Hardware Detection → Per-Use-Case Ranking → Best-Pick Recom
 | **Apple Silicon** M1–M4 (Pro, Max, Ultra) | WebGL + unified memory lookup |
 | **Mobile** (iOS / Android) | Screen resolution, benchmark, Adreno/Mali/Immortalis DB |
 
+### NVIDIA Jetson AGX Orin
+
+Select **SBC / Embedded** in the hardware selector and choose **NVIDIA Jetson
+AGX Orin (32 GB)**, **(64 GB)**, or **Industrial (64 GB)**. These profiles use a
+single shared CPU/GPU memory pool with an allowance for the OS and runtime,
+and NVIDIA's nominal 204.8 GB/s memory bandwidth. Speed estimates are not
+benchmarks and depend on the runtime, context length, and power mode.
+
+Automatic detection recognizes explicit AGX Orin names exposed by WebGL or
+WebGPU. Generic renderer names such as `NVIDIA Tegra` cannot identify the
+module or its RAM capacity: select the profile manually in that case. When
+only the AGX Orin family is identified, RAM stays unknown until you select a
+variant or enter the memory capacity. Hardware estimates do not verify that
+a particular runtime supports your JetPack/CUDA version.
+
+See the [Jetson support and validation notes](docs/hardware/jetson-agx-orin.md)
+for implementation details, reproduction steps, and benchmark follow-up.
+
 ## Features
 
 - **Best-pick recommendations** — the top open models for your device, grouped by use case (general, coding, reasoning, vision, lightweight), quality-ranked but gated by what actually runs well

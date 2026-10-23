@@ -105,8 +105,8 @@ const FAMILIES: {
   {
     id: "sbc",
     name: "SBC / Embedded",
-    description: "Single-board computers such as Raspberry Pi.",
-    vendors: ["raspberry"],
+    description: "Single-board computers including NVIDIA Jetson and Raspberry Pi.",
+    vendors: ["nvidia", "raspberry"],
     categories: ["SBC / Embedded"],
   },
 ]
@@ -245,9 +245,9 @@ function toListing(entry: DeviceSlugEntry): DeviceListing {
   return {
     ...entry,
     category: "SBC / Embedded",
-    vendor: "raspberry",
+    vendor: data?.vendor ?? "raspberry",
     memoryGB: data?.ram ?? null,
-    memoryKind: "ram",
+    memoryKind: data?.vendor === "nvidia" ? "unified" : "ram",
     bandwidth: data?.bw ?? 0,
   }
 }

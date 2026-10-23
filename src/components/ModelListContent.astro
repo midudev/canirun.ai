@@ -1560,12 +1560,12 @@ function timeAgo(dateStr: string | null): string {
 
     const effectiveRam = hw.ramGB ?? hw.totalUsableRAM
     const ramSelect = $<HTMLSelectElement>("#hw-ram-select")
-    if (ramSelect && effectiveRam) {
+    if (ramSelect) {
       populateSelect(
         ramSelect,
         RAM_OPTIONS,
         detectedHW.ramGB,
-        overrides.ramGB ?? effectiveRam,
+        overrides.ramGB ?? effectiveRam ?? undefined,
         (v) => `${v} GB`,
       )
       ramSelect.disabled = false
@@ -1573,7 +1573,14 @@ function timeAgo(dateStr: string | null): string {
     $("#hw-ram")!.classList.replace("text-muted", "text-secondary")
 
     const vramLabel = $("#hw-vram-label")
-    if (vramLabel) vramLabel.textContent = "VRAM"
+    if (vramLabel) {
+      vramLabel.textContent = usesUnifiedMemory(hw) ? "Unified" : "VRAM"
+      const tooltip = vramLabel.closest("[data-tooltip]")
+      tooltip?.setAttribute("aria-label", usesUnifiedMemory(hw) ? "Unified memory info" : "VRAM info")
+      tooltip?.setAttribute("data-tooltip", usesUnifiedMemory(hw)
+        ? "Unified memory — CPU and GPU share this capacity; there is no separate VRAM pool"
+        : "VRAM — Video memory available for loading models")
+    }
 
     const sysramContainer = $("#hw-sysram")
     const sysramSelect = $<HTMLSelectElement>("#hw-sysram-select")
