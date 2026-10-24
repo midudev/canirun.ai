@@ -19,6 +19,7 @@ import {
   evaluateModelComplete,
   matchGPU,
   matchApple,
+  matchJetsonAGXOrin,
   isAppleSiliconCheck,
 } from "./hardware";
 import { getAaBenchmark } from "../data/aa-benchmarks";
@@ -156,6 +157,41 @@ export function resolveHardware(
   }
 
   // Enrich from the GPU database when the caller only supplies a name.
+  const jetsonMatch = gpuName ? matchJetsonAGXOrin(gpuName) : null;
+  if (jetsonMatch) {
+    const totalRAM = ramGb ?? vram ?? jetsonMatch.ram;
+    if (totalRAM == null) {
+      return { ok: false, error: "missing_ram_or_vram" };
+    }
+    const resolvedBw = bw ?? jetsonMatch.bw;
+    const hw = baseHardware(input, {
+      deviceName: jetsonMatch.name,
+      gpuCores: jetsonMatch.gpuCores,
+      isAppleSilicon: false,
+      isUnifiedMemory: true,
+      isSbc: true,
+      totalUsableRAM: totalRAM,
+      ramGB: totalRAM,
+      estimatedVRAM: null,
+      systemRAM: null,
+      memoryBandwidth: resolvedBw,
+      platform: input.platform ?? "Linux",
+    });
+    return {
+      ok: true,
+      value: {
+        hw,
+        detected: {
+          kind: "gpu",
+          device: jetsonMatch.name,
+          vramGb: null,
+          ramGb: totalRAM,
+          memoryBandwidthGbps: resolvedBw,
+        },
+      },
+    };
+  }
+
   const gpuMatch = gpuName ? matchGPU(gpuName) : null;
   if (gpuMatch) {
     if (vram == null) vram = gpuMatch.vram || null;

@@ -376,18 +376,21 @@ import IconCopy from "@/icons/copy.svg";
     }
 
     const vramLabel = document.getElementById("hw-vram-label");
-    if (vramLabel) vramLabel.textContent = "VRAM";
+    if (vramLabel) {
+      vramLabel.textContent = usesUnifiedMemory(hw) ? "Unified" : "VRAM";
+      const tooltip = vramLabel.closest("[data-tooltip]");
+      tooltip?.setAttribute("aria-label", usesUnifiedMemory(hw) ? "Unified memory info" : "VRAM info");
+      tooltip?.setAttribute("data-tooltip", usesUnifiedMemory(hw)
+        ? "Unified memory — CPU and GPU share this capacity; there is no separate VRAM pool"
+        : "VRAM — Video memory available for loading models");
+    }
 
     const effectiveRam = hw.ramGB ?? hw.totalUsableRAM;
-    if (effectiveRam) {
-      document.getElementById("hw-ram-group")!.classList.remove("hidden");
-      populateSelect(
-        document.getElementById("hw-ram-select") as HTMLSelectElement,
-        RAM_OPTIONS, detectedHW.ramGB, overrides.ramGB ?? effectiveRam, (v) => `${v} GB`
-      );
-    } else {
-      document.getElementById("hw-ram-group")!.classList.add("hidden");
-    }
+    document.getElementById("hw-ram-group")!.classList.remove("hidden");
+    populateSelect(
+      document.getElementById("hw-ram-select") as HTMLSelectElement,
+      RAM_OPTIONS, detectedHW.ramGB, overrides.ramGB ?? effectiveRam ?? undefined, (v) => `${v} GB`
+    );
 
     const sysramGroup = document.getElementById("hw-sysram-group");
     const sysramSelect = document.getElementById("hw-sysram-select") as HTMLSelectElement;

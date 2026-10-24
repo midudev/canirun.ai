@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   GPU_DB,
   APPLE_DB,
@@ -7,6 +7,8 @@ import {
   getGPUCategory,
   cleanGPUName,
   matchGPU,
+  matchJetsonAGXOrin,
+  detectHardware,
   parseVRAMFromName,
   matchApple,
   isAppleSiliconCheck,
@@ -23,6 +25,10 @@ import {
   type HardwareInfo,
   type ModelStatus,
 } from "../src/lib/hardware";
+
+import { buildGroupedDeviceOptions, populateSelect } from "../packages/compatibility/src/ui";
+import { deviceKeyToSlug, slugToDeviceKey } from "../packages/compatibility/src/device-slugs";
+import { resolveHardware } from "../src/lib/compatibility-api";
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -1006,5 +1012,172 @@ describe("real-world scenarios", () => {
     const hw = makeHW({ estimatedVRAM: 6, memoryBandwidth: 192 });
     expect(evaluateModel(3, hw)).toBe("can-run");
     expect(evaluateModel(8, hw)).toBe("cannot-run");
+  });
+});
+
+
+describe("Jetson AGX Orin shared memory", () => {
+  it("makes every Jetson profile selectable and addressable by device URL", () => {
+    const options = buildGroupedDeviceOptions()["SBC / Embedded"]!;
+    const names = Object.keys(SBC_DB).filter((name) => name.includes("Jetson"));
+    expect(names).toHaveLength(3);
+    for (const name of names) {
+      const key = `sbc:${name}`;
+      expect(options.some((option) => option.value === key)).toBe(true);
+      expect(slugToDeviceKey(deviceKeyToSlug(key))).toBe(key);
+    }
+  });
+
+  it.each([
+    ["NVIDIA Jetson AGX Orin (32 GB)", 32, 1792],
+    ["NVIDIA Jetson AGX Orin (64 GB)", 64, 2048],
+    ["NVIDIA Jetson AGX Orin Industrial (64 GB)", 64, 2048],
+  ])("%s uses one memory pool", (name, ram, cores) => {
+    const overrides = getDeviceOverrides(`sbc:${name}`)!;
+    // Switch from a discrete GPU with additional system RAM and multiple GPUs.
+    const hw = applyOverrides(makeHW({ estimatedVRAM: 24, systemRAM: 128, gpuCount: 4 }), overrides);
+    expect(hw.totalUsableRAM).toBe(ram);
+    expect(hw.deviceName).toBe(name);
+    expect(hw.gpuCores).toBe(cores);
+    expect(hw.memoryBandwidth).toBe(204.8);
+    expect(hw.estimatedVRAM).toBeNull();
+    expect(hw.systemRAM).toBeNull();
+    expect(hw.isUnifiedMemory).toBe(true);
+    expect(hw.isSbc).toBe(true);
+    expect(evaluateModel(ram * 0.5, hw)).toBe("can-run");
+    expect(evaluateModel(ram * 0.7, hw)).toBe("tight");
+    expect(evaluateModel(ram * 0.8, hw)).toBe("cannot-run");
+    expect(estimateTokensPerSecond(4, { ...hw, gpuCount: 4 }))
+      .toBe(estimateTokensPerSecond(4, hw));
+  });
+
+  it("recognizes explicit names without guessing RAM from the family", () => {
+    expect(matchJetsonAGXOrin("NVIDIA Jetson AGX Orin"))
+      .toMatchObject({ ram: null, gpuCores: null, bw: 204.8 });
+    expect(matchJetsonAGXOrin("ANGLE (NVIDIA, Jetson AGX Orin 32GB, OpenGL)"))
+      .toMatchObject({ ram: 32, gpuCores: 1792 });
+    expect(matchJetsonAGXOrin("NVIDIA Jetson AGX Orin 64GB"))
+      .toMatchObject({ ram: 64, gpuCores: 2048 });
+  });
+
+  it.each(["NVIDIA Tegra", "NVIDIA Orin", "Orin NX 16GB", "Orin Nano 8GB", "NVIDIA RTX 4090"])(
+    "does not identify ambiguous or unrelated renderer %s as AGX Orin",
+    (renderer) => expect(matchJetsonAGXOrin(renderer)).toBeNull(),
+  );
+
+  it("resolves Jetson AGX Orin in the public compatibility API", () => {
+    const resolved64 = resolveHardware({ gpu: { name: "NVIDIA Jetson AGX Orin 64GB" } });
+    expect(resolved64.ok).toBe(true);
+    if (resolved64.ok) {
+      expect(resolved64.value.hw.isUnifiedMemory).toBe(true);
+      expect(resolved64.value.hw.isSbc).toBe(true);
+      expect(resolved64.value.hw.totalUsableRAM).toBe(64);
+      expect(resolved64.value.hw.estimatedVRAM).toBeNull();
+      expect(resolved64.value.hw.systemRAM).toBeNull();
+      expect(resolved64.value.hw.memoryBandwidth).toBe(204.8);
+    }
+
+    const familyWithRam = resolveHardware({ gpu: { name: "NVIDIA Jetson AGX Orin" }, ramGb: 32 });
+    expect(familyWithRam.ok).toBe(true);
+    if (familyWithRam.ok) {
+      expect(familyWithRam.value.hw.totalUsableRAM).toBe(32);
+      expect(familyWithRam.value.hw.memoryBandwidth).toBe(204.8);
+    }
+
+    const familyWithoutRam = resolveHardware({ gpu: { name: "NVIDIA Jetson AGX Orin" } });
+    expect(familyWithoutRam).toEqual({ ok: false, error: "missing_ram_or_vram" });
+  });
+
+  it("keeps a placeholder option in populateSelect when RAM capacity is unknown", () => {
+    const options: Array<{ value: string; textContent: string; disabled?: boolean }> = [];
+    let currentValue = "";
+    const fakeSelect = {
+      dataset: {} as Record<string, string>,
+      style: { width: "" },
+      get innerHTML() {
+        return "";
+      },
+      set innerHTML(_v: string) {
+        options.length = 0;
+      },
+      appendChild(opt: { value: string; textContent: string; disabled?: boolean }) {
+        options.push(opt);
+      },
+      get options() {
+        return options;
+      },
+      get selectedIndex() {
+        return options.findIndex((o) => o.value === currentValue);
+      },
+      get value() {
+        return currentValue;
+      },
+      set value(v: string) {
+        currentValue = options.some((o) => o.value === v) ? v : "";
+      },
+    };
+    vi.stubGlobal("document", {
+      body: { appendChild: () => {} },
+      createElement: () => ({
+        value: "",
+        textContent: "",
+        disabled: false,
+        isConnected: true,
+        offsetWidth: 12,
+        style: { cssText: "", font: "" },
+      }),
+    });
+    vi.stubGlobal("getComputedStyle", () => ({ font: "12px monospace" }));
+
+    try {
+      populateSelect(fakeSelect as unknown as HTMLSelectElement, [32, 64], null, undefined, (v) => `${v} GB`);
+      expect(fakeSelect.selectedIndex).toBe(0);
+      expect(options[0]).toMatchObject({ value: "", textContent: "—", disabled: true });
+      expect(fakeSelect.dataset.prevValue).toBe("");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+
+describe("Jetson AGX Orin browser detection", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it.each([
+    ["NVIDIA Jetson AGX Orin 32GB", null, 32, 1792],
+    ["NVIDIA Jetson AGX Orin 64GB", null, 64, 2048],
+    ["NVIDIA Jetson AGX Orin Industrial", null, 64, 2048],
+    ["NVIDIA Jetson AGX Orin", null, null, null],
+    ["NVIDIA Tegra", "NVIDIA Jetson AGX Orin 64GB", 64, 2048],
+  ])("detects WebGL %s / WebGPU %s", async (renderer, webgpuName, ram, cores) => {
+    const requestDevice = vi.fn(() => { throw new Error("Unexpected GPU benchmark"); });
+    vi.stubGlobal("navigator", {
+      userAgent: "Mozilla/5.0 (X11; Linux aarch64)",
+      deviceMemory: 8,
+      hardwareConcurrency: 12,
+      ...(webgpuName ? {
+        gpu: { requestAdapter: async () => ({ info: { description: webgpuName }, requestDevice }) },
+      } : {}),
+    });
+    vi.stubGlobal("document", {
+      createElement: () => ({ getContext: () => ({
+        getExtension: () => ({ UNMASKED_RENDERER_WEBGL: 1, UNMASKED_VENDOR_WEBGL: 2 }),
+        getParameter: (parameter: number) => parameter === 1 ? renderer : "NVIDIA",
+      }) }),
+    });
+    const hw = await detectHardware();
+    expect(hw.platform).toBe("Linux");
+    expect(hw.ramGB).toBe(ram);
+    expect(hw.totalUsableRAM).toBe(ram);
+    expect(hw.gpuCores).toBe(cores);
+    expect(hw.memoryBandwidth).toBe(204.8);
+    expect(hw.isUnifiedMemory).toBe(true);
+    expect(hw.isSbc).toBe(true);
+    expect(hw.estimatedVRAM).toBeNull();
+    expect(hw.systemRAM).toBeNull();
+    expect(hw.deviceMemoryRaw).toBe(8);
+    expect(evaluateModel(4, hw)).toBe(ram ? "can-run" : "unknown");
+    expect(requestDevice).not.toHaveBeenCalled();
   });
 });

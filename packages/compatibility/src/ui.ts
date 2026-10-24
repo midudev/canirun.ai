@@ -50,6 +50,13 @@ export function populateSelect(
     options.sort((a, b) => a - b);
   }
   select.innerHTML = "";
+  if (override === undefined && detected === null) {
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "—";
+    placeholder.disabled = true;
+    select.appendChild(placeholder);
+  }
   for (const v of options) {
     const opt = document.createElement("option");
     opt.value = String(v);
@@ -61,7 +68,7 @@ export function populateSelect(
   custom.textContent = "Custom…";
   select.appendChild(custom);
   select.value = String(override ?? detected ?? "");
-  if (select.value && select.value !== CUSTOM_SELECT_VALUE) {
+  if (select.value !== CUSTOM_SELECT_VALUE) {
     select.dataset.prevValue = select.value;
   }
   fitSelectWidth(select);
@@ -121,7 +128,7 @@ export function openCustomNumberInput(
     select.hidden = false;
     const value = Math.round(raw);
     if (!commit || !Number.isFinite(raw) || value < options.min || value > options.max) {
-      if (previous) select.value = previous;
+      select.value = previous;
       options.onCancel();
       return;
     }

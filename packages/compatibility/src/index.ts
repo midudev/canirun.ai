@@ -481,13 +481,47 @@ export const MOBILE_GPU_DB: Record<string, { bw: number; ram?: number }> = {
 // Source: Raspberry Pi product pages / LPDDR bandwidth calculations
 // bw = ancho de banda de memoria del sistema
 
-export const SBC_DB: Record<string, { ram: number; bw: number }> = {
+export const SBC_DB: Record<string, {
+  ram: number;
+  bw: number;
+  gpuCores?: number;
+  vendor?: "nvidia" | "raspberry";
+}> = {
+  // Source: https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-orin/
+  // Nominal LPDDR5 bandwidth; measured inference throughput depends on power mode.
+  // CPU and CUDA GPU share this RAM; it is not dedicated VRAM.
+  "NVIDIA Jetson AGX Orin (32 GB)": { ram: 32, bw: 204.8, gpuCores: 1792, vendor: "nvidia" },
+  "NVIDIA Jetson AGX Orin (64 GB)": { ram: 64, bw: 204.8, gpuCores: 2048, vendor: "nvidia" },
+  "NVIDIA Jetson AGX Orin Industrial (64 GB)": { ram: 64, bw: 204.8, gpuCores: 2048, vendor: "nvidia" },
   "Raspberry Pi 5 (16 GB)": { ram: 16, bw: 32 },
   "Raspberry Pi 5 (8 GB)": { ram: 8, bw: 32 },
   "Raspberry Pi 5 (4 GB)": { ram: 4, bw: 32 },
   "Raspberry Pi 4 (8 GB)": { ram: 8, bw: 13 },
   "Raspberry Pi 4 (4 GB)": { ram: 4, bw: 13 },
 };
+
+/** Only explicit AGX Orin names identify this family; generic NVIDIA/Orin hints do not. */
+export function matchJetsonAGXOrin(renderer: string): {
+  name: string;
+  ram: number | null;
+  bw: number;
+  gpuCores: number | null;
+} | null {
+  if (!/\bAGX[\s_-]+Orin\b/i.test(renderer)) return null;
+  const industrial = /\bindustrial\b/i.test(renderer);
+  const memory = renderer.match(/\b(32|64)\s*GB\b/i);
+  // A family name does not reveal installed RAM. Never infer it from deviceMemory.
+  const ram = industrial ? 64 : memory ? Number(memory[1]) : null;
+  const name = `NVIDIA Jetson AGX Orin${industrial ? " Industrial" : ""}`;
+  const profile = ram ? SBC_DB[`${name} (${ram} GB)`] : null;
+  if (ram && !profile) return null;
+  return {
+    name: ram ? `${name} (${ram} GB)` : name,
+    ram,
+    bw: 204.8,
+    gpuCores: profile?.gpuCores ?? null,
+  };
+}
 
 // ── iOS Device Detection ──────────────────────────────────
 
@@ -1101,6 +1135,8 @@ export async function detectHardware(): Promise<HardwareInfo> {
   const gpuMatch = renderer ? matchGPU(renderer) : null;
   let appleMatch = renderer ? matchApple(renderer) : null;
   const parsedVRAM = renderer ? parseVRAMFromName(renderer) : null;
+  const jetsonMatch = matchJetsonAGXOrin(renderer ?? "")
+    ?? matchJetsonAGXOrin(webgpuInfo.device ?? "");
   const isMobile = platform === "iOS" || platform === "Android";
 
   // Safari hides specific chip names (returns "Apple GPU") — defer identification
@@ -1116,6 +1152,7 @@ export async function detectHardware(): Promise<HardwareInfo> {
   let deviceName: string | null = null;
   let gpuCores: number | null = null;
   let isUnifiedMemory = false;
+  let isSbc = false;
 
   if (platform === "iOS") {
     const iosDevice = detectIOSDevice(cpuBenchmark);
@@ -1132,6 +1169,13 @@ export async function detectHardware(): Promise<HardwareInfo> {
     }
     totalUsableRAM = deviceMemory;
     isApple = false;
+  } else if (jetsonMatch) {
+    deviceName = jetsonMatch.name;
+    totalUsableRAM = jetsonMatch.ram;
+    memoryBandwidth = jetsonMatch.bw;
+    gpuCores = jetsonMatch.gpuCores;
+    isUnifiedMemory = true;
+    isSbc = true;
   } else if (isApple && appleMatch && !deferAppleId) {
     totalUsableRAM = appleMatch.ram;
     memoryBandwidth = appleMatch.bw;
@@ -1158,7 +1202,7 @@ export async function detectHardware(): Promise<HardwareInfo> {
   }
 
   // Fallback: estimate GPU cores via WebGPU compute benchmark
-  if (!gpuCores && webgpuInfo.adapter) {
+  if (!gpuCores && !jetsonMatch && webgpuInfo.adapter) {
     gpuCores = await estimateGPUCores(webgpuInfo.adapter, vendor);
   }
 
@@ -1234,6 +1278,7 @@ export async function detectHardware(): Promise<HardwareInfo> {
     webgpuArch: webgpuInfo.arch,
     isAppleSilicon: isApple,
     isUnifiedMemory,
+    isSbc,
     totalUsableRAM,
     platform,
     cpuBenchmark,
@@ -1541,6 +1586,12 @@ export function applyOverrides(hw: HardwareInfo, overrides?: HardwareOverrides):
   const o = overrides ?? getHardwareOverrides();
   if (Object.keys(o).length === 0) return hw;
   const result = { ...hw };
+  if (o.device && getDeviceOverrides(o.device)) {
+    const name = o.device.slice(o.device.indexOf(":") + 1);
+    result.deviceName = o.device.startsWith("apple:")
+      ? "Apple " + name.split(" ").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ")
+      : name;
+  }
   if (o.isAppleSilicon !== undefined) result.isAppleSilicon = o.isAppleSilicon;
   if (o.isMobile !== undefined) result.isMobile = o.isMobile;
   if (o.isUnifiedMemory !== undefined) result.isUnifiedMemory = o.isUnifiedMemory;
@@ -1633,6 +1684,7 @@ export function getDeviceOverrides(deviceKey: string): HardwareOverrides | null 
       isMobile: false,
       isUnifiedMemory: true,
       isSbc: true,
+      gpuCores: data.gpuCores ?? 0,
       estimatedVRAM: null,
     };
   }
