@@ -665,12 +665,27 @@ export async function createPersistentChatSession(
   systemPrompt?: string,
 ): Promise<PersistentChatSession> {
   const { LlamaChatSession } = await requireLlamaModule();
-  const model = await getModel(modelPath);
-  const context = await model.createContext({ contextSize: RUNAI_CONTEXT_SIZE });
-  const session = new LlamaChatSession({
-    contextSequence: context.getSequence(),
-    systemPrompt,
-  });
+  let model: LlamaModel | null = null;
+  let context: LlamaContext | null = null;
+  let session: LlamaChatSessionInstance | null = null;
+
+  // The keep-alive timer can unload the model while the chat sits idle between messages. When that
+  // happens, load it again and carry the conversation over to a fresh session.
+  async function ensureSession(): Promise<LlamaChatSessionInstance> {
+    if (session && model && context && !model.disposed && !context.disposed) return session;
+    const history = session?.getChatHistory();
+    await disposeResource(context);
+    model = await getModel(modelPath);
+    context = await model.createContext({ contextSize: RUNAI_CONTEXT_SIZE });
+    session = new LlamaChatSession({
+      contextSequence: context.getSequence(),
+      systemPrompt,
+    });
+    if (history) session.setChatHistory(history);
+    return session;
+  }
+
+  await ensureSession();
 
   return {
     async prompt(promptText, params, onChunk) {
@@ -679,38 +694,42 @@ export async function createPersistentChatSession(
       let fullText = "";
 
       try {
-        const responseText = await session.prompt(promptText, {
-          ...promptOpts,
-          onResponseChunk: (chunk: {
-            type: string | undefined;
-            text: string;
-            segmentType?: string;
-            segmentStartTime?: unknown;
-            segmentEndTime?: unknown;
-          }) => {
-            hasChunks = true;
-            fullText += chunk.text;
-            if (chunk.type === "segment" && chunk.segmentType === "thought") {
-              onChunk({
-                text: chunk.text,
-                segmentType: "thought",
-                segmentStart: Boolean(chunk.segmentStartTime),
-                segmentEnd: Boolean(chunk.segmentEndTime),
-              });
-              return;
-            }
-            onChunk({ text: chunk.text, segmentType: "main" });
-          },
-        } as never);
+        // Queued like API requests, so the keep-alive timer can't unload the model mid-reply
+        return await queueInference(async () => {
+          const activeSession = await ensureSession();
+          const responseText = await activeSession.prompt(promptText, {
+            ...promptOpts,
+            onResponseChunk: (chunk: {
+              type: string | undefined;
+              text: string;
+              segmentType?: string;
+              segmentStartTime?: unknown;
+              segmentEndTime?: unknown;
+            }) => {
+              hasChunks = true;
+              fullText += chunk.text;
+              if (chunk.type === "segment" && chunk.segmentType === "thought") {
+                onChunk({
+                  text: chunk.text,
+                  segmentType: "thought",
+                  segmentStart: Boolean(chunk.segmentStartTime),
+                  segmentEnd: Boolean(chunk.segmentEndTime),
+                });
+                return;
+              }
+              onChunk({ text: chunk.text, segmentType: "main" });
+            },
+          } as never);
 
-        if (!hasChunks && responseText) {
-          fullText = responseText;
-          onChunk({ text: responseText, segmentType: "main" });
-        }
+          if (!hasChunks && responseText) {
+            fullText = responseText;
+            onChunk({ text: responseText, segmentType: "main" });
+          }
 
-        const generatedText = (responseText || fullText).trim();
-        const completionTokens = model.tokenize(fullText || responseText || "").length;
-        return { completionTokens, text: generatedText };
+          const generatedText = (responseText || fullText).trim();
+          const completionTokens = model!.tokenize(fullText || responseText || "").length;
+          return { completionTokens, text: generatedText };
+        });
       } catch (error) {
         return await handleInferenceError(error);
       }
