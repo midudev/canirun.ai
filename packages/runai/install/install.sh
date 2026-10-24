@@ -82,20 +82,20 @@ install_runai_from_github() {
   mkdir -p "$(dirname "${src}")"
   if [ -d "${src}/.git" ]; then
     echo "Updating the runai source checkout..."
-    git -C "${src}" pull --ff-only
+    git -C "${src}" pull --ff-only </dev/null
   else
     rm -rf "${src}"
     echo "Cloning canirun.ai..."
-    git clone --depth 1 https://github.com/midudev/canirun.ai.git "${src}"
+    git clone --depth 1 https://github.com/midudev/canirun.ai.git "${src}" </dev/null
   fi
 
   echo "Building runai..."
   (
     cd "${src}"
-    pnpm install --frozen-lockfile --filter @canirun/runai...
-    pnpm --filter @canirun/compatibility build
-    pnpm --filter @canirun/models build
-    pnpm --filter @canirun/runai build
+    pnpm install --frozen-lockfile --filter @canirun/runai... </dev/null
+    pnpm --filter @canirun/compatibility build </dev/null
+    pnpm --filter @canirun/models build </dev/null
+    pnpm --filter @canirun/runai build </dev/null
   )
 
   mkdir -p "${PNPM_BIN_DIR}"
@@ -105,13 +105,13 @@ install_runai_from_github() {
 echo "Installing runai globally with pnpm..."
 # Unscoped `runai` on npm is a different CLI (Run:ai / NVIDIA). This package is @canirun/runai.
 # Until that package is published, install the CLI from the GitHub checkout.
-if ! pnpm add --global @canirun/runai@latest; then
+if ! pnpm add --global @canirun/runai@latest >/dev/null 2>&1 </dev/null; then
   echo "@canirun/runai is not on npm yet. Installing from GitHub instead..."
   install_runai_from_github
 fi
 
 echo "Checking the installation..."
-runai doctor || {
+runai doctor </dev/null || {
   echo "runai was installed, but the diagnostic reported a problem." >&2
   echo "Run 'runai doctor' again after fixing the issue shown above." >&2
 }

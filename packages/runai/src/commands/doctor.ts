@@ -176,7 +176,7 @@ export async function handleDoctor(args: string[]): Promise<void> {
     });
   }
 
-  const runtimeSpinner = asJson ? null : p.spinner();
+  const runtimeSpinner = asJson || !process.stdin.isTTY ? null : p.spinner();
   runtimeSpinner?.start("Checking node-llama-cpp runtime...");
   try {
     const module = await import("node-llama-cpp");
