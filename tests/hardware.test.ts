@@ -26,8 +26,9 @@ import {
   type ModelStatus,
 } from "../src/lib/hardware";
 
-import { buildGroupedDeviceOptions } from "../packages/compatibility/src/ui";
+import { buildGroupedDeviceOptions, populateSelect } from "../packages/compatibility/src/ui";
 import { deviceKeyToSlug, slugToDeviceKey } from "../packages/compatibility/src/device-slugs";
+import { resolveHardware } from "../src/lib/compatibility-api";
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -1063,6 +1064,80 @@ describe("Jetson AGX Orin shared memory", () => {
     "does not identify ambiguous or unrelated renderer %s as AGX Orin",
     (renderer) => expect(matchJetsonAGXOrin(renderer)).toBeNull(),
   );
+
+  it("resolves Jetson AGX Orin in the public compatibility API", () => {
+    const resolved64 = resolveHardware({ gpu: { name: "NVIDIA Jetson AGX Orin 64GB" } });
+    expect(resolved64.ok).toBe(true);
+    if (resolved64.ok) {
+      expect(resolved64.value.hw.isUnifiedMemory).toBe(true);
+      expect(resolved64.value.hw.isSbc).toBe(true);
+      expect(resolved64.value.hw.totalUsableRAM).toBe(64);
+      expect(resolved64.value.hw.estimatedVRAM).toBeNull();
+      expect(resolved64.value.hw.systemRAM).toBeNull();
+      expect(resolved64.value.hw.memoryBandwidth).toBe(204.8);
+    }
+
+    const familyWithRam = resolveHardware({ gpu: { name: "NVIDIA Jetson AGX Orin" }, ramGb: 32 });
+    expect(familyWithRam.ok).toBe(true);
+    if (familyWithRam.ok) {
+      expect(familyWithRam.value.hw.totalUsableRAM).toBe(32);
+      expect(familyWithRam.value.hw.memoryBandwidth).toBe(204.8);
+    }
+
+    const familyWithoutRam = resolveHardware({ gpu: { name: "NVIDIA Jetson AGX Orin" } });
+    expect(familyWithoutRam).toEqual({ ok: false, error: "missing_ram_or_vram" });
+  });
+
+  it("keeps a placeholder option in populateSelect when RAM capacity is unknown", () => {
+    const options: Array<{ value: string; textContent: string; disabled?: boolean }> = [];
+    let currentValue = "";
+    const fakeSelect = {
+      dataset: {} as Record<string, string>,
+      style: { width: "" },
+      get innerHTML() {
+        return "";
+      },
+      set innerHTML(_v: string) {
+        options.length = 0;
+      },
+      appendChild(opt: { value: string; textContent: string; disabled?: boolean }) {
+        options.push(opt);
+      },
+      get options() {
+        return options;
+      },
+      get selectedIndex() {
+        return options.findIndex((o) => o.value === currentValue);
+      },
+      get value() {
+        return currentValue;
+      },
+      set value(v: string) {
+        currentValue = options.some((o) => o.value === v) ? v : "";
+      },
+    };
+    vi.stubGlobal("document", {
+      body: { appendChild: () => {} },
+      createElement: () => ({
+        value: "",
+        textContent: "",
+        disabled: false,
+        isConnected: true,
+        offsetWidth: 12,
+        style: { cssText: "", font: "" },
+      }),
+    });
+    vi.stubGlobal("getComputedStyle", () => ({ font: "12px monospace" }));
+
+    try {
+      populateSelect(fakeSelect as unknown as HTMLSelectElement, [32, 64], null, undefined, (v) => `${v} GB`);
+      expect(fakeSelect.selectedIndex).toBe(0);
+      expect(options[0]).toMatchObject({ value: "", textContent: "—", disabled: true });
+      expect(fakeSelect.dataset.prevValue).toBe("");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });
 
 
