@@ -4,6 +4,7 @@ export const USE_CATEGORIES = [
   { key: "text", label: "Text & Coding" },
   { key: "image", label: "Image" },
   { key: "video", label: "Video" },
+  { key: "decision", label: "Decision" },
   { key: "small", label: "Lightweight" },
 ] as const
 
@@ -26,7 +27,9 @@ export function matchesUseCategory(
   params: number,
   key: string,
 ): boolean {
-  if (key === "small") return params <= 4
+  // Decision models score options instead of writing text, so they are not
+  // a lightweight substitute for a small chat model.
+  if (key === "small") return params <= 4 && !uses.includes("decision")
   if (key === "text") return uses.some((u) => (TEXT_USES as readonly string[]).includes(u))
   // image/video categories are generation-only — vision is input understanding
   if (key === "image") return uses.includes("image")

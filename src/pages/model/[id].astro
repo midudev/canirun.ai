@@ -38,6 +38,7 @@ export function getStaticPaths() {
 
 const { model } = Astro.props
 const isDiffusion = isDiffusionModel(model)
+const isDecision = model.useCase.includes("decision")
 const ollamaSlug = model.ollamaId?.split(":")[0]
 const ollamaHref = ollamaSlug
   ? ollamaSlug.includes("/")
@@ -563,6 +564,14 @@ const modelFaqs = [
             <p class="mt-2 font-mono text-[11px] leading-relaxed text-muted">
               Diffusion GGUFs load through ComfyUI-GGUF, not llama.cpp, and cover
               the denoiser only — the text encoder and VAE are separate downloads.
+            </p>
+          )}
+          {isDecision && (
+            <p class="mt-2 font-mono text-[11px] leading-relaxed text-muted">
+              Decision model: it scores typed questions (yes/no, choice, score)
+              in one forward pass instead of writing text, so latency depends on
+              prompt processing, not tokens/s. Most ship a custom readout head —
+              check the model card for the supported runtime.
             </p>
           )}
         </div>

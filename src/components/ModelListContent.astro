@@ -29,6 +29,7 @@ import IconLicense from "@/icons/license.svg"
 import IconLock from "@/icons/lock.svg"
 import IconUnlock from "@/icons/unlock.svg"
 import IconChat from "@/icons/chat.svg"
+import IconCheck from "@/icons/check.svg"
 import IconEdgeDevice from "@/icons/edge-device.svg"
 import CompanyLogo from "@/components/CompanyLogo.astro"
 import {
@@ -85,11 +86,12 @@ function aaTooltip(preliminary?: boolean): string {
 }
 
 function getModelModality(useCase: string[]): {
-  label: "Text" | "Image" | "Video"
+  label: "Text" | "Image" | "Video" | "Decision"
   Icon: typeof IconChat
 } {
   if (useCase.includes("video")) return { label: "Video", Icon: IconVideo }
   if (useCase.includes("image")) return { label: "Image", Icon: IconVision }
+  if (useCase.includes("decision")) return { label: "Decision", Icon: IconCheck }
   return { label: "Text", Icon: IconChat }
 }
 

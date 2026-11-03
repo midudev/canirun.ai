@@ -308,6 +308,66 @@ export const ALL_COMPANIES: CompanyInfo[] = [
     website: "https://cohere.com",
     logo: "cohere",
   },
+  {
+    slug: "xiaomi",
+    name: "Xiaomi",
+    brand: "MiMo",
+    providers: ["Xiaomi"],
+    families: ["MiMo"],
+    description:
+      "Xiaomi's MiMo team builds open-weight omnimodal models that understand text, images, video and audio, released as large mixture-of-experts systems with 1M-token context.",
+    website: "https://mimo.xiaomi.com",
+  },
+  {
+    slug: "jetbrains",
+    name: "JetBrains",
+    brand: "Mellum",
+    providers: ["JetBrains"],
+    families: ["Mellum"],
+    description:
+      "JetBrains, the maker of IntelliJ IDEA and other developer tools, builds Mellum, a family of open models for coding and software engineering agents.",
+    website: "https://www.jetbrains.com",
+  },
+  {
+    slug: "cloudflare",
+    name: "Cloudflare",
+    brand: "Clef",
+    providers: ["Cloudflare"],
+    families: ["Clef"],
+    description:
+      "Cloudflare releases Clef, open-weight decision models that turn text, images, audio or video into calibrated answers and accept Jev-compatible requests.",
+    website: "https://www.cloudflare.com",
+  },
+  {
+    slug: "perplexity",
+    name: "Perplexity",
+    brand: "pplx-decider",
+    providers: ["Perplexity"],
+    families: ["pplx-decider"],
+    description:
+      "Perplexity releases pplx-decider, open-weight decision models that answer many typed questions about one request in a single pass.",
+    website: "https://www.perplexity.ai",
+  },
+  {
+    slug: "autotrust",
+    name: "AutoTrust AI",
+    brand: "JEV",
+    providers: ["AutoTrust"],
+    families: ["JEV"],
+    description:
+      "AutoTrust AI is an independent applied AI lab that builds open decision models distilled to match Jev's answers. It is not affiliated with TypeSafe AI.",
+    website: "https://autotrust.ai",
+  },
+  {
+    slug: "convai-innovations",
+    name: "Convai Innovations",
+    brand: "Laya",
+    providers: ["Convai Innovations"],
+    families: ["Laya"],
+    description:
+      "Convai Innovations builds Laya, a compact multilingual non-autoregressive decision model that returns calibrated typed answers on CPU or GPU.",
+    website: "https://laya-ai.com",
+  },
 ]
 
 const COMPANY_BY_SLUG = new Map(
