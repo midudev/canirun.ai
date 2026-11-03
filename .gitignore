@@ -2,6 +2,11 @@
 dist/
 .vercel/
 
+# cloudflare
+.wrangler/
+.dev.vars*
+!.dev.vars.example
+
 # generated types
 .astro/
 
@@ -20,5 +25,4 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
-.vercel
 .env*.local

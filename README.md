@@ -174,6 +174,7 @@ estimated tokens/second). `useCase` and `limit` (1–25, default 5) are optional
 | 🖼️ | [Satori](https://github.com/vercel/satori) + [resvg](https://github.com/nicolo-ribaudo/resvg-js) | OG image generation (JSX → SVG → PNG) |
 | 📸 | [@zumer/snapdom](https://github.com/nicolo-ribaudo/snapdom) | Tier list export to image |
 | 🗺️ | [@astrojs/sitemap](https://docs.astro.build/en/guides/integrations-guide/sitemap/) | Automatic sitemap generation |
+| ☁️ | [Cloudflare Workers](https://developers.cloudflare.com/workers/) + [D1](https://developers.cloudflare.com/d1/) | Hosting, static assets, API routes and `runai` telemetry storage |
 
 ## Getting Started
 
@@ -187,6 +188,9 @@ cd canirun.ai
 # Install dependencies
 pnpm install
 
+# Create the local D1 database (first time only)
+pnpm db:migrate:local
+
 # Start dev server
 pnpm dev
 ```
@@ -199,7 +203,11 @@ Open [localhost:4321](http://localhost:4321) to see the site.
 |---|---|
 | `pnpm dev` | Start dev server at `localhost:4321` |
 | `pnpm build` | Build production site to `./dist/` |
-| `pnpm preview` | Preview production build locally |
+| `pnpm preview` | Preview production build locally (workerd) |
+| `pnpm deploy` | Build and deploy to Cloudflare Workers |
+| `pnpm db:migrate` | Apply D1 migrations (`migrations/`) to the remote database |
+| `pnpm db:migrate:local` | Apply D1 migrations to the local database |
+| `pnpm cf-typegen` | Regenerate `worker-configuration.d.ts` after changing `wrangler.jsonc` |
 | `pnpm scrape` | Fetch model stats from HuggingFace |
 
 ## Project Structure

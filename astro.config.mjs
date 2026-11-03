@@ -2,7 +2,7 @@
 import { defineConfig, fontProviders } from 'astro/config';
 import tailwindcss from '@tailwindcss/vite';
 import sitemap from '@astrojs/sitemap';
-import vercel from '@astrojs/vercel';
+import cloudflare from '@astrojs/cloudflare';
 import { astroRedirects } from './src/lib/seo-pages.ts';
 
 /** Google Fonts latin — enough for the English UI without latin-ext/CJK. */
@@ -31,7 +31,14 @@ const LATIN_UNICODE_RANGE = [
 // https://astro.build/config
 export default defineConfig({
   site: 'https://canirun.ai',
-  adapter: vercel(),
+  adapter: cloudflare({
+    // OG images (satori + resvg + sharp) are prerendered at build time and need native Node modules.
+    prerenderEnvironment: 'node',
+    // Everything is prerendered: optimize images at build time, no runtime Images binding.
+    imageService: 'compile',
+  }),
+  // No Astro sessions are used; avoid provisioning a KV namespace for them.
+  session: false,
   fonts: [
     {
       provider: fontProviders.local(),
@@ -106,6 +113,10 @@ export default defineConfig({
   redirects: astroRedirects(),
   vite: {
     plugins: [tailwindcss()],
+    // Native, build-time-only deps for OG images: never pre-bundle them for the workerd dev environment.
+    optimizeDeps: {
+      exclude: ['@resvg/resvg-js', 'sharp'],
+    },
     worker: {
       format: 'es'
     }

@@ -1,0 +1,3 @@
+# onnxruntime-web asyncify build (~26 MB) exceeds the 25 MiB per-file limit of Workers static assets.
+# transformers.js loads the ORT wasm from jsDelivr at runtime, so this bundled copy is never requested.
+_astro/ort-wasm-simd-threaded.asyncify-*.wasm

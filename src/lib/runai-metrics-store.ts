@@ -1,4 +1,4 @@
-import { createClient, type Client } from "@libsql/client";
+import { env } from "cloudflare:workers";
 import type {
   SanitizedBrowseMetric,
   SanitizedInferenceMetric,
@@ -6,48 +6,12 @@ import type {
   SanitizedRunaiMetric,
 } from "./runai-metrics";
 
-let client: Client | null = null;
-let tableReady = false;
-
-function getClient(): Client {
-  if (client) return client;
-
-  const url = process.env.TURSO_DATABASE_URL;
-  const authToken = process.env.TURSO_AUTH_TOKEN;
-  if (!url || !authToken) {
-    throw new Error("Turso is not configured. Set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN.");
+// Schema lives in migrations/ (applied with `wrangler d1 migrations apply`).
+function getDb(): D1Database {
+  if (!env.DB) {
+    throw new Error("D1 binding `DB` is not configured. Check wrangler.jsonc.");
   }
-
-  client = createClient({
-    url,
-    authToken,
-  });
-  return client;
-}
-
-async function ensureTable(): Promise<void> {
-  if (tableReady) return;
-  const db = getClient();
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS runai_metrics (
-      id TEXT PRIMARY KEY,
-      received_at TEXT NOT NULL,
-      event_name TEXT NOT NULL,
-      runai_version TEXT NOT NULL,
-      metric_json TEXT NOT NULL,
-      platform TEXT,
-      device_class TEXT,
-      model TEXT,
-      success INTEGER,
-      stream INTEGER,
-      latency_ms INTEGER,
-      output_tokens_approx INTEGER
-    )
-  `);
-  await db.execute(
-    "CREATE INDEX IF NOT EXISTS idx_runai_metrics_event_time ON runai_metrics(event_name, received_at)",
-  );
-  tableReady = true;
+  return env.DB;
 }
 
 function recommendationProjections(metric: SanitizedRecommendationMetric): {
@@ -81,8 +45,7 @@ function browseProjections(_metric: SanitizedBrowseMetric): Record<string, never
 }
 
 export async function insertRunaiMetric(metric: SanitizedRunaiMetric): Promise<void> {
-  await ensureTable();
-  const db = getClient();
+  const db = getDb();
 
   const base = {
     id: crypto.randomUUID(),
@@ -114,14 +77,16 @@ export async function insertRunaiMetric(metric: SanitizedRunaiMetric): Promise<v
     browseProjections(metric);
   }
 
-  await db.execute({
-    sql: `
+  await db
+    .prepare(
+      `
       INSERT INTO runai_metrics (
         id, received_at, event_name, runai_version, metric_json,
         platform, device_class, model, success, stream, latency_ms, output_tokens_approx
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
-    args: [
+    )
+    .bind(
       base.id,
       base.receivedAt,
       base.eventName,
@@ -134,6 +99,6 @@ export async function insertRunaiMetric(metric: SanitizedRunaiMetric): Promise<v
       base.stream,
       base.latencyMs,
       base.outputTokensApprox,
-    ],
-  });
+    )
+    .run();
 }

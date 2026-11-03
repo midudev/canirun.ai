@@ -8,6 +8,10 @@
     "dev": "pnpm packages:build && astro dev",
     "build": "pnpm packages:build && astro build",
     "preview": "astro preview",
+    "deploy": "pnpm build && wrangler deploy",
+    "cf-typegen": "CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV=false wrangler types",
+    "db:migrate": "wrangler d1 migrations apply canirun-ai --remote",
+    "db:migrate:local": "wrangler d1 migrations apply canirun-ai --local",
     "astro": "astro",
     "scrape": "tsx scripts/scrape-models.ts",
     "fetch:readmes": "tsx scripts/fetch-ollama-readmes.ts",
@@ -16,12 +20,11 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@astrojs/cloudflare": "14.4.4",
     "@astrojs/sitemap": "3.7.4",
-    "@astrojs/vercel": "11.0.15",
     "@canirun/compatibility": "workspace:*",
     "@canirun/models": "workspace:*",
     "@huggingface/transformers": "4.3.1",
-    "@libsql/client": "0.18.0",
     "@resvg/resvg-js": "2.6.2",
     "@tailwindcss/vite": "4.3.3",
     "@zumer/snapdom": "3.3.4",
@@ -36,6 +39,7 @@
     "@webgpu/types": "0.1.74",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
-    "vitest": "5.0.5"
+    "vitest": "5.0.5",
+    "wrangler": "4.156.2"
   }
 }

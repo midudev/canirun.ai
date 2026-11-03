@@ -1,0 +1,25 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "canirun-ai",
+  "account_id": "599228840df452ef6b4df93a2b67c0ee",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "routes": [
+    { "pattern": "canirun.ai", "custom_domain": true },
+    // www → apex is handled by a zone Redirect Rule (runs before the Worker).
+    { "pattern": "www.canirun.ai", "custom_domain": true }
+  ],
+  "workers_dev": true,
+  "preview_urls": true,
+  "observability": {
+    "enabled": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "canirun-ai",
+      "database_id": "7af52729-3912-42c8-945e-ef6ef82ca835",
+      "migrations_dir": "migrations"
+    }
+  ]
+}
