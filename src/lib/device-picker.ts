@@ -235,11 +235,10 @@ export function enhanceDeviceSelect(select: HTMLSelectElement): void {
     }
   })
 
-  wrapper.addEventListener("focusout", () => {
-    // Let focus settle before deciding whether it left the picker entirely.
-    requestAnimationFrame(() => {
-      if (!wrapper.contains(document.activeElement)) close()
-    })
+  wrapper.addEventListener("focusout", (event) => {
+    // Safari can blur the search field on an in-picker click without moving focus.
+    const next = event.relatedTarget
+    if (next instanceof Element && !wrapper.contains(next)) close()
   })
 
   // Sidebars re-render by replacing their markup, so these page-level listeners
