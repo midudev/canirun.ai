@@ -14,6 +14,7 @@ import LogoLtx from "@/icons/companies/ltx.svg"
 import LogoInternScience from "@/icons/companies/internscience.svg"
 import LogoIbm from "@/icons/companies/ibm.svg"
 import LogoCohere from "@/icons/companies/cohere.svg"
+import LogoPrismML from "@/icons/companies/prismml.svg"
 import LogoMicrosoft from "@/icons/companies/microsoft.svg"
 import LogoMistral from "@/icons/companies/mistral.svg"
 import LogoNvidia from "@/icons/companies/nvidia.svg"
@@ -58,6 +59,7 @@ const LOGOS: Record<CompanyLogoKey, typeof LogoQwen> = {
   internscience: LogoInternScience,
   ibm: LogoIbm,
   cohere: LogoCohere,
+  prismml: LogoPrismML,
 }
 
 const Logo = company.logo ? LOGOS[company.logo] : undefined
