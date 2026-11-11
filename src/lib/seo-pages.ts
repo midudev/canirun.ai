@@ -147,7 +147,7 @@ export const MODEL_CATEGORY_PAGES: ModelCategoryPage[] = [
     title: "Open-weight decision models to run locally | CanIRun.ai",
     h1: "Local decision models",
     description:
-      "Open alternatives to Jev: Clef, pplx-decider, Liquid d1, JEV and Laya. See which decision models run on your GPU or Mac.",
+      "Open alternatives to Jev: Clef, pplx-decider, Liquid d1, AutoTrust Decider and Laya. See which decision models run on your GPU or Mac.",
     intro:
       "Decision models answer typed questions — yes/no, pick one option, rate on a scale — with calibrated probabilities in a single forward pass. Use them for routing, guardrails and ranking where you need a score, not prose.",
     faqs: [
@@ -159,7 +159,7 @@ export const MODEL_CATEGORY_PAGES: ModelCategoryPage[] = [
       {
         question: "Is there an open-weight alternative to Jev?",
         answer:
-          "Yes. Cloudflare Clef answers Jev-compatible requests, AutoTrust's independent JEV models are distilled to match Jev's answers, and Perplexity's pplx-decider, Liquid AI's d1 and Laya are open decision models with their own APIs. All of them are on this page with their memory requirements.",
+          "Yes. Cloudflare Clef answers Jev-compatible requests, AutoTrust's independent Decider models are distilled to match Jev's answers, and Perplexity's pplx-decider, Liquid AI's d1 and Laya are open decision models with their own APIs. All of them are on this page with their memory requirements.",
       },
       {
         question: "How fast are decision models locally?",

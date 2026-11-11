@@ -363,9 +363,9 @@ export const ALL_COMPANIES: CompanyInfo[] = [
   {
     slug: "autotrust",
     name: "AutoTrust AI",
-    brand: "JEV",
+    brand: "Decider",
     providers: ["AutoTrust"],
-    families: ["JEV"],
+    families: ["Decider"],
     description:
       "AutoTrust AI is an independent applied AI lab that builds open decision models distilled to match Jev's answers. It is not affiliated with TypeSafe AI.",
     website: "https://autotrust.ai",
