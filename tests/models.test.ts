@@ -122,6 +122,7 @@ describe("decision models", () => {
   const ids = [
     "clef", "clef-flash", "clef-omni", "pplx-decider-v1.2", "pplx-decider-flash-v1.2",
     "d1-2b", "d1-omni-2b", "jev-35b", "jev-27b-vl", "laya",
+    "strands-decider-2b", "strands-decider-e2b", "strands-decider-e4b", "strands-decider-12b", "strands-decider-26b-a4b",
   ];
 
   it.each(ids)("%s is listed under Decision, not as a chat or lightweight model", (id) => {

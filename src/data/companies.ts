@@ -371,6 +371,16 @@ export const ALL_COMPANIES: CompanyInfo[] = [
     website: "https://autotrust.ai",
   },
   {
+    slug: "aws",
+    name: "AWS",
+    brand: "Strands",
+    providers: ["AWS"],
+    families: ["Strands Decider"],
+    description:
+      "AWS releases Strands Decider through Strands Labs, the experimental arm of its Strands Agents SDK: open decision models that add a small adapter and readout head to Qwen and Gemma bases.",
+    website: "https://strandsagents.com",
+  },
+  {
     slug: "convai-innovations",
     name: "Convai Innovations",
     brand: "Laya",
