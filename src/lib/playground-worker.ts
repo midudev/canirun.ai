@@ -26,6 +26,22 @@ function getTransformers(): Promise<Transformers> {
   return transformersPromise;
 }
 
+// transformers.js points ONNX Runtime at its `.asyncify` WASM build, which only ships
+// WebGPU kernels for some quantized contrib ops. On the CPU (WASM) backend this breaks
+// Gemma 4's q4 vision encoder and embeddings with "Could not find an implementation
+// for GatherBlockQuantized(1)". The plain build includes the CPU kernels.
+// Must run before the first inference session is created.
+function useCpuWasmBuild(transformers: Transformers) {
+  const wasm = (transformers.env.backends.onnx as any)?.wasm;
+  const paths = wasm?.wasmPaths;
+  if (typeof paths?.wasm !== "string" || typeof paths?.mjs !== "string") return;
+
+  wasm.wasmPaths = {
+    wasm: paths.wasm.replace(".asyncify.wasm", ".wasm"),
+    mjs: paths.mjs.replace(".asyncify.mjs", ".mjs"),
+  };
+}
+
 function getLoadCapabilities(modelId: string): { vision: boolean; audio: boolean } {
   const id = modelId.toLowerCase();
   return {
@@ -86,6 +102,7 @@ async function load(
 
   try {
     const transformers = await getTransformers();
+    if (device === "wasm") useCpuWasmBuild(transformers);
     const { AutoTokenizer } = transformers;
     const anyTransformers = transformers as any;
     const capabilities = getLoadCapabilities(modelId);

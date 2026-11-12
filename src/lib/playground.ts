@@ -27,6 +27,8 @@ interface PlaygroundModel {
   capabilities: ModelCapabilities;
   maxNewTokens: number;
   contextWindow: number;
+  /** Too large for the 4 GiB WASM heap: only loads with WebGPU. */
+  requiresWebGPU?: boolean;
 }
 
 interface Message {
@@ -100,6 +102,18 @@ const MODELS: PlaygroundModel[] = [
     capabilities: { vision: true, audio: true, thinking: false },
     maxNewTokens: 4096,
     contextWindow: 128_000,
+    requiresWebGPU: true,
+  },
+  {
+    id: "LiquidAI/LFM2.5-1.2B-Instruct-ONNX",
+    name: "LFM2.5 1.2B Instruct",
+    params: "1.2B",
+    sizeHint: "~0.8 GB",
+    description: "Liquid AI's compact on-device chat model — runs on CPU without WebGPU",
+    provider: "Liquid AI",
+    capabilities: { vision: false, audio: false, thinking: false },
+    maxNewTokens: 2048,
+    contextWindow: 32_768,
   },
 ];
 
@@ -459,6 +473,16 @@ async function detectWebGPU(): Promise<boolean> {
   }
 }
 
+function isModelAvailable(model: PlaygroundModel): boolean {
+  return hasWebGPU || !model.requiresWebGPU;
+}
+
+function getUnavailableModelMessage(model: PlaygroundModel): string {
+  const fallback = MODELS.find(isModelAvailable);
+  const suggestion = fallback ? ` Try ${fallback.name}, which runs on CPU.` : "";
+  return `${model.name} needs WebGPU, which this browser doesn't provide.${suggestion}`;
+}
+
 // ── Model engine ───────────────────────────────────────────
 
 function getPlaygroundApi(): Comlink.Remote<WorkerAPI> {
@@ -490,6 +514,12 @@ function abortActiveGeneration(): void {
 async function loadModel(modelId: string): Promise<boolean> {
   if (isModelLoading) return false;
   if (currentModelId === modelId && modelReady) return true;
+
+  const modelDef = MODELS.find((m) => m.id === modelId);
+  if (modelDef && !isModelAvailable(modelDef)) {
+    showWarning(getUnavailableModelMessage(modelDef));
+    return false;
+  }
 
   isModelLoading = true;
   modelReady = false;
@@ -1025,13 +1055,19 @@ function renderModelSelect() {
   dropdown.innerHTML = MODELS.map((m) => {
     const isLoaded = m.id === currentModelId;
     const isCached = !isLoaded && cachedModelIds.has(m.id);
+    const isAvailable = isModelAvailable(m);
 
     let dotClass: string;
     let nameClass: string;
     let bgClass: string;
     let badge = "";
 
-    if (isLoaded) {
+    if (!isAvailable) {
+      dotClass = "bg-edge";
+      nameClass = "text-muted";
+      bgClass = "opacity-60";
+      badge = `<span class="ml-1.5 rounded-full bg-warning/15 px-1.5 py-px text-[9px] font-medium text-warning uppercase tracking-wider">Needs WebGPU</span>`;
+    } else if (isLoaded) {
       dotClass = "bg-accent";
       nameClass = "text-accent";
       bgClass = "bg-accent/5";
@@ -1053,6 +1089,7 @@ function renderModelSelect() {
         data-model-id="${m.id}"
         role="option"
         aria-selected="${isLoaded}"
+        aria-disabled="${!isAvailable}"
       >
         <div class="mt-1 size-2 shrink-0 rounded-full ${dotClass}"></div>
         <div class="min-w-0 flex-1">
@@ -2108,7 +2145,7 @@ function renderWebGPUStatus() {
     container.classList.add("border-accent/30");
   } else {
     if (dot) dot.className = "pg-webgpu-dot size-2 rounded-full bg-warning";
-    if (text) text.textContent = "WebGPU not available — using CPU (WASM) fallback";
+    if (text) text.textContent = "WebGPU not available — running smaller models on CPU (WASM)";
     container.classList.add("border-warning/30");
   }
 }
@@ -2654,8 +2691,12 @@ async function addFiles(files: File[]) {
   if (skipped.length === 0) return;
 
   if (imageSkipped === skipped.length && imageSkipped > 0) {
-    const visionModels = MODELS.filter((m) => m.capabilities.vision).map((m) => m.name).join(", ");
-    showWarning(`${getModelDisplayName()} doesn't support images. Try: ${visionModels}`);
+    const visionModels = MODELS.filter((m) => m.capabilities.vision && isModelAvailable(m)).map((m) => m.name).join(", ");
+    showWarning(
+      visionModels
+        ? `${getModelDisplayName()} doesn't support images. Try: ${visionModels}`
+        : `${getModelDisplayName()} doesn't support images. Image input needs WebGPU in this playground.`,
+    );
     return;
   }
 
@@ -3700,14 +3741,14 @@ export async function initPlayground() {
   // Bind events
   bindEvents();
 
-  // Auto-load the saved model when it's still in MODELS. If the user picked a
-  // model that has since been removed (or never picked one), fall back to the
-  // first model in MODELS so something useful is loaded on entry.
+  // Auto-load the saved model when it's still in MODELS and this browser can
+  // run it. Otherwise (removed model, none picked yet, or a WebGPU-only model
+  // without WebGPU) fall back to the first model that can run here.
   let modelToLoad = "";
-  if (settings.lastModelId && MODELS.some((m) => m.id === settings.lastModelId)) {
+  if (settings.lastModelId && MODELS.some((m) => m.id === settings.lastModelId && isModelAvailable(m))) {
     modelToLoad = settings.lastModelId;
   } else {
-    modelToLoad = MODELS[0]?.id ?? "";
+    modelToLoad = MODELS.find(isModelAvailable)?.id ?? "";
     if (settings.lastModelId && settings.lastModelId !== modelToLoad) {
       settings.lastModelId = "";
       saveSettings();
