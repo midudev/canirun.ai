@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
@@ -7,6 +7,8 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 const BIN_SCRIPT = join(import.meta.dirname, "..", "bin", "runai");
 const PACKAGE_INSTALL_SCRIPT = join(import.meta.dirname, "..", "install", "install.sh");
 const PUBLIC_INSTALL_SCRIPT = join(import.meta.dirname, "..", "..", "..", "public", "runai", "install.sh");
+const PACKAGE_UNINSTALL_SCRIPT = join(import.meta.dirname, "..", "install", "uninstall.sh");
+const PUBLIC_UNINSTALL_SCRIPT = join(import.meta.dirname, "..", "..", "..", "public", "runai", "uninstall.sh");
 
 describe("bin/runai", () => {
   let root: string;
@@ -139,6 +141,72 @@ describe("install/install.sh", () => {
       expect(result.stdout).toContain("Doctor finished with warnings.");
       expect(result.stdout).toContain("Done.");
       expect(result.stdout).toContain("runai run qwen3.5-4b");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("install/uninstall.sh", () => {
+  test("keeps the package and public uninstaller scripts in sync", () => {
+    expect(readFileSync(PACKAGE_UNINSTALL_SCRIPT, "utf8")).toBe(
+      readFileSync(PUBLIC_UNINSTALL_SCRIPT, "utf8"),
+    );
+  });
+
+  function setupInstall() {
+    const root = mkdtempSync(join(tmpdir(), "runai-uninstall-"));
+    const home = join(root, "home");
+    const pnpmBinDir = join(root, "pnpm-bin");
+    const otherBinDir = join(root, "other-bin");
+    const checkoutBin = join(home, ".local", "share", "runai", "src", "packages", "runai", "bin");
+    const modelsDir = join(home, ".runai", "models");
+    mkdirSync(pnpmBinDir, { recursive: true });
+    mkdirSync(otherBinDir, { recursive: true });
+    mkdirSync(checkoutBin, { recursive: true });
+    mkdirSync(modelsDir, { recursive: true });
+    writeFileSync(join(modelsDir, "model.gguf"), "");
+
+    writeFileSync(join(checkoutBin, "runai"), "#!/bin/sh\nexit 0\n");
+    chmodSync(join(checkoutBin, "runai"), 0o755);
+    symlinkSync(join(checkoutBin, "runai"), join(pnpmBinDir, "runai"));
+
+    // An unrelated `runai` (for example the Run:ai CLI) must survive.
+    writeFileSync(join(otherBinDir, "runai"), "#!/bin/sh\nexit 0\n");
+    chmodSync(join(otherBinDir, "runai"), 0o755);
+
+    const run = (args: string[] = []) =>
+      spawnSync("bash", ["-s", "--", ...args], {
+        input: readFileSync(PACKAGE_UNINSTALL_SCRIPT, "utf8"),
+        encoding: "utf8",
+        env: { HOME: home, PATH: `${pnpmBinDir}:${otherBinDir}:/usr/bin:/bin` },
+      });
+
+    return { root, home, pnpmBinDir, otherBinDir, modelsDir, run };
+  }
+
+  test("removes the GitHub install and keeps models by default", () => {
+    const { root, home, pnpmBinDir, otherBinDir, modelsDir, run } = setupInstall();
+    try {
+      const result = run();
+      expect(result.status).toBe(0);
+      expect(existsSync(join(pnpmBinDir, "runai"))).toBe(false);
+      expect(existsSync(join(home, ".local", "share", "runai"))).toBe(false);
+      expect(existsSync(join(modelsDir, "model.gguf"))).toBe(true);
+      expect(existsSync(join(otherBinDir, "runai"))).toBe(true);
+      expect(result.stdout).toContain("--purge");
+      expect(result.stdout).toContain(`Another runai is still on your PATH: ${join(otherBinDir, "runai")}`);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("deletes models and data with --purge", () => {
+    const { root, home, run } = setupInstall();
+    try {
+      const result = run(["--purge"]);
+      expect(result.status).toBe(0);
+      expect(existsSync(join(home, ".runai"))).toBe(false);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

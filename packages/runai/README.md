@@ -170,3 +170,17 @@ Windows (PowerShell):
 ```
 
 These scripts install the Bun runtime if needed and then install `runai` globally with pnpm.
+
+To uninstall (macOS / Linux / WSL):
+
+```bash
+curl -fsSL https://canirun.ai/runai/uninstall.sh | bash
+```
+
+Downloaded models in `~/.runai` are kept. Pass `--purge` to delete them too:
+
+```bash
+curl -fsSL https://canirun.ai/runai/uninstall.sh | bash -s -- --purge
+```
+
+Bun and pnpm are left installed.
