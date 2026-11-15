@@ -177,10 +177,4 @@ To uninstall (macOS / Linux / WSL):
 curl -fsSL https://canirun.ai/runai/uninstall.sh | bash
 ```
 
-Downloaded models in `~/.runai` are kept. Pass `--purge` to delete them too:
-
-```bash
-curl -fsSL https://canirun.ai/runai/uninstall.sh | bash -s -- --purge
-```
-
-Bun and pnpm are left installed.
+This also deletes downloaded models and data in `~/.runai`. Bun and pnpm are left installed.

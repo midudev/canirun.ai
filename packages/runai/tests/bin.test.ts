@@ -175,38 +175,37 @@ describe("install/uninstall.sh", () => {
     writeFileSync(join(otherBinDir, "runai"), "#!/bin/sh\nexit 0\n");
     chmodSync(join(otherBinDir, "runai"), 0o755);
 
-    const run = (args: string[] = []) =>
-      spawnSync("bash", ["-s", "--", ...args], {
+    const run = (env: Record<string, string> = {}) =>
+      spawnSync("bash", [], {
         input: readFileSync(PACKAGE_UNINSTALL_SCRIPT, "utf8"),
         encoding: "utf8",
-        env: { HOME: home, PATH: `${pnpmBinDir}:${otherBinDir}:/usr/bin:/bin` },
+        env: { HOME: home, PATH: `${pnpmBinDir}:${otherBinDir}:/usr/bin:/bin`, ...env },
       });
 
-    return { root, home, pnpmBinDir, otherBinDir, modelsDir, run };
+    return { root, home, pnpmBinDir, otherBinDir, run };
   }
 
-  test("removes the GitHub install and keeps models by default", () => {
-    const { root, home, pnpmBinDir, otherBinDir, modelsDir, run } = setupInstall();
+  test("removes the GitHub install and its models", () => {
+    const { root, home, pnpmBinDir, otherBinDir, run } = setupInstall();
     try {
       const result = run();
       expect(result.status).toBe(0);
       expect(existsSync(join(pnpmBinDir, "runai"))).toBe(false);
       expect(existsSync(join(home, ".local", "share", "runai"))).toBe(false);
-      expect(existsSync(join(modelsDir, "model.gguf"))).toBe(true);
+      expect(existsSync(join(home, ".runai"))).toBe(false);
       expect(existsSync(join(otherBinDir, "runai"))).toBe(true);
-      expect(result.stdout).toContain("--purge");
       expect(result.stdout).toContain(`Another runai is still on your PATH: ${join(otherBinDir, "runai")}`);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
   });
 
-  test("deletes models and data with --purge", () => {
+  test("refuses to delete the home directory", () => {
     const { root, home, run } = setupInstall();
     try {
-      const result = run(["--purge"]);
-      expect(result.status).toBe(0);
-      expect(existsSync(join(home, ".runai"))).toBe(false);
+      const result = run({ RUNAI_HOME_DIR: home });
+      expect(result.status).toBe(1);
+      expect(existsSync(join(home, ".local", "share", "runai"))).toBe(true);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

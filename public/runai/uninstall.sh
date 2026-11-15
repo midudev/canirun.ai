@@ -4,39 +4,20 @@ set -euo pipefail
 # Uninstaller for runai installed by https://canirun.ai/runai/install.sh
 #
 #   curl -fsSL https://canirun.ai/runai/uninstall.sh | bash
-#   curl -fsSL https://canirun.ai/runai/uninstall.sh | bash -s -- --purge
 #
-# --purge also deletes downloaded models and runai data (~/.runai).
-# Bun and pnpm are left installed.
-
-PURGE=0
-for arg in "$@"; do
-  case "${arg}" in
-    --purge) PURGE=1 ;;
-    -h|--help)
-      echo "Usage: uninstall.sh [--purge]"
-      echo "  --purge  Also delete downloaded models and runai data (~/.runai)"
-      exit 0
-      ;;
-    *)
-      echo "Unknown option: ${arg}" >&2
-      exit 1
-      ;;
-  esac
-done
+# Removes the runai command, its source checkout and ~/.runai (downloaded
+# models, database and logs). Bun and pnpm are left installed.
 
 RUNAI_SRC_ROOT="${HOME}/.local/share/runai"
 RUNAI_SRC="${RUNAI_SRC_ROOT}/src"
 RUNAI_HOME_DIR="${RUNAI_HOME_DIR:-${HOME}/.runai}"
 
-if [ "${PURGE}" = "1" ]; then
-  case "${RUNAI_HOME_DIR}" in
-    ""|"/"|"${HOME}"|"${HOME}/")
-      echo "Refusing to delete ${RUNAI_HOME_DIR:-<empty>}. Check RUNAI_HOME_DIR." >&2
-      exit 1
-      ;;
-  esac
-fi
+case "${RUNAI_HOME_DIR}" in
+  ""|"/"|"${HOME}"|"${HOME}/")
+    echo "Refusing to delete ${RUNAI_HOME_DIR:-<empty>}. Check RUNAI_HOME_DIR." >&2
+    exit 1
+    ;;
+esac
 
 echo "Uninstalling runai..."
 
@@ -94,17 +75,10 @@ if [ -d "${RUNAI_SRC}" ]; then
 fi
 rmdir "${RUNAI_SRC_ROOT}" 2>/dev/null || true
 
-# 5. Models and data are kept unless --purge is passed.
+# 5. Remove downloaded models and data.
 if [ -d "${RUNAI_HOME_DIR}" ]; then
-  if [ "${PURGE}" = "1" ]; then
-    echo "Removing ${RUNAI_HOME_DIR} (models and data)"
-    rm -rf "${RUNAI_HOME_DIR}"
-  else
-    echo ""
-    echo "Kept downloaded models and data in ${RUNAI_HOME_DIR}."
-    echo "To delete them too, run:"
-    echo "  curl -fsSL https://canirun.ai/runai/uninstall.sh | bash -s -- --purge"
-  fi
+  echo "Removing ${RUNAI_HOME_DIR} (models and data)"
+  rm -rf "${RUNAI_HOME_DIR}"
 fi
 
 if [ -n "${RUNAI_MODEL_DIR:-}" ] && [ -d "${RUNAI_MODEL_DIR}" ]; then

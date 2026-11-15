@@ -73,10 +73,9 @@ const uninstallCommand = "curl -fsSL https://canirun.ai/runai/uninstall.sh | bas
           <a
             href="/runai/uninstall.sh"
             class="underline decoration-secondary/30 underline-offset-2 hover:text-primary"
-          >uninstaller script</a>. Downloaded models in <code class="font-mono text-sm">~/.runai</code> are kept unless you pass <code class="font-mono text-sm">--purge</code>.
+          >uninstaller script</a>. It also deletes downloaded models in <code class="font-mono text-sm">~/.runai</code>.
         </p>
-        <pre class="mt-4 overflow-x-auto rounded-lg border border-edge bg-surface-card p-4"><code class="font-mono text-sm text-primary">{uninstallCommand}
-{uninstallCommand} -s -- --purge</code></pre>
+        <pre class="mt-4 overflow-x-auto rounded-lg border border-edge bg-surface-card p-4"><code class="font-mono text-sm text-primary">{uninstallCommand}</code></pre>
       </section>
     </article>
   </main>
