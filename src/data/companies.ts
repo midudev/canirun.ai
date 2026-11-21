@@ -331,6 +331,16 @@ export const ALL_COMPANIES: CompanyInfo[] = [
     website: "https://mimo.xiaomi.com",
   },
   {
+    slug: "thinking-machines",
+    name: "Thinking Machines",
+    brand: "Inkling",
+    providers: ["Thinking Machines"],
+    families: ["Inkling"],
+    description:
+      "Thinking Machines Lab releases the Inkling family of open-weight multimodal models, including looped transformers that reuse their middle layers to add inference-time compute without adding weights.",
+    website: "https://thinkingmachines.ai",
+  },
+  {
     slug: "jetbrains",
     name: "JetBrains",
     brand: "Mellum",

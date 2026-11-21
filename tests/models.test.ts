@@ -84,6 +84,38 @@ describe("DeepSeek V4.1 Flash", () => {
   });
 });
 
+describe("Inkling 2 Mini", () => {
+  const model = byId("inkling-2-mini");
+
+  // 3.4B weights are routed per token, but the middle 12 of 24 layers run three
+  // times, so a token reads 5.4B. Speed has to be estimated from the latter.
+  // https://huggingface.co/thinkingmachines/Inkling-2-Mini#parameters
+  it("is a 26.4B looped MoE scored on its 5.4B effective active parameters", () => {
+    expect(model.architecture).toBe("moe");
+    expect(model.paramsBillions).toBe(26.4);
+    expect(getEvaluationOptions(model).activeParamsBillions).toBe(5.4);
+    expect(model.useCase).toContain("vision");
+    expect(model.contextLength).toBe(1048576);
+  });
+
+  // Thinking Machines supports "Apple silicon devices with 32GB or more memory".
+  it("runs on the 32 GB Mac it is supported on", () => {
+    const mac = makeHW({ isAppleSilicon: true, totalUsableRAM: 32, memoryBandwidth: 273 });
+    const lowest = model.quants[0]!;
+    const { status } = evaluateModelComplete(
+      lowest.vramGB,
+      mac,
+      model.paramsBillions,
+      getEvaluationOptions(model),
+    );
+    expect(status).toBe("can-run");
+  });
+
+  it("belongs to Thinking Machines", () => {
+    expect(getCompanyByProvider(model.provider)?.slug).toBe("thinking-machines");
+  });
+});
+
 describe("new releases supersede their predecessors", () => {
   it.each([
     ["ornith-1.0-9b", "ornith-1.5-9b"],
