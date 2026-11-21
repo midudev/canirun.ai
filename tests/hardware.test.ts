@@ -12,6 +12,9 @@ import {
   parseVRAMFromName,
   matchApple,
   isAppleSiliconCheck,
+  isSanitizedRenderer,
+  getSanitizedGpuFallback,
+  getDisplayName,
   evaluateModel,
   estimateTokensPerSecond,
   memoryPercentage,
@@ -1178,6 +1181,171 @@ describe("Jetson AGX Orin browser detection", () => {
     expect(hw.systemRAM).toBeNull();
     expect(hw.deviceMemoryRaw).toBe(8);
     expect(evaluateModel(4, hw)).toBe(ram ? "can-run" : "unknown");
+    expect(requestDevice).not.toHaveBeenCalled();
+  });
+});
+
+describe("Sanitized GPU renderer (Firefox privacy masking)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it.each([
+    "Radeon HD 3200 Graphics, or similar",
+    "Generic Renderer",
+  ])("recognizes %s as a masked name", (renderer) => {
+    expect(isSanitizedRenderer(renderer)).toBe(true);
+  });
+
+  it("does not treat real renderer names as masked", () => {
+    expect(isSanitizedRenderer("AMD Radeon Graphics (radeonsi renoir ACO)")).toBe(false);
+    expect(isSanitizedRenderer(null)).toBe(false);
+    expect(isSanitizedRenderer("")).toBe(false);
+  });
+
+  it("only applies fallbacks to conservative integrated placeholders", () => {
+    expect(getSanitizedGpuFallback("Radeon HD 3200 Graphics, or similar", "AMD"))
+      .toMatchObject({ unified: true, bandwidth: 55, ramGB: 16 });
+    expect(getSanitizedGpuFallback("Intel(R) HD Graphics, or similar", "Intel"))
+      .toMatchObject({ unified: true, bandwidth: 50, ramGB: 16 });
+    expect(getSanitizedGpuFallback("Intel(R) Arc(TM) A750 Graphics, or similar", "Intel"))
+      .toBeNull();
+    expect(getSanitizedGpuFallback("GeForce GTX 980, or similar", "NVIDIA Corporation"))
+      .toBeNull();
+    expect(getSanitizedGpuFallback("Generic Renderer", null)).toBeNull();
+  });
+
+  it("falls back to a conservative integrated profile for AMD placeholders", async () => {
+    vi.stubGlobal("navigator", {
+      userAgent: "Mozilla/5.0 (X11; Linux x86_64; rv:158.0) Gecko/20100101 Firefox/158.0",
+      hardwareConcurrency: 16,
+    });
+    vi.stubGlobal("document", {
+      createElement: () => ({ getContext: () => ({
+        getExtension: () => ({ UNMASKED_RENDERER_WEBGL: 1, UNMASKED_VENDOR_WEBGL: 2 }),
+        getParameter: (parameter: number) => parameter === 1
+          ? "Radeon HD 3200 Graphics, or similar"
+          : "AMD",
+      }) }),
+    });
+
+    const hw = await detectHardware();
+
+    expect(hw.platform).toBe("Linux");
+    expect(hw.gpuSanitized).toBe(true);
+    expect(hw.gpuEstimated).toBe(true);
+    expect(hw.gpuRenderer).toBeNull();
+    expect(hw.gpuVendor).toBe("AMD");
+    expect(hw.isUnifiedMemory).toBe(true);
+    expect(hw.estimatedVRAM).toBeNull();
+    expect(hw.memoryBandwidth).toBe(55);
+    expect(hw.ramGB).toBe(16);
+    expect(hw.totalUsableRAM).toBe(16);
+    expect(hw.systemRAM).toBeNull();
+    expect(getDisplayName(hw)).toBe("Unknown GPU");
+    expect(evaluateModel(4, hw)).toBe("can-run");
+  });
+
+  it("falls back to a conservative integrated profile for Intel placeholders", async () => {
+    vi.stubGlobal("navigator", {
+      userAgent: "Mozilla/5.0 (X11; Linux x86_64; rv:158.0) Gecko/20100101 Firefox/158.0",
+      hardwareConcurrency: 8,
+    });
+    vi.stubGlobal("document", {
+      createElement: () => ({ getContext: () => ({
+        getExtension: () => ({ UNMASKED_RENDERER_WEBGL: 1, UNMASKED_VENDOR_WEBGL: 2 }),
+        getParameter: (parameter: number) => parameter === 1
+          ? "Intel(R) HD Graphics, or similar"
+          : "Intel",
+      }) }),
+    });
+
+    const hw = await detectHardware();
+
+    expect(hw.gpuSanitized).toBe(true);
+    expect(hw.gpuEstimated).toBe(true);
+    expect(hw.isUnifiedMemory).toBe(true);
+    expect(hw.memoryBandwidth).toBe(50);
+    expect(hw.ramGB).toBe(16);
+    expect(evaluateModel(4, hw)).toBe("can-run");
+  });
+
+  it("does not guess specs for discrete NVIDIA placeholders", async () => {
+    vi.stubGlobal("navigator", {
+      userAgent: "Mozilla/5.0 (X11; Linux x86_64; rv:158.0) Gecko/20100101 Firefox/158.0",
+      hardwareConcurrency: 16,
+    });
+    vi.stubGlobal("document", {
+      createElement: () => ({ getContext: () => ({
+        getExtension: () => ({ UNMASKED_RENDERER_WEBGL: 1, UNMASKED_VENDOR_WEBGL: 2 }),
+        getParameter: (parameter: number) => parameter === 1
+          ? "GeForce GTX 980, or similar"
+          : "NVIDIA Corporation",
+      }) }),
+    });
+
+    const hw = await detectHardware();
+
+    expect(hw.gpuSanitized).toBe(true);
+    expect(hw.gpuEstimated).toBe(false);
+    expect(hw.gpuRenderer).toBeNull();
+    expect(hw.memoryBandwidth).toBeNull();
+    expect(hw.ramGB).toBeNull();
+    expect(getDisplayName(hw)).toBe("Unknown GPU");
+    expect(evaluateModel(4, hw)).toBe("unknown");
+  });
+
+  it("keeps generic placeholders unknown", async () => {
+    vi.stubGlobal("navigator", {
+      userAgent: "Mozilla/5.0 (X11; Linux x86_64; rv:158.0) Gecko/20100101 Firefox/158.0",
+      hardwareConcurrency: 16,
+    });
+    vi.stubGlobal("document", {
+      createElement: () => ({ getContext: () => ({
+        getExtension: () => ({ UNMASKED_RENDERER_WEBGL: 1, UNMASKED_VENDOR_WEBGL: 2 }),
+        getParameter: (parameter: number) => parameter === 1 ? "Generic Renderer" : "Other",
+      }) }),
+    });
+
+    const hw = await detectHardware();
+
+    expect(hw.gpuSanitized).toBe(true);
+    expect(hw.gpuEstimated).toBe(false);
+    expect(hw.gpuRenderer).toBeNull();
+    expect(hw.estimatedVRAM).toBeNull();
+    expect(hw.memoryBandwidth).toBeNull();
+    expect(hw.ramGB).toBeNull();
+    expect(getDisplayName(hw)).toBe("Unknown GPU");
+    expect(evaluateModel(4, hw)).toBe("unknown");
+  });
+
+  it("identifies the GPU from WebGPU adapter info when the WebGL name is masked", async () => {
+    const requestDevice = vi.fn(() => { throw new Error("Unexpected GPU benchmark"); });
+    vi.stubGlobal("navigator", {
+      userAgent: "Mozilla/5.0 (X11; Linux x86_64)",
+      hardwareConcurrency: 16,
+      gpu: {
+        requestAdapter: async () => ({
+          info: { description: "AMD Radeon RX 7900 XTX" },
+          requestDevice,
+        }),
+      },
+    });
+    vi.stubGlobal("document", {
+      createElement: () => ({ getContext: () => ({
+        getExtension: () => ({ UNMASKED_RENDERER_WEBGL: 1, UNMASKED_VENDOR_WEBGL: 2 }),
+        getParameter: (parameter: number) => parameter === 1
+          ? "Radeon HD 3200 Graphics, or similar"
+          : "Mozilla",
+      }) }),
+    });
+
+    const hw = await detectHardware();
+
+    expect(hw.gpuSanitized).toBe(false);
+    expect(hw.gpuRenderer).toBe("AMD Radeon RX 7900 XTX");
+    expect(hw.estimatedVRAM).toBe(24);
+    expect(hw.memoryBandwidth).toBe(960);
+    expect(hw.gpuCores).toBe(6144);
+    expect(getDisplayName(hw)).toBe("AMD Radeon RX 7900 XTX");
     expect(requestDevice).not.toHaveBeenCalled();
   });
 });

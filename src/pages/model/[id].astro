@@ -879,7 +879,14 @@ const modelFaqs = [
         recommendedQuantEl.textContent = recommendedQuant ?? "selected automatically"
       }
 
-      const deviceSelect = buildDeviceSelectHTML(getDisplayName(detectedHW), overrides.device)
+      const deviceSelect = buildDeviceSelectHTML(
+        detectedHW.gpuSanitized
+          ? detectedHW.gpuEstimated
+            ? "Unknown GPU (estimated) — select yours"
+            : "Unknown GPU — select yours"
+          : getDisplayName(detectedHW),
+        overrides.device,
+      )
 
       const effectiveRam = hw.ramGB ?? hw.totalUsableRAM
       const ramSelect = effectiveRam
