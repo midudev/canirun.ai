@@ -864,12 +864,11 @@ const modelFaqs = [
     function renderSidebar(hw: HardwareInfo) {
       const overrides = getHardwareOverrides()
 
-      const rows = document.querySelectorAll<HTMLElement>("[data-quant-row]")
-      let defaultVram = 0
-      rows.forEach((row, i) => { if (i === 2) defaultVram = parseFloat(row.dataset.vram || "0") })
-      if (defaultVram === 0 && rows.length > 0) {
-        defaultVram = parseFloat((rows[0] as HTMLElement).dataset.vram || "0")
-      }
+      // Models with real GGUF sizes list fewer quants, so Q4_K_M is not always the third row.
+      const rows = Array.from(document.querySelectorAll<HTMLElement>("[data-quant-row]"))
+      const defaultRow = rows.find((row) => row.dataset.quantName === "Q4_K_M") ?? rows[0]
+      const defaultVram = parseFloat(defaultRow?.dataset.vram || "0")
+      const defaultQuantName = defaultRow?.dataset.quantName || "Q4_K_M"
 
       const { grade, toksPerSec: toks } = evaluateModelComplete(defaultVram, hw, paramsBillions, evaluationOptions)
       const info = GRADES[grade]
@@ -938,7 +937,7 @@ const modelFaqs = [
         ${sysramRow}
         ${bwRow}
         <div class="mt-2 flex items-center justify-between border-t border-edge pt-2">
-          <span class="text-muted">Q4_K_M</span>
+          <span class="text-muted">${defaultQuantName}</span>
           <span class="inline-flex items-center gap-1.5 font-mono text-xs font-medium uppercase tracking-wider" style="color:${info.color}">
             ${info.label}
             ${toks ? `<span class="text-muted normal-case">· ~${toks} t/s</span>` : ""}
