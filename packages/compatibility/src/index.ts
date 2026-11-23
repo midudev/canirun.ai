@@ -1692,6 +1692,8 @@ export function applyOverrides(hw: HardwareInfo, overrides?: HardwareOverrides):
     result.deviceName = o.device.startsWith("apple:")
       ? "Apple " + name.split(" ").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ")
       : name;
+    result.gpuSanitized = false;
+    result.gpuEstimated = false;
   }
   if (o.isAppleSilicon !== undefined) result.isAppleSilicon = o.isAppleSilicon;
   if (o.isMobile !== undefined) result.isMobile = o.isMobile;

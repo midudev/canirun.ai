@@ -1348,4 +1348,31 @@ describe("Sanitized GPU renderer (Firefox privacy masking)", () => {
     expect(getDisplayName(hw)).toBe("AMD Radeon RX 7900 XTX");
     expect(requestDevice).not.toHaveBeenCalled();
   });
+
+  it("clears gpuSanitized and gpuEstimated when applying a device override", async () => {
+    vi.stubGlobal("navigator", {
+      userAgent: "Mozilla/5.0 (X11; Linux x86_64; rv:158.0) Gecko/20100101 Firefox/158.0",
+      hardwareConcurrency: 16,
+    });
+    vi.stubGlobal("document", {
+      createElement: () => ({ getContext: () => ({
+        getExtension: () => ({ UNMASKED_RENDERER_WEBGL: 1, UNMASKED_VENDOR_WEBGL: 2 }),
+        getParameter: (parameter: number) => parameter === 1
+          ? "Radeon HD 3200 Graphics, or similar"
+          : "AMD",
+      }) }),
+    });
+
+    const detected = await detectHardware();
+    expect(detected.gpuSanitized).toBe(true);
+    expect(detected.gpuEstimated).toBe(true);
+
+    const overrides = getDeviceOverrides("gpu:RTX 4090");
+    expect(overrides).not.toBeNull();
+    const overridden = applyOverrides(detected, overrides!);
+
+    expect(overridden.gpuSanitized).toBe(false);
+    expect(overridden.gpuEstimated).toBe(false);
+    expect(getDisplayName(overridden)).toBe("RTX 4090");
+  });
 });

@@ -414,12 +414,12 @@ const sortedModels = [...models].sort(
 
   function getAutoLabel(): string {
     if (!detectedHW) return "Detecting your device...";
-    const name = detectedHW.gpuSanitized
-      ? detectedHW.gpuEstimated
-        ? "Unknown GPU (estimated) — select yours"
-        : "Unknown GPU — select yours"
-      : getDisplayName(detectedHW);
-    return `${name} (detected) ✱`;
+    if (detectedHW.gpuSanitized) {
+      return detectedHW.gpuEstimated
+        ? "Unknown GPU (estimated) — select yours ✱"
+        : "Unknown GPU — select yours ✱";
+    }
+    return `${getDisplayName(detectedHW)} (detected) ✱`;
   }
 
   async function initCompare() {
