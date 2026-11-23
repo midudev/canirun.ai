@@ -3,6 +3,16 @@
 export interface HardwareInfo {
   gpuRenderer: string | null;
   gpuVendor: string | null;
+  /**
+   * The browser masked the GPU name (Firefox does this by default), so the
+   * detected hardware is not trustworthy and the user should pick a device.
+   */
+  gpuSanitized?: boolean;
+  /**
+   * The specs came from a conservative vendor-based fallback for a masked GPU
+   * rather than from an identified model. The UI labels them as estimates.
+   */
+  gpuEstimated?: boolean;
   gpuCores: number | null;
   ramGB: number | null;
   estimatedVRAM: number | null;
@@ -638,25 +648,81 @@ function identifyAppleChip(signals: {
 
 // ── Detection ──────────────────────────────────────────────
 
-function getGPUInfo(): { renderer: string | null; vendor: string | null } {
+/**
+ * Firefox masks the real GPU name for privacy by default
+ * (`webgl.sanitize-unmasked-renderer`). The placeholders look like real
+ * hardware — e.g. "Radeon HD 3200 Graphics, or similar" or "Generic
+ * Renderer" — but they must never be scored as a specific GPU.
+ */
+export function isSanitizedRenderer(renderer: string | null | undefined): boolean {
+  if (!renderer) return false;
+  const name = renderer.trim();
+  return /,?\s*or similar\s*$/i.test(name) || /^generic renderer$/i.test(name);
+}
+
+export interface SanitizedGpuFallback {
+  unified: boolean;
+  ramGB: number;
+  bandwidth: number;
+  cores: number | null;
+}
+
+/**
+ * Firefox keeps only a coarse vendor family and replaces the GPU name with a
+ * representative placeholder. For the common integrated-GPU placeholders we
+ * can still use a conservative profile so the page shows results instead of an
+ * empty state. The UI keeps asking for an exact GPU selection.
+ */
+export function getSanitizedGpuFallback(
+  renderer: string | null | undefined,
+  vendor: string | null | undefined,
+): SanitizedGpuFallback | null {
+  if (!renderer) return null;
+  const r = renderer.toLowerCase();
+  const v = (vendor ?? "").toLowerCase();
+
+  // AMD's catch-all placeholder. Most modern AMD APUs land here, but the
+  // placeholder is also used for older/low-end cards — hence the conservative
+  // integrated profile.
+  if ((v.includes("amd") || v.includes("ati") || r.includes("radeon"))
+    && r.includes("radeon hd 3200")) {
+    return { unified: true, ramGB: 16, bandwidth: 55, cores: null };
+  }
+
+  // Intel integrated placeholders. Arc is a discrete family and is deliberately
+  // excluded so it keeps the "select your GPU" prompt.
+  if ((v.includes("intel") || r.includes("intel"))
+    && !r.includes("arc")
+    && (r.includes("hd graphics") || r.includes("uhd") || r.includes("iris") || r.includes("945gm"))) {
+    return { unified: true, ramGB: 16, bandwidth: 50, cores: null };
+  }
+
+  return null;
+}
+
+function getGPUInfo(): { renderer: string | null; vendor: string | null; sanitized: boolean } {
   try {
     const canvas = document.createElement("canvas");
     const gl = canvas.getContext("webgl2") || canvas.getContext("webgl");
-    if (!gl) return { renderer: null, vendor: null };
+    if (!gl) return { renderer: null, vendor: null, sanitized: false };
     const ext = gl.getExtension("WEBGL_debug_renderer_info");
     if (ext) {
+      const renderer = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) as string | null;
       return {
-        renderer: gl.getParameter(ext.UNMASKED_RENDERER_WEBGL),
+        renderer,
         vendor: gl.getParameter(ext.UNMASKED_VENDOR_WEBGL),
+        sanitized: isSanitizedRenderer(renderer),
       };
     }
     // Fallback for browsers that block WEBGL_debug_renderer_info (Safari 16.4+)
+    const renderer = gl.getParameter(gl.RENDERER) as string | null;
     return {
-      renderer: gl.getParameter(gl.RENDERER),
+      renderer,
       vendor: gl.getParameter(gl.VENDOR),
+      sanitized: isSanitizedRenderer(renderer),
     };
   } catch {
-    return { renderer: null, vendor: null };
+    return { renderer: null, vendor: null, sanitized: false };
   }
 }
 
@@ -1125,19 +1191,31 @@ function estimateVRAMFromWebGPU(adapter: any): number | null {
 
 export async function detectHardware(): Promise<HardwareInfo> {
   const deviceMemory = (navigator as any).deviceMemory || null;
-  const { renderer, vendor } = getGPUInfo();
+  const gpuInfo = getGPUInfo();
+  // A masked renderer is a privacy placeholder, not hardware. Ignore it for
+  // matching and scoring, and prefer the WebGPU adapter name if available.
+  const sanitized = gpuInfo.sanitized;
+  const renderer = sanitized ? null : gpuInfo.renderer;
+  const vendor = gpuInfo.vendor;
   const platform = detectPlatform();
 
   const cpuBenchmark = runCPUBenchmark();
   const webgpuInfo = await getWebGPUInfo();
 
   let isApple = renderer ? isAppleSiliconCheck(renderer) : false;
-  const gpuMatch = renderer ? matchGPU(renderer) : null;
+  const gpuMatch = (renderer ? matchGPU(renderer) : null)
+    ?? (webgpuInfo.device ? matchGPU(webgpuInfo.device) : null);
   let appleMatch = renderer ? matchApple(renderer) : null;
   const parsedVRAM = renderer ? parseVRAMFromName(renderer) : null;
   const jetsonMatch = matchJetsonAGXOrin(renderer ?? "")
     ?? matchJetsonAGXOrin(webgpuInfo.device ?? "");
   const isMobile = platform === "iOS" || platform === "Android";
+
+  // Still unknown after trying WebGPU: use a conservative vendor fallback when
+  // possible, while the UI keeps asking for an exact GPU selection.
+  const maskedGpu = sanitized && !gpuMatch;
+  const resolvedRenderer = renderer
+    ?? (gpuMatch && webgpuInfo.device ? webgpuInfo.device : null);
 
   // Safari hides specific chip names (returns "Apple GPU") — defer identification
   // until WebGPU/WebGL benchmarks provide real hardware measurements
@@ -1153,6 +1231,7 @@ export async function detectHardware(): Promise<HardwareInfo> {
   let gpuCores: number | null = null;
   let isUnifiedMemory = false;
   let isSbc = false;
+  let gpuEstimated = false;
 
   if (platform === "iOS") {
     const iosDevice = detectIOSDevice(cpuBenchmark);
@@ -1193,6 +1272,23 @@ export async function detectHardware(): Promise<HardwareInfo> {
     memoryBandwidth = gpuMatch.bw;
     gpuCores = gpuMatch.cores;
     totalUsableRAM = estimatedVRAM;
+  } else if (maskedGpu) {
+    // Firefox masks the GPU name but keeps a coarse vendor family. Use a
+    // conservative integrated profile so the page can still show results;
+    // the UI keeps the "select your GPU" prompt for exact specs.
+    const fallback = getSanitizedGpuFallback(gpuInfo.renderer, vendor);
+    if (fallback) {
+      isUnifiedMemory = fallback.unified;
+      totalUsableRAM = deviceMemory == null
+        ? fallback.ramGB
+        : deviceMemory >= 8 ? 16 : deviceMemory;
+      estimatedVRAM = null;
+      memoryBandwidth = fallback.bandwidth;
+      gpuCores = fallback.cores;
+      gpuEstimated = true;
+    } else {
+      totalUsableRAM = deviceMemory;
+    }
   } else {
     totalUsableRAM = deviceMemory;
     if (parsedVRAM) {
@@ -1202,12 +1298,12 @@ export async function detectHardware(): Promise<HardwareInfo> {
   }
 
   // Fallback: estimate GPU cores via WebGPU compute benchmark
-  if (!gpuCores && !jetsonMatch && webgpuInfo.adapter) {
+  if (!gpuCores && !jetsonMatch && (!maskedGpu || gpuEstimated) && webgpuInfo.adapter) {
     gpuCores = await estimateGPUCores(webgpuInfo.adapter, vendor);
   }
 
   // Fallback: estimate VRAM via WebGPU maxBufferSize for discrete desktop GPUs
-  if (!estimatedVRAM && !isApple && !isMobile && !isUnifiedMemory && webgpuInfo.adapter) {
+  if (!estimatedVRAM && !isApple && !isMobile && !isUnifiedMemory && !maskedGpu && webgpuInfo.adapter) {
     const webgpuVRAM = estimateVRAMFromWebGPU(webgpuInfo.adapter);
     if (webgpuVRAM) {
       estimatedVRAM = webgpuVRAM;
@@ -1216,16 +1312,18 @@ export async function detectHardware(): Promise<HardwareInfo> {
   }
 
   // Fallback chain for bandwidth estimation:
-  // 1. WebGPU copy benchmark (most accurate)
-  if (!memoryBandwidth && webgpuInfo.adapter) {
-    memoryBandwidth = await estimateBandwidthFromWebGPU(webgpuInfo.adapter);
+  // 1. WebGPU copy benchmark (most accurate; overrides the vendor fallback)
+  if ((!memoryBandwidth || gpuEstimated) && webgpuInfo.adapter) {
+    const measured = await estimateBandwidthFromWebGPU(webgpuInfo.adapter);
+    if (measured) memoryBandwidth = measured;
   }
-  // 2. WebGL2 texture-read benchmark
-  if (!memoryBandwidth) {
+  // 2. WebGL2 texture-read benchmark — skipped for masked GPUs: the result is
+  //    not tied to a known GPU and wildly overestimates integrated memory.
+  if (!memoryBandwidth && !maskedGpu) {
     memoryBandwidth = estimateBandwidthFromWebGL();
   }
   // 3. Heuristic based on GPU vendor, name, and VRAM
-  if (!memoryBandwidth) {
+  if (!memoryBandwidth && !maskedGpu) {
     memoryBandwidth = estimateBandwidthHeuristic(renderer, vendor, estimatedVRAM ?? parsedVRAM, platform);
   }
 
@@ -1265,8 +1363,10 @@ export async function detectHardware(): Promise<HardwareInfo> {
   }
 
   return {
-    gpuRenderer: renderer,
+    gpuRenderer: resolvedRenderer,
     gpuVendor: vendor,
+    gpuSanitized: maskedGpu && !deviceName,
+    gpuEstimated,
     gpuCores,
     ramGB: totalUsableRAM,
     estimatedVRAM,
@@ -1520,6 +1620,7 @@ export function evaluateModelComplete(
 export function getDisplayName(hw: HardwareInfo): string {
   if (hw.deviceName) return hw.deviceName;
   if (hw.gpuRenderer) return cleanGPUName(hw.gpuRenderer);
+  if (hw.gpuSanitized) return "Unknown GPU";
   return "Unknown";
 }
 

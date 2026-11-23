@@ -372,7 +372,15 @@ import IconCopy from "@/icons/copy.svg";
 
     const deviceSelect = document.getElementById("hw-device-select") as HTMLSelectElement;
     if (deviceSelect) {
-      populateDeviceSelect(deviceSelect, getDisplayName(detectedHW), overrides.device);
+      populateDeviceSelect(
+        deviceSelect,
+        detectedHW.gpuSanitized
+          ? detectedHW.gpuEstimated
+            ? "Unknown GPU (estimated) — select yours"
+            : "Unknown GPU — select yours"
+          : getDisplayName(detectedHW),
+        overrides.device,
+      );
     }
 
     const vramLabel = document.getElementById("hw-vram-label");

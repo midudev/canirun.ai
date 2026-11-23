@@ -247,6 +247,22 @@ function timeAgo(dateStr: string | null): string {
         <span id="hw-gpu-cores-text" class="hw-spec-value">—</span>
       </span>
     </div>
+    <p
+      id="hw-detect-hint"
+      class="mt-2 hidden text-center font-mono text-xs text-muted"
+    >
+      <span id="hw-detect-hint-text">
+        Your browser hides the GPU model, so we can't detect it automatically.
+      </span>
+      {" "}
+      <button
+        type="button"
+        id="hw-detect-hint-btn"
+        class="text-accent underline decoration-edge underline-offset-2 hover:text-primary"
+      >
+        Select your GPU
+      </button>
+    </p>
   </section>
 
   <!-- Summary — one sentence + quiet grade breakdown -->
@@ -1554,9 +1570,28 @@ function timeAgo(dateStr: string | null): string {
     if (deviceSelect && !deviceLocked) {
       populateDeviceSelect(
         deviceSelect,
-        getDisplayName(detectedHW),
+        detectedHW.gpuSanitized
+          ? detectedHW.gpuEstimated
+            ? "Unknown GPU (estimated) — select yours"
+            : "Unknown GPU — select yours"
+          : getDisplayName(detectedHW),
         overrides.device,
       )
+    }
+
+    const detectHint = $("#hw-detect-hint")
+    if (detectHint) {
+      detectHint.classList.toggle(
+        "hidden",
+        deviceLocked || !detectedHW.gpuSanitized || Boolean(overrides.device),
+      )
+    }
+
+    const detectHintText = $("#hw-detect-hint-text")
+    if (detectHintText) {
+      detectHintText.textContent = detectedHW.gpuEstimated
+        ? "Your browser hides the GPU model. We estimated your hardware from the GPU vendor — select your GPU for exact results."
+        : "Your browser hides the GPU model, so we can't detect it automatically."
     }
     $("#hw-gpu")!.classList.replace("text-muted", "text-secondary")
 
@@ -1767,6 +1802,20 @@ function timeAgo(dateStr: string | null): string {
     )
   }
 
+  function openDevicePicker() {
+    const select = $<HTMLSelectElement>("#hw-device-select")
+    if (!select) return
+    const trigger = select.parentElement?.querySelector<HTMLButtonElement>(
+      ".device-picker-trigger",
+    )
+    if (trigger) {
+      trigger.click()
+    } else {
+      select.focus()
+      select.click()
+    }
+  }
+
   function setupHardwareEditing() {
     const deviceSelect = $<HTMLSelectElement>("#hw-device-select")
     const ramSelect = $<HTMLSelectElement>("#hw-ram-select")
@@ -1775,6 +1824,16 @@ function timeAgo(dateStr: string | null): string {
 
     deviceSelect?.addEventListener("change", () => {
       handleDeviceChange(deviceSelect.value)
+    })
+
+    $("#hw-detect-hint-btn")?.addEventListener("click", openDevicePicker)
+
+    // Recommendations are re-rendered with innerHTML, so delegate the CTA.
+    $("#recommendations")?.addEventListener("click", (event) => {
+      const trigger = (event.target as Element | null)?.closest("[data-pick-gpu]")
+      if (!trigger) return
+      event.preventDefault()
+      openDevicePicker()
     })
 
     function readSelectNumber(select: HTMLSelectElement | null): number | null {
@@ -2364,7 +2423,15 @@ function timeAgo(dateStr: string | null): string {
 
       group.classList.remove("hidden")
       if (picks.length === 0) {
-        container.innerHTML = `<p class="rec-none">No models fit this device</p>`
+        const unknownGpu = detectedHW.gpuSanitized
+          && !isDevicePage()
+          && !activeOverrides().device
+        const estimated = unknownGpu && detectedHW.gpuEstimated
+        container.innerHTML = estimated
+          ? `<p class="rec-none">No models fit these estimated specs. <button type="button" data-pick-gpu class="text-accent underline decoration-edge underline-offset-2 hover:text-primary">Select your GPU</button> for exact results.</p>`
+          : unknownGpu
+            ? `<p class="rec-none">We couldn't identify your GPU. <button type="button" data-pick-gpu class="text-accent underline decoration-edge underline-offset-2 hover:text-primary">Select it above</button> to see what fits.</p>`
+            : `<p class="rec-none">No models fit this device</p>`
         continue
       }
       container.innerHTML = picks.map(recCardHTML).join("")
@@ -2383,10 +2450,14 @@ function timeAgo(dateStr: string | null): string {
       // any manual override; fall back to the auto-detected name.
       const sel = $<HTMLSelectElement>("#hw-device-select")
       const val = sel?.value
-      nameEl.textContent =
-        sel && val && val !== "auto" && val !== "custom"
-          ? sel.options[sel.selectedIndex]?.text || getDisplayName(currentHW)
+      if (sel && val && val !== "auto" && val !== "custom") {
+        nameEl.textContent =
+          sel.options[sel.selectedIndex]?.text || getDisplayName(currentHW)
+      } else {
+        nameEl.textContent = currentHW.gpuSanitized
+          ? "your device"
           : getDisplayName(currentHW)
+      }
     }
   }
 

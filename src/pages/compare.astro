@@ -211,7 +211,14 @@ const sortedModels = [...models].sort(
   }
 
   function getDeviceLabel(deviceKey: string): string {
-    if (deviceKey === "auto" && detectedHW) return getDisplayName(detectedHW);
+    if (deviceKey === "auto" && detectedHW) {
+      if (detectedHW.gpuSanitized) {
+        return detectedHW.gpuEstimated
+          ? "Unknown GPU (estimated) — select yours"
+          : "Unknown GPU — select yours";
+      }
+      return getDisplayName(detectedHW);
+    }
     if (deviceKey.startsWith("apple:")) {
       const chip = deviceKey.slice(6);
       return formatChipName(chip);
@@ -406,8 +413,13 @@ const sortedModels = [...models].sort(
   function onChange() { runComparison(); syncToURL(); }
 
   function getAutoLabel(): string {
-    if (detectedHW) return `${getDisplayName(detectedHW)} (detected) ✱`;
-    return "Detecting your device...";
+    if (!detectedHW) return "Detecting your device...";
+    const name = detectedHW.gpuSanitized
+      ? detectedHW.gpuEstimated
+        ? "Unknown GPU (estimated) — select yours"
+        : "Unknown GPU — select yours"
+      : getDisplayName(detectedHW);
+    return `${name} (detected) ✱`;
   }
 
   async function initCompare() {
