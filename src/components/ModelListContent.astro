@@ -79,6 +79,11 @@ const otherModels = sortedModels.filter(
   (m) => !(m.featured && isCurrentInLineage(m, models)),
 )
 
+// Cards open on Q4_K_M, wherever it sits: models with real GGUF sizes list
+// fewer quants, so it is not always the third one.
+const defaultQuantIndex = (model: (typeof models)[number]) =>
+  Math.max(0, model.quants.findIndex((q) => q.name === "Q4_K_M"))
+
 const providers = [...new Set(models.map((m) => m.provider))].sort()
 
 function aaTooltip(preliminary?: boolean): string {
@@ -535,6 +540,7 @@ function timeAgo(dateStr: string | null): string {
             data-model-id={model.id}
             data-model-name={model.name}
             data-quants={JSON.stringify(model.quants)}
+            data-selected-quant={defaultQuantIndex(model)}
             data-params={model.paramsBillions}
             data-active-params={getActiveParamsBillions(model)}
             data-memory-profile={model.memoryProfile ?? "autoregressive"}
@@ -820,7 +826,7 @@ function timeAgo(dateStr: string | null): string {
                   {model.quants.map((q, i) => (
                     <button
                       data-quant-btn={i}
-                      class={`quant-btn rounded px-1.5 py-0.5 text-xs font-mono transition-colors ${i === 2 ? "border border-accent/30 bg-accent/10 text-accent" : "border border-transparent text-muted hover:text-secondary"}`}
+                      class={`quant-btn rounded px-1.5 py-0.5 text-xs font-mono transition-colors ${i === defaultQuantIndex(model) ? "border border-accent/30 bg-accent/10 text-accent" : "border border-transparent text-muted hover:text-secondary"}`}
                     >
                       {q.name}
                     </button>
@@ -900,6 +906,7 @@ function timeAgo(dateStr: string | null): string {
             data-model-id={model.id}
             data-model-name={model.name}
             data-quants={JSON.stringify(model.quants)}
+            data-selected-quant={defaultQuantIndex(model)}
             data-params={model.paramsBillions}
             data-active-params={getActiveParamsBillions(model)}
             data-memory-profile={model.memoryProfile ?? "autoregressive"}
@@ -1176,7 +1183,7 @@ function timeAgo(dateStr: string | null): string {
                   {model.quants.map((q, i) => (
                     <button
                       data-quant-btn={i}
-                      class={`quant-btn rounded px-1.5 py-0.5 text-xs font-mono transition-colors ${i === 2 ? "border border-accent/30 bg-accent/10 text-accent" : "border border-transparent text-muted hover:text-secondary"}`}
+                      class={`quant-btn rounded px-1.5 py-0.5 text-xs font-mono transition-colors ${i === defaultQuantIndex(model) ? "border border-accent/30 bg-accent/10 text-accent" : "border border-transparent text-muted hover:text-secondary"}`}
                     >
                       {q.name}
                     </button>
@@ -2093,7 +2100,7 @@ function timeAgo(dateStr: string | null): string {
 
   function updateAllCards(hw: HardwareInfo) {
     $$("[data-model-id]").forEach((card) => {
-      const qi = parseInt(card.dataset.selectedQuant || "2")
+      const qi = parseInt(card.dataset.selectedQuant || "0")
       updateModelCard(card, hw, qi)
     })
     updateSummary()
@@ -2204,9 +2211,9 @@ function timeAgo(dateStr: string | null): string {
           const qA = JSON.parse(cardA.dataset.quants || "[]")
           const qB = JSON.parse(cardB.dataset.quants || "[]")
           const vA =
-            qA[parseInt(cardA.dataset.selectedQuant || "2")]?.vramGB || 0
+            qA[parseInt(cardA.dataset.selectedQuant || "0")]?.vramGB || 0
           const vB =
-            qB[parseInt(cardB.dataset.selectedQuant || "2")]?.vramGB || 0
+            qB[parseInt(cardB.dataset.selectedQuant || "0")]?.vramGB || 0
           return vA - vB
         }
         case "downloads": {
